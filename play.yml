@@ -1,0 +1,37 @@
+---
+- hosts: windows
+  gather_facts: false
+
+  tasks:
+    - import_tasks: roles/app/tasks/context.yml
+      tags: always
+
+    - import_tasks: roles/app/tasks/bootstrap.yml
+      tags: bootstrap
+
+    - import_tasks: roles/app/tasks/init.yml
+      tags: init
+
+    - import_tasks: roles/app/tasks/download.yml
+      tags: download
+
+    - import_tasks: roles/app/tasks/backup.yml
+      tags: backup
+
+    - import_tasks: roles/app/tasks/clean.yml
+      tags: clean
+
+    - import_tasks: roles/app/tasks/extract.yml
+      tags: extract
+
+    - import_tasks: roles/app/tasks/venv.yml
+      tags: venv
+
+    - import_tasks: roles/app/tasks/service.yml
+      tags: service
+
+    - import_tasks: roles/app/tasks/nginx.yml
+      tags: nginx
+
+    - import_tasks: roles/app/tasks/healthcheck.yml
+      tags: healthcheck
