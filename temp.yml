@@ -8,3 +8,9 @@
   fail:
     msg: Git이 설치되어 있지 않습니다.
   when: git_check.rc != 0
+
+- name: Install requirements
+  win_shell: |
+    & "{{ files.python }}" -m pip install `
+      --extra-index-url https://download.pytorch.org/whl/cu121 `
+      -r "{{ files.requirements }}"
