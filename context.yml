@@ -1,26 +1,34 @@
 ---
-- name: Build deploy context
+- name: Build context
   set_fact:
+
     dirs:
-      home: "{{ path_root.app }}\\{{ python.name }}"
+      home: "{{ python.home }}"
 
-      apps: "{{ path_root.app }}\\{{ python.name }}\\apps"
-      packages: "{{ path_root.app }}\\{{ python.name }}\\packages"
-      scripts: "{{ path_root.app }}\\{{ python.name }}\\scripts"
-      logs: "{{ path_root.app }}\\{{ python.name }}\\logs"
+      apps: "{{ python.home }}\\apps"
+      packages: "{{ python.home }}\\packages"
+      scripts: "{{ python.home }}\\scripts"
 
-      venv: "{{ path_root.app }}\\{{ python.name }}\\venv"
+      logs: "{{ python.home }}\\logs"
 
-      upload: "{{ path_root.deploy }}\\{{ python.name }}\\upload"
-      whl: "{{ path_root.deploy }}\\{{ python.name }}\\whl"
-      backup: "{{ path_root.backup }}\\{{ python.name }}"
-      lock: "{{ path_root.deploy }}\\{{ python.name }}\\.locks"
+      upload: "{{ python.home }}\\upload"
+      whl: "{{ python.home }}\\whl"
 
-      as: "{{ path_root.app }}\\{{ python.name }}\\{{ python.legacy.as_dir }}"
+      backup: "{{ backup.home }}"
+
+      lock: "{{ python.home }}\\.locks"
+
+      venv: "{{ python.home }}\\venv"
+
+      as: "{{ python.home }}\\{{ legacy.as_dir }}"
 
     files:
-      python: "{{ path_root.app }}\\{{ python.name }}\\venv\\Scripts\\python.exe"
-      requirements: "{{ path_root.app }}\\{{ python.name }}\\requirements.txt"
-      pyproject: "{{ path_root.app }}\\{{ python.name }}\\pyproject.toml"
-      lock: "{{ path_root.deploy }}\\{{ python.name }}\\.locks\\python.deploy.lock"
-      junction: "{{ path_root.app }}\\{{ python.name }}\\{{ python.legacy.as_dir }}\\{{ python.legacy.link_name }}"
+      python: "{{ dirs.venv }}\\Scripts\\python.exe"
+
+      requirements: "{{ dirs.home }}\\requirements.txt"
+
+      pyproject: "{{ dirs.home }}\\pyproject.toml"
+
+      lock: "{{ dirs.lock }}\\python.deploy.lock"
+
+      junction: "{{ dirs.as }}\\{{ legacy.link_name }}"
