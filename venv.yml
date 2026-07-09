@@ -1,0 +1,14 @@
+---
+- name: Check requirements exists
+  win_stat:
+    path: "{{ files.requirements }}"
+  register: requirements_check
+
+- name: Fail if requirements missing
+  fail:
+    msg: "requirements.txt not found: {{ files.requirements }}"
+  when: not requirements_check.stat.exists
+
+- name: Install requirements from PyPI
+  win_shell: |
+    "{{ files.python }}" -m pip install -r "{{ files.requirements }}"
