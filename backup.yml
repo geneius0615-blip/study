@@ -5,17 +5,11 @@
   register: backup_time
   changed_when: false
 
-- name: Build backup paths
+- name: Build backup zip path
   set_fact:
-    backup_work_dir: "{{ dirs.backup }}\\work_{{ backup_time.stdout }}"
     backup_zip_file: "{{ dirs.backup }}\\Python_{{ backup_time.stdout }}.zip"
 
-- name: Create backup work directory
-  win_file:
-    path: "{{ backup_work_dir }}"
-    state: directory
-
-- name: Copy deploy items to backup work directory
+- name: Compress deploy items
   win_shell: |
     $items = @(
       "{{ dirs.apps }}",
@@ -25,23 +19,23 @@
       "{{ files.pyproject }}"
     )
 
+    $exists = @()
+
     foreach ($item in $items) {
       if (Test-Path $item) {
-        Copy-Item $item "{{ backup_work_dir }}" -Recurse -Force
+        $exists += $item
       }
     }
 
-- name: Compress backup directory
-  win_shell: |
+    if ($exists.Count -eq 0) {
+      Write-Host "No deploy items found. Skip backup."
+      exit 0
+    }
+
     Compress-Archive `
-      -Path "{{ backup_work_dir }}\\*" `
+      -Path $exists `
       -DestinationPath "{{ backup_zip_file }}" `
       -Force
-
-- name: Remove backup work directory
-  win_file:
-    path: "{{ backup_work_dir }}"
-    state: absent
 
 - name: Show backup file
   debug:
