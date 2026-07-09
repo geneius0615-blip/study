@@ -1,0 +1,35 @@
+---
+env: dev
+
+artifact:
+  name: "imap-web-dev.tar.gz"
+
+python:
+  home: "E:\\Deploy\\Python"
+
+backup:
+  home: "E:\\Backup\\Python"
+
+tools:
+  nssm_exe: "E:\\Tools\\nssm\\nssm.exe"
+
+nginx:
+  home: "E:\\nginx"
+  exe: "E:\\nginx\\nginx.exe"
+
+legacy:
+  as_dir: "as"
+  link_name: "bb"
+
+service:
+  start_file: "start.bat"
+  stdout_file: "stdout.log"
+  stderr_file: "stderr.log"
+  restart_delay: 5000
+
+services:
+  - name: "OCRService"
+    app: "ocr"
+
+  - name: "AIService"
+    app: "ai"
