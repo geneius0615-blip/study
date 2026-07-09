@@ -1,0 +1,46 @@
+---
+- name: Build service base context
+  set_fact:
+    svc_home: "{{ dirs.apps }}\\{{ svc_name }}"
+    svc_log: "{{ dirs.logs }}\\{{ svc_name }}"
+
+- name: Build service context
+  set_fact:
+    svc_ctx:
+      name: "{{ svc_name }}"
+      home: "{{ svc_home }}"
+      log: "{{ svc_log }}"
+      start: "{{ svc_home }}\\{{ service.start_file }}"
+      stdout: "{{ svc_log }}\\{{ service.stdout_file }}"
+      stderr: "{{ svc_log }}\\{{ service.stderr_file }}"
+      configs:
+        AppDirectory: "{{ svc_home }}"
+        AppStdout: "{{ svc_log }}\\{{ service.stdout_file }}"
+        AppStderr: "{{ svc_log }}\\{{ service.stderr_file }}"
+        AppRestartDelay: "{{ service.restart_delay }}"
+
+- name: Create service log directory
+  win_file:
+    path: "{{ svc_ctx.log }}"
+    state: directory
+
+- name: Check service
+  win_shell: |
+    "{{ tools.nssm_exe }}" status "{{ svc_ctx.name }}"
+  register: service_check
+  failed_when: false
+  changed_when: false
+
+- name: Install service if missing
+  win_shell: |
+    "{{ tools.nssm_exe }}" install "{{ svc_ctx.name }}" "{{ svc_ctx.start }}"
+  when: service_check.rc != 0
+
+- name: Configure service
+  win_shell: |
+    "{{ tools.nssm_exe }}" set "{{ svc_ctx.name }}" "{{ item.key }}" "{{ item.value }}"
+  loop: "{{ svc_ctx.configs | dict2items }}"
+
+- name: Restart service
+  win_shell: |
+    "{{ tools.nssm_exe }}" restart "{{ svc_ctx.name }}"
