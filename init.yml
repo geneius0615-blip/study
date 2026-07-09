@@ -1,1 +1,75 @@
-ff
+---
+- name: Check Python
+  win_shell: python --version
+  register: python_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Python missing
+  fail:
+    msg: |
+      Python이 설치되어 있지 않습니다.
+      권장 버전 : Python 3.13.x
+  when: python_check.rc != 0
+
+# ------------------------------------------------
+
+- name: Check pip
+  win_shell: python -m pip --version
+  register: pip_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if pip missing
+  fail:
+    msg: pip가 설치되어 있지 않습니다.
+  when: pip_check.rc != 0
+
+# ------------------------------------------------
+
+- name: Check Git
+  win_shell: git --version
+  register: git_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Git missing
+  fail:
+    msg: Git이 설치되어 있지 않습니다.
+  when: git_check.rc != 0
+
+# ------------------------------------------------
+
+- name: Check NSSM
+  win_stat:
+    path: "{{ tools.nssm_exe }}"
+  register: nssm_check
+
+- name: Fail if NSSM missing
+  fail:
+    msg: NSSM을 찾을 수 없습니다.
+  when: not nssm_check.stat.exists
+
+# ------------------------------------------------
+
+- name: Check Nginx
+  win_stat:
+    path: "{{ nginx.exe }}"
+  register: nginx_check
+
+- name: Fail if Nginx missing
+  fail:
+    msg: Nginx를 찾을 수 없습니다.
+  when: not nginx_check.stat.exists
+
+# ------------------------------------------------
+
+- name: Check venv
+  win_stat:
+    path: "{{ files.python }}"
+  register: venv_check
+
+- name: Create venv
+  win_shell: |
+    python -m venv "{{ dirs.venv }}"
+  when: not venv_check.stat.exists
