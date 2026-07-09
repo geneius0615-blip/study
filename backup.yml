@@ -1,0 +1,31 @@
+---
+- name: Create backup timestamp
+  win_shell: |
+    Get-Date -Format "yyyyMMdd_HHmmss"
+  register: backup_time
+  changed_when: false
+
+- name: Build backup path
+  set_fact:
+    backup_path: "{{ backup.home }}\\{{ backup_time.stdout }}"
+
+- name: Create backup directory
+  win_file:
+    path: "{{ backup_path }}"
+    state: directory
+
+- name: Backup deploy contents
+  win_shell: |
+    $items = @(
+      "{{ dirs.apps }}",
+      "{{ dirs.packages }}",
+      "{{ dirs.scripts }}",
+      "{{ files.requirements }}",
+      "{{ files.pyproject }}"
+    )
+
+    foreach($item in $items){
+      if(Test-Path $item){
+        Copy-Item $item "{{ backup_path }}" -Recurse -Force
+      }
+    }
