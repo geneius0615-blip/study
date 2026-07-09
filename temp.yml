@@ -1,0 +1,10 @@
+- name: Check Git
+  win_shell: git --version
+  register: git_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Git missing
+  fail:
+    msg: Git이 설치되어 있지 않습니다.
+  when: git_check.rc != 0
