@@ -1,7 +1,7 @@
 ---
 - name: Build deploy context
   set_fact:
-    dir:
+    dirs:
       home: "{{ path_root.app }}\\{{ python.name }}"
 
       apps: "{{ path_root.app }}\\{{ python.name }}\\apps"
@@ -18,7 +18,7 @@
 
       as: "{{ path_root.app }}\\{{ python.name }}\\{{ python.legacy.as_dir }}"
 
-    file:
+    files:
       python: "{{ path_root.app }}\\{{ python.name }}\\venv\\Scripts\\python.exe"
       requirements: "{{ path_root.app }}\\{{ python.name }}\\requirements.txt"
       pyproject: "{{ path_root.app }}\\{{ python.name }}\\pyproject.toml"
