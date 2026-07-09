@@ -1,0 +1,31 @@
+---
+- name: Create directories
+  win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ dir.home }}"
+    - "{{ dir.apps }}"
+    - "{{ dir.packages }}"
+    - "{{ dir.scripts }}"
+    - "{{ dir.logs }}"
+    - "{{ dir.upload }}"
+    - "{{ dir.whl }}"
+    - "{{ dir.lock }}"
+    - "{{ dir.backup }}"
+    - "{{ dir.venv }}"
+    - "{{ dir.as }}"
+
+- name: Check junction
+  win_stat:
+    path: "{{ file.junction }}"
+  register: junction_check
+
+- name: Create junction
+  win_shell: |
+    cmd /c mklink /J "{{ file.junction }}" "{{ dir.apps }}"
+  when: not junction_check.stat.exists
+
+- name: Bootstrap complete
+  debug:
+    msg: "Bootstrap complete"
