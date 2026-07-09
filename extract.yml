@@ -1,0 +1,17 @@
+---
+- name: Check artifact exists
+  win_stat:
+    path: "{{ files.artifact }}"
+  register: artifact_check
+
+- name: Fail if artifact missing
+  fail:
+    msg: "Artifact not found: {{ files.artifact }}"
+  when: not artifact_check.stat.exists
+
+- name: Extract artifact
+  win_shell: |
+    Expand-Archive `
+      -LiteralPath "{{ files.artifact }}" `
+      -DestinationPath "{{ dirs.home }}" `
+      -Force
