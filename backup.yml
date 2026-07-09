@@ -5,12 +5,25 @@
   register: backup_time
   changed_when: false
 
-- name: Build backup zip path
+- name: Build backup paths
   set_fact:
-    backup_zip_file: "{{ dirs.backup }}\\Python_{{ backup_time.stdout }}.zip"
+    backup_work_dir: "{{ dirs.backup }}\\work_{{ backup_time.stdout | trim }}"
+    backup_zip_file: "{{ dirs.backup }}\\Python_{{ backup_time.stdout | trim }}.zip"
 
-- name: Compress deploy items
+- name: Create backup root directory
+  win_file:
+    path: "{{ dirs.backup }}"
+    state: directory
+
+- name: Create backup work directory
+  win_file:
+    path: "{{ backup_work_dir }}"
+    state: directory
+
+- name: Copy deploy items to backup work directory
   win_shell: |
+    $workDir = "{{ backup_work_dir }}"
+
     $items = @(
       "{{ dirs.apps }}",
       "{{ dirs.packages }}",
@@ -19,23 +32,33 @@
       "{{ files.pyproject }}"
     )
 
-    $exists = @()
-
     foreach ($item in $items) {
       if (Test-Path $item) {
-        $exists += $item
+        $name = Split-Path $item -Leaf
+        Copy-Item $item "$workDir\$name" -Recurse -Force
       }
     }
 
-    if ($exists.Count -eq 0) {
-      Write-Host "No deploy items found. Skip backup."
+- name: Check backup work directory contents
+  win_shell: |
+    $workDir = "{{ backup_work_dir }}"
+
+    if (-not (Test-Path "$workDir\*")) {
+      Write-Host "No backup target exists. Skip compress."
       exit 0
     }
 
+- name: Compress backup work directory
+  win_shell: |
     Compress-Archive `
-      -Path $exists `
+      -Path "{{ backup_work_dir }}\\*" `
       -DestinationPath "{{ backup_zip_file }}" `
       -Force
+
+- name: Remove backup work directory
+  win_file:
+    path: "{{ backup_work_dir }}"
+    state: absent
 
 - name: Show backup file
   debug:
