@@ -5,16 +5,17 @@
   register: backup_time
   changed_when: false
 
-- name: Build backup path
+- name: Build backup paths
   set_fact:
-    backup_path: "{{ backup.home }}\\{{ backup_time.stdout }}"
+    backup_work_dir: "{{ dirs.backup }}\\work_{{ backup_time.stdout }}"
+    backup_zip_file: "{{ dirs.backup }}\\Python_{{ backup_time.stdout }}.zip"
 
-- name: Create backup directory
+- name: Create backup work directory
   win_file:
-    path: "{{ backup_path }}"
+    path: "{{ backup_work_dir }}"
     state: directory
 
-- name: Backup deploy contents
+- name: Copy deploy items to backup work directory
   win_shell: |
     $items = @(
       "{{ dirs.apps }}",
@@ -24,8 +25,24 @@
       "{{ files.pyproject }}"
     )
 
-    foreach($item in $items){
-      if(Test-Path $item){
-        Copy-Item $item "{{ backup_path }}" -Recurse -Force
+    foreach ($item in $items) {
+      if (Test-Path $item) {
+        Copy-Item $item "{{ backup_work_dir }}" -Recurse -Force
       }
     }
+
+- name: Compress backup directory
+  win_shell: |
+    Compress-Archive `
+      -Path "{{ backup_work_dir }}\\*" `
+      -DestinationPath "{{ backup_zip_file }}" `
+      -Force
+
+- name: Remove backup work directory
+  win_file:
+    path: "{{ backup_work_dir }}"
+    state: absent
+
+- name: Show backup file
+  debug:
+    msg: "Backup created: {{ backup_zip_file }}"
