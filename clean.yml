@@ -1,0 +1,11 @@
+---
+- name: Clean deploy items only
+  win_file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ dirs.apps }}"
+    - "{{ dirs.packages }}"
+    - "{{ dirs.scripts }}"
+    - "{{ files.requirements }}"
+    - "{{ files.pyproject }}"
