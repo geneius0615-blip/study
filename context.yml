@@ -1,0 +1,26 @@
+---
+- name: Build deploy context
+  set_fact:
+    dir:
+      home: "{{ path_root.app }}\\{{ python.name }}"
+
+      apps: "{{ path_root.app }}\\{{ python.name }}\\apps"
+      packages: "{{ path_root.app }}\\{{ python.name }}\\packages"
+      scripts: "{{ path_root.app }}\\{{ python.name }}\\scripts"
+      logs: "{{ path_root.app }}\\{{ python.name }}\\logs"
+
+      venv: "{{ path_root.app }}\\{{ python.name }}\\venv"
+
+      upload: "{{ path_root.deploy }}\\{{ python.name }}\\upload"
+      whl: "{{ path_root.deploy }}\\{{ python.name }}\\whl"
+      backup: "{{ path_root.backup }}\\{{ python.name }}"
+      lock: "{{ path_root.deploy }}\\{{ python.name }}\\.locks"
+
+      as: "{{ path_root.app }}\\{{ python.name }}\\{{ python.legacy.as_dir }}"
+
+    file:
+      python: "{{ path_root.app }}\\{{ python.name }}\\venv\\Scripts\\python.exe"
+      requirements: "{{ path_root.app }}\\{{ python.name }}\\requirements.txt"
+      pyproject: "{{ path_root.app }}\\{{ python.name }}\\pyproject.toml"
+      lock: "{{ path_root.deploy }}\\{{ python.name }}\\.locks\\python.deploy.lock"
+      junction: "{{ path_root.app }}\\{{ python.name }}\\{{ python.legacy.as_dir }}\\{{ python.legacy.link_name }}"
