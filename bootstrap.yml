@@ -1,31 +1,27 @@
 ---
-- name: Create directories
+- name: Create Python directories
   win_file:
     path: "{{ item }}"
     state: directory
   loop:
-    - "{{ dir.home }}"
-    - "{{ dir.apps }}"
-    - "{{ dir.packages }}"
-    - "{{ dir.scripts }}"
-    - "{{ dir.logs }}"
-    - "{{ dir.upload }}"
-    - "{{ dir.whl }}"
-    - "{{ dir.lock }}"
-    - "{{ dir.backup }}"
-    - "{{ dir.venv }}"
-    - "{{ dir.as }}"
+    - "{{ dirs.home }}"
+    - "{{ dirs.apps }}"
+    - "{{ dirs.packages }}"
+    - "{{ dirs.scripts }}"
+    - "{{ dirs.logs }}"
+    - "{{ dirs.upload }}"
+    - "{{ dirs.whl }}"
+    - "{{ dirs.backup }}"
+    - "{{ dirs.lock }}"
+    - "{{ dirs.venv }}"
+    - "{{ dirs.as }}"
 
 - name: Check junction
   win_stat:
-    path: "{{ file.junction }}"
+    path: "{{ files.junction }}"
   register: junction_check
 
 - name: Create junction
   win_shell: |
-    cmd /c mklink /J "{{ file.junction }}" "{{ dir.apps }}"
+    cmd /c mklink /J "{{ files.junction }}" "{{ dirs.apps }}"
   when: not junction_check.stat.exists
-
-- name: Bootstrap complete
-  debug:
-    msg: "Bootstrap complete"
