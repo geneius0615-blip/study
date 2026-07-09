@@ -1,34 +1,23 @@
 ---
 - name: Build context
   set_fact:
-
     dirs:
       home: "{{ python.home }}"
-
       apps: "{{ python.home }}\\apps"
       packages: "{{ python.home }}\\packages"
       scripts: "{{ python.home }}\\scripts"
-
       logs: "{{ python.home }}\\logs"
-
       upload: "{{ python.home }}\\upload"
       whl: "{{ python.home }}\\whl"
-
       backup: "{{ backup.home }}"
-
       lock: "{{ python.home }}\\.locks"
-
       venv: "{{ python.home }}\\venv"
-
       as: "{{ python.home }}\\{{ legacy.as_dir }}"
 
     files:
-      python: "{{ dirs.venv }}\\Scripts\\python.exe"
-
-      requirements: "{{ dirs.home }}\\requirements.txt"
-
-      pyproject: "{{ dirs.home }}\\pyproject.toml"
-
-      lock: "{{ dirs.lock }}\\python.deploy.lock"
-
-      junction: "{{ dirs.as }}\\{{ legacy.link_name }}"
+      python: "{{ python.home }}\\venv\\Scripts\\python.exe"
+      requirements: "{{ python.home }}\\requirements.txt"
+      pyproject: "{{ python.home }}\\pyproject.toml"
+      artifact: "{{ python.home }}\\upload\\{{ artifact.name }}"
+      lock: "{{ python.home }}\\.locks\\python.deploy.lock"
+      junction: "{{ python.home }}\\{{ legacy.as_dir }}\\{{ legacy.link_name }}"
