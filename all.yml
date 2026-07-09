@@ -27,9 +27,8 @@ service:
   stderr_file: "stderr.log"
   restart_delay: 5000
 
-services:
-  - name: "OCRService"
-    app: "ocr"
-
-  - name: "AIService"
-    app: "ai"
+python_services:
+  - ocr
+  - ai
+  - batch
+  - image
