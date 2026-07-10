@@ -1,40 +1,44 @@
 ---
-- name: Define venv setup batch files
+- name: Define venv batch files
   set_fact:
     venv_batch_files:
       - name: Git setup
         path: "{{ files.git_setup_bat }}"
+        workdir: "{{ dirs.legacy_source }}"
 
-      - name: Server config update
+      - name: Server config
         path: "{{ files.server_config_bat }}"
+        workdir: "{{ dirs.home }}"
 
-      - name: Venv and requirements setup
+      - name: Setup virtual environment
         path: "{{ files.setup_venv_bat }}"
+        workdir: "{{ dirs.home }}"
 
-      - name: Editable package install
+      - name: Install editable packages
         path: "{{ files.install_packages_bat }}"
+        workdir: "{{ dirs.home }}"
 
-- name: Check venv batch files
+- name: Check batch files
   win_stat:
     path: "{{ item.path }}"
   loop: "{{ venv_batch_files }}"
-  register: venv_batch_checks
+  register: batch_checks
   loop_control:
     label: "{{ item.name }}"
 
 - name: Fail if batch file is missing
   fail:
     msg: "Batch file not found: {{ item.item.path }}"
-  loop: "{{ venv_batch_checks.results }}"
   when: not item.stat.exists
+  loop: "{{ batch_checks.results }}"
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Run venv setup batch files in order
-  win_shell: |
-    cmd /c call "{{ item.path }}"
+- name: Run batch files
+  win_command:
+    cmd: '"{{ item.path }}"'
   args:
-    chdir: "{{ dirs.home }}"
+    chdir: "{{ item.workdir }}"
   loop: "{{ venv_batch_files }}"
   loop_control:
     label: "{{ item.name }}"
