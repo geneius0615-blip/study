@@ -2,10 +2,6 @@
 - name: Define venv batch files
   set_fact:
     venv_batch_files:
-      - name: Git setup
-        path: "{{ files.git_setup_bat }}"
-        workdir: "{{ dirs.legacy_source }}"
-
       - name: Server config
         path: "{{ files.server_config_bat }}"
         workdir: "{{ dirs.home }}"
@@ -29,8 +25,8 @@
 - name: Fail if batch file is missing
   fail:
     msg: "Batch file not found: {{ item.item.path }}"
-  loop: "{{ batch_checks.results }}"
   when: not item.stat.exists
+  loop: "{{ batch_checks.results }}"
   loop_control:
     label: "{{ item.item.name }}"
 
