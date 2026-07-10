@@ -1,25 +1,11 @@
-- name: Check Git
-  win_shell: git --version
-  register: git_check
-  changed_when: false
-  failed_when: false
-
-- name: Fail if Git missing
-  fail:
-    msg: Git이 설치되어 있지 않습니다.
-  when: git_check.rc != 0
-
-- name: Install requirements
-  win_shell: |
-    & "{{ files.python }}" -m pip install `
-      --extra-index-url https://download.pytorch.org/whl/cu121 `
-      -r "{{ files.requirements }}"
-
----
-- name: Create Python venv
-  win_shell: |
-    call "{{ dirs.scripts }}\create_venv.bat"
-
-- name: Install Python packages
-  win_shell: |
-    call "{{ dirs.scripts }}\install_requirements.bat"
+stage('Check Node') {
+    steps {
+        sh '''
+            echo $PATH
+            which node || true
+            which npm || true
+            node --version || true
+            npm --version || true
+        '''
+    }
+}
