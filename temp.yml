@@ -1,11 +1,24 @@
-stage('Check Node') {
-    steps {
-        sh '''
-            echo $PATH
-            which node || true
-            which npm || true
-            node --version || true
-            npm --version || true
-        '''
-    }
-}
+---
+- name: Run Git setup
+  win_shell: |
+    cmd /c call "{{ files.git_setup_bat }}"
+  args:
+    chdir: "{{ git.repo_root }}"
+
+- name: Run server config
+  win_shell: |
+    cmd /c call "{{ files.server_config_bat }}"
+  args:
+    chdir: "{{ dirs.home }}"
+
+- name: Run venv setup
+  win_shell: |
+    cmd /c call "{{ files.setup_venv_bat }}"
+  args:
+    chdir: "{{ dirs.home }}"
+
+- name: Run editable package install
+  win_shell: |
+    cmd /c call "{{ files.install_packages_bat }}"
+  args:
+    chdir: "{{ dirs.home }}"
