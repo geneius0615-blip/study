@@ -29,14 +29,14 @@
 - name: Fail if batch file is missing
   fail:
     msg: "Batch file not found: {{ item.item.path }}"
-  when: not item.stat.exists
   loop: "{{ batch_checks.results }}"
+  when: not item.stat.exists
   loop_control:
     label: "{{ item.item.name }}"
 
 - name: Run batch files
-  win_command:
-    cmd: '"{{ item.path }}"'
+  win_shell: |
+    cmd /c call "{{ item.path }}"
   args:
     chdir: "{{ item.workdir }}"
   loop: "{{ venv_batch_files }}"
