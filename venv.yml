@@ -1,14 +1,40 @@
 ---
-- name: Check requirements exists
+- name: Define venv setup batch files
+  set_fact:
+    venv_batch_files:
+      - name: Git setup
+        path: "{{ files.git_setup_bat }}"
+
+      - name: Server config update
+        path: "{{ files.server_config_bat }}"
+
+      - name: Venv and requirements setup
+        path: "{{ files.setup_venv_bat }}"
+
+      - name: Editable package install
+        path: "{{ files.install_packages_bat }}"
+
+- name: Check venv batch files
   win_stat:
-    path: "{{ files.requirements }}"
-  register: requirements_check
+    path: "{{ item.path }}"
+  loop: "{{ venv_batch_files }}"
+  register: venv_batch_checks
+  loop_control:
+    label: "{{ item.name }}"
 
-- name: Fail if requirements missing
+- name: Fail if batch file is missing
   fail:
-    msg: "requirements.txt not found: {{ files.requirements }}"
-  when: not requirements_check.stat.exists
+    msg: "Batch file not found: {{ item.item.path }}"
+  loop: "{{ venv_batch_checks.results }}"
+  when: not item.stat.exists
+  loop_control:
+    label: "{{ item.item.name }}"
 
-- name: Install requirements from PyPI
+- name: Run venv setup batch files in order
   win_shell: |
-    "{{ files.python }}" -m pip install -r "{{ files.requirements }}"
+    cmd /c call "{{ item.path }}"
+  args:
+    chdir: "{{ dirs.home }}"
+  loop: "{{ venv_batch_files }}"
+  loop_control:
+    label: "{{ item.name }}"
