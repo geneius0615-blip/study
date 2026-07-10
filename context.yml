@@ -11,12 +11,19 @@
       lock: "{{ python.home }}\\.locks"
       venv: "{{ python.home }}\\venv"
       legacy_source: "{{ legacy.source }}"
-      artifact_dir: "{{ python.home }}"
 
     files:
       python: "{{ python.home }}\\venv\\Scripts\\python.exe"
       requirements: "{{ python.home }}\\requirements.txt"
-      pyproject: "{{ python.home }}\\pyproject.toml"
       artifact: "{{ python.home }}\\{{ artifact.name }}"
       lock: "{{ python.home }}\\.locks\\python.deploy.lock"
-      junction: "{{ legacy.source }}\\apps"
+
+      git_setup_bat: "{{ python.home }}\\scripts\\git_setup.bat"
+      server_config_bat: "{{ python.home }}\\scripts\\server_config.bat"
+      setup_venv_bat: "{{ python.home }}\\scripts\\setup_venv.bat"
+      install_packages_bat: "{{ python.home }}\\scripts\\install_packages.bat"
+
+    junctions:
+      apps:
+        link: "{{ legacy.source }}\\apps"
+        target: "{{ python.home }}\\apps"
