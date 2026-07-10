@@ -14,3 +14,12 @@
     & "{{ files.python }}" -m pip install `
       --extra-index-url https://download.pytorch.org/whl/cu121 `
       -r "{{ files.requirements }}"
+
+---
+- name: Create Python venv
+  win_shell: |
+    call "{{ dirs.scripts }}\create_venv.bat"
+
+- name: Install Python packages
+  win_shell: |
+    call "{{ dirs.scripts }}\install_requirements.bat"
