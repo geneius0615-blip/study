@@ -1,22 +1,18 @@
-- name: 기존 Vue 배포 폴더 백업
+# 6. 배포 시간 생성
+- name: Vue 배포 시간 생성
   win_shell: |
-    $sourceDir = '{{ vue.deploy_dir }}'
-    $destination = '{{ vue_backup_file }}'
+    Get-Date -Format "yyyyMMdd_HHmmss"
+  register: vue_timestamp
+  changed_when: false
 
-    if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
-        throw "Vue 배포 폴더가 없습니다: $sourceDir"
-    }
+# 7. 백업 경로 설정
+- name: Vue 백업 경로 설정
+  set_fact:
+    vue_backup_file: "{{ vue.backup_dir }}\\client_backup_{{ vue_timestamp.stdout | trim }}.tar"
+    artifact_backup_path: "{{ vue.backup_dir }}\\{{ artifact_name }}"
 
-    if (Test-Path -LiteralPath $destination) {
-        Remove-Item -LiteralPath $destination -Force
-    }
-
-    & tar.exe -cf $destination -C $sourceDir .
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Vue 기존 배포 폴더 백업 실패. exit code=$LASTEXITCODE"
-    }
-  when:
-    - "vue_existing_dir.stat.exists"
-    - "vue_existing_dir.stat.isdir"
-    - "vue_existing_files.matched | int > 0"
+# 8. 기존 배포 폴더 확인
+- name: 기존 Vue 배포 폴더 확인
+  win_stat:
+    path: "{{ vue.deploy_dir }}"
+  register: vue_existing_dir
