@@ -77,26 +77,33 @@
     - "vue_existing_dir.stat.exists"
     - "vue_existing_dir.stat.isdir"
 
-# 10. 기존 client 폴더 ZIP 백업
+# 10. 기존 Vue 배포 폴더 ZIP 백업
 - name: 기존 Vue 배포 폴더 백업
   win_shell: |
-    $source = '{{ vue.deploy_dir }}\*'
+    $sourceDir = '{{ vue.deploy_dir }}'
     $destination = '{{ vue_backup_file }}'
+
+    if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
+        throw "Vue 배포 폴더가 없습니다: $sourceDir"
+    }
 
     if (Test-Path -LiteralPath $destination) {
         Remove-Item -LiteralPath $destination -Force
     }
 
-    Compress-Archive `
-      -Path $source `
-      -DestinationPath $destination `
-      -Force
+    $items = Get-ChildItem -LiteralPath $sourceDir -Force
+
+    if ($items.Count -gt 0) {
+        $items | Compress-Archive `
+          -DestinationPath $destination `
+          -Force
+    }
   when:
     - "vue_existing_dir.stat.exists"
     - "vue_existing_dir.stat.isdir"
     - "vue_existing_files.matched | int > 0"
 
-# 11. 다운로드한 artifact를 먼저 백업 폴더로 이동
+# 11. 다운로드한 artifact를 백업 폴더로 먼저 이동
 - name: Vue artifact 백업 폴더로 이동
   win_shell: |
     $source = '{{ artifact_path }}'
@@ -125,7 +132,7 @@
       - "not vue_moved_artifact.stat.isdir"
     msg: "백업 폴더로 이동한 Vue artifact를 찾을 수 없습니다."
 
-# 13. 이전 임시 폴더 삭제
+# 13. 임시 폴더 삭제
 - name: Vue 임시 폴더 삭제
   win_file:
     path: "{{ vue.temp_dir }}"
@@ -137,7 +144,7 @@
     path: "{{ vue.temp_dir }}"
     state: directory
 
-# 15. 백업 폴더로 이동한 tar 파일 압축 해제
+# 15. 백업 폴더의 tar 파일 압축 해제
 - name: Vue artifact 압축 해제
   win_shell: |
     tar.exe -xf "{{ artifact_backup_path }}" -C "{{ vue.temp_dir }}"
@@ -165,13 +172,13 @@
   set_fact:
     vue_extract_root: "{{ vue_index_files.files[0].path | win_dirname }}"
 
-# 19. 기존 client 폴더 삭제
+# 19. 기존 배포 폴더 삭제
 - name: 기존 Vue 배포 폴더 삭제
   win_file:
     path: "{{ vue.deploy_dir }}"
     state: absent
 
-# 20. client 폴더 재생성
+# 20. 배포 폴더 재생성
 - name: Vue 배포 폴더 재생성
   win_file:
     path: "{{ vue.deploy_dir }}"
@@ -196,7 +203,7 @@
     path: "{{ vue.deploy_dir }}\\assets"
   register: vue_deployed_assets
 
-# 24. 최종 배포 결과 검증
+# 24. 배포 결과 검증
 - name: Vue 배포 결과 검증
   assert:
     that:
