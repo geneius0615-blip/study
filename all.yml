@@ -1,5 +1,5 @@
 vue:
   deploy_dir: 'E:\Deploy\Vue\imap-client'
-  artifact_file: 'E:\Deploy\Vue\imap-client.tar'
-  backup_dir: 'E:\Backup\Vue'
-  temp_dir: 'E:\Deploy\Vue\temp'
+  artifact_file: 'E:\Deploy\Vue\imap-client\imap-web-client-dev.tar'
+  backup_dir: 'E:\Backup\Vue\imap-client'
+  temp_dir: 'E:\Deploy\Vue\imap-client\temp'
