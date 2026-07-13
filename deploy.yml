@@ -1,0 +1,151 @@
+- name: Vue artifact 변수 확인
+  ansible.builtin.assert:
+    that:
+      - artifact is defined
+      - artifact | string | length > 0
+    fail_msg: "artifact 변수가 전달되지 않았습니다."
+
+- name: Vue 배포 관련 폴더 생성
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ vue.home }}"
+    - "{{ vue.deploy_dir }}"
+    - "{{ vue.download_dir }}"
+    - "{{ vue.backup_dir }}"
+    - "{{ vue.temp_dir }}"
+
+- name: Vue artifact 존재 확인
+  ansible.windows.win_stat:
+    path: "{{ files.artifact }}"
+  register: vue_artifact_stat
+
+- name: Vue artifact 파일 검증
+  ansible.builtin.assert:
+    that:
+      - vue_artifact_stat.stat.exists
+      - not vue_artifact_stat.stat.isdir
+    fail_msg: "Vue artifact 파일을 찾을 수 없습니다: {{ files.artifact }}"
+
+- name: 배포 시간 생성
+  ansible.windows.win_shell: |
+    Get-Date -Format "yyyyMMdd_HHmmss"
+  register: vue_timestamp
+  changed_when: false
+
+- name: Vue 백업 파일 경로 설정
+  ansible.builtin.set_fact:
+    vue_backup_file: >-
+      {{ vue.backup_dir }}\client_backup_{{ vue_timestamp.stdout | trim }}.zip
+
+- name: 기존 Vue 배포 폴더 확인
+  ansible.windows.win_stat:
+    path: "{{ vue.deploy_dir }}\\index.html"
+  register: vue_existing_index
+
+- name: 기존 Vue 배포 폴더 백업
+  community.windows.win_zip:
+    src: "{{ vue.deploy_dir }}\\*"
+    dest: "{{ vue_backup_file }}"
+  when: vue_existing_index.stat.exists
+
+- name: Vue 임시 폴더 삭제
+  ansible.windows.win_file:
+    path: "{{ vue.temp_dir }}"
+    state: absent
+
+- name: Vue 임시 폴더 생성
+  ansible.windows.win_file:
+    path: "{{ vue.temp_dir }}"
+    state: directory
+
+- name: Vue artifact 압축 해제
+  ansible.windows.win_command:
+    argv:
+      - tar.exe
+      - -xf
+      - "{{ files.artifact }}"
+      - -C
+      - "{{ vue.temp_dir }}"
+
+- name: 압축 해제된 index.html 검색
+  ansible.windows.win_find:
+    paths: "{{ vue.temp_dir }}"
+    patterns:
+      - index.html
+    recurse: true
+  register: vue_index_files
+
+- name: 압축 해제 결과 검증
+  ansible.builtin.assert:
+    that:
+      - vue_index_files.matched | int == 1
+    fail_msg: >-
+      압축 안에서 index.html을 정확히 하나 찾지 못했습니다.
+      검색 개수: {{ vue_index_files.matched }}
+
+- name: 실제 Vue 빌드 루트 설정
+  ansible.builtin.set_fact:
+    vue_extract_root: "{{ vue_index_files.files[0].path | win_dirname }}"
+
+- name: 기존 Vue 배포 폴더 삭제
+  ansible.windows.win_file:
+    path: "{{ vue.deploy_dir }}"
+    state: absent
+
+- name: Vue 배포 폴더 재생성
+  ansible.windows.win_file:
+    path: "{{ vue.deploy_dir }}"
+    state: directory
+
+- name: Vue 빌드 결과 배포
+  ansible.windows.win_copy:
+    src: "{{ vue_extract_root }}\\"
+    dest: "{{ vue.deploy_dir }}\\"
+    remote_src: true
+
+- name: 배포된 index.html 확인
+  ansible.windows.win_stat:
+    path: "{{ vue.deploy_dir }}\\index.html"
+  register: vue_deployed_index
+
+- name: 배포된 assets 폴더 확인
+  ansible.windows.win_stat:
+    path: "{{ vue.deploy_dir }}\\assets"
+  register: vue_deployed_assets
+
+- name: Vue 배포 결과 검증
+  ansible.builtin.assert:
+    that:
+      - vue_deployed_index.stat.exists
+      - vue_deployed_assets.stat.exists
+    fail_msg: "Vue 배포 후 index.html 또는 assets 폴더가 없습니다."
+
+- name: 다운로드한 artifact 백업 폴더로 이동
+  ansible.windows.win_shell: |
+    $source = '{{ files.artifact }}'
+    $destination = '{{ vue.backup_dir }}\{{ artifact | basename }}'
+
+    if (Test-Path -LiteralPath $destination) {
+        Remove-Item -LiteralPath $destination -Force
+    }
+
+    Move-Item `
+      -LiteralPath $source `
+      -Destination $destination `
+      -Force
+  changed_when: true
+
+- name: Vue 임시 폴더 정리
+  ansible.windows.win_file:
+    path: "{{ vue.temp_dir }}"
+    state: absent
+
+- name: Vue 배포 완료
+  ansible.builtin.debug:
+    msg:
+      - "artifact={{ artifact }}"
+      - "배포 경로={{ vue.deploy_dir }}"
+      - "기존 배포 백업={{ vue_backup_file }}"
+      - "artifact 보관={{ vue.backup_dir }}\\{{ artifact | basename }}"
