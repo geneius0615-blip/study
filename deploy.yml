@@ -1,12 +1,14 @@
-- name: Vue artifact 변수 확인
-  ansible.builtin.assert:
+---
+- name: Vue attifact 변수 확인
+  #ansible.builtin.assert:
+  assert:
     that:
-      - artifact is defined
-      - artifact | string | length > 0
-    fail_msg: "artifact 변수가 전달되지 않았습니다."
-
+      - "artifact_filename is defined"
+      - "{artifact_filename | string | length) > 0"
+    fail msg: "artifact_filename 변수가 전달되지 않았습니다."
 - name: Vue 배포 관련 폴더 생성
-  ansible.windows.win_file:
+  #ansible.windows.win_file:
+  win_file:
     path: "{{ item }}"
     state: directory
   loop:
@@ -17,15 +19,17 @@
     - "{{ vue.temp_dir }}"
 
 - name: Vue artifact 존재 확인
-  ansible.windows.win_stat:
+  #ansible.windows.win_stat:
+  win_stat:
     path: "{{ files.artifact }}"
   register: vue_artifact_stat
 
 - name: Vue artifact 파일 검증
-  ansible.builtin.assert:
+  #ansible.builtin.assert:
+  assert:
     that:
-      - vue_artifact_stat.stat.exists
-      - not vue_artifact_stat.stat.isdir
+      - "vue_artifact_stat.stat.exists"
+      - "not vue_artifact_stat.stat.isdir"
     fail_msg: "Vue artifact 파일을 찾을 수 없습니다: {{ files.artifact }}"
 
 - name: 배포 시간 생성
@@ -36,8 +40,7 @@
 
 - name: Vue 백업 파일 경로 설정
   ansible.builtin.set_fact:
-    vue_backup_file: >-
-      {{ vue.backup_dir }}\client_backup_{{ vue_timestamp.stdout | trim }}.zip
+    vue_backup_file: "{{ vue.backup_dir }}\\client_backup_{{ vue_timestamp.stdout | trim }}.zip"
 
 - name: 기존 Vue 배포 폴더 확인
   ansible.windows.win_stat:
@@ -48,7 +51,7 @@
   community.windows.win_zip:
     src: "{{ vue.deploy_dir }}\\*"
     dest: "{{ vue_backup_file }}"
-  when: vue_existing_index.stat.exists
+  when: "vue_existing_index.stat.exists"
 
 - name: Vue 임시 폴더 삭제
   ansible.windows.win_file:
@@ -80,7 +83,7 @@
 - name: 압축 해제 결과 검증
   ansible.builtin.assert:
     that:
-      - vue_index_files.matched | int == 1
+      - "(vue_index_files.matched | int) == 1"
     fail_msg: >-
       압축 안에서 index.html을 정확히 하나 찾지 못했습니다.
       검색 개수: {{ vue_index_files.matched }}
@@ -118,8 +121,8 @@
 - name: Vue 배포 결과 검증
   ansible.builtin.assert:
     that:
-      - vue_deployed_index.stat.exists
-      - vue_deployed_assets.stat.exists
+      - "vue_deployed_index.stat.exists"
+      - "vue_deployed_assets.stat.exists"
     fail_msg: "Vue 배포 후 index.html 또는 assets 폴더가 없습니다."
 
 - name: 다운로드한 artifact 백업 폴더로 이동
