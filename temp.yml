@@ -1,8 +1,14 @@
-- name: Run batch files
+- name: 기존 Vue 배포 폴더 백업
   win_shell: |
-    cmd /c call "{{ item.path }}"
-  args:
-    chdir: "{{ item.workdir }}"
-  loop: "{{ venv_batch_files }}"
-  loop_control:
-    label: "{{ item.name }}"
+    $source = '{{ vue.deploy_dir }}\*'
+    $dest = '{{ vue_backup_file }}'
+
+    if (Test-Path -LiteralPath $dest) {
+      Remove-Item -LiteralPath $dest -Force
+    }
+
+    Compress-Archive `
+      -Path $source `
+      -DestinationPath $dest `
+      -Force
+  when: vue_existing_index.stat.exists
