@@ -11,7 +11,7 @@
     - "{{ vue.backup_dir }}"
     - "{{ vue.temp_dir }}"
 
-# 2. 다운로드된 tar 파일 검색
+# 2. 다운로드 폴더에서 tar 파일 검색
 - name: Vue 다운로드 파일 검색
   win_find:
     paths: "{{ vue.download_dir }}"
@@ -28,7 +28,7 @@
       - "vue_download_files.matched == 1"
     msg: "다운로드 폴더에 tar 파일이 없거나 여러 개 있습니다."
 
-# 4. artifact 전체 경로와 파일명 설정
+# 4. artifact 정보 설정
 - name: Vue artifact 정보 설정
   set_fact:
     artifact_path: "{{ vue_download_files.files[0].path }}"
@@ -54,12 +54,13 @@
   register: vue_timestamp
   changed_when: false
 
-# 7. 기존 배포본 백업 파일명 설정
-- name: Vue 백업 파일 경로 설정
+# 7. 백업 경로 설정
+- name: Vue 백업 경로 설정
   set_fact:
     vue_backup_file: "{{ vue.backup_dir }}\\client_backup_{{ vue_timestamp.stdout | trim }}.zip"
+    artifact_backup_path: "{{ vue.backup_dir }}\\{{ artifact_name }}"
 
-# 8. 기존 배포 폴더 존재 여부 확인
+# 8. 기존 배포 폴더 확인
 - name: 기존 Vue 배포 폴더 확인
   win_stat:
     path: "{{ vue.deploy_dir }}"
@@ -95,90 +96,11 @@
     - "vue_existing_dir.stat.isdir"
     - "vue_existing_files.matched | int > 0"
 
-# 11. 임시 폴더 삭제
-- name: Vue 임시 폴더 삭제
-  win_file:
-    path: "{{ vue.temp_dir }}"
-    state: absent
-
-# 12. 임시 폴더 재생성
-- name: Vue 임시 폴더 생성
-  win_file:
-    path: "{{ vue.temp_dir }}"
-    state: directory
-
-# 13. tar 파일 압축 해제
-- name: Vue artifact 압축 해제
-  win_shell: |
-    tar.exe -xf "{{ artifact_path }}" -C "{{ vue.temp_dir }}"
-  register: vue_extract_result
-
-# 14. 압축 해제된 index.html 검색
-- name: 압축 해제된 index.html 검색
-  win_find:
-    paths: "{{ vue.temp_dir }}"
-    patterns:
-      - "index.html"
-    recurse: yes
-    file_type: file
-  register: vue_index_files
-
-# 15. index.html 검색 결과 검증
-- name: Vue 압축 해제 결과 검증
-  assert:
-    that:
-      - "vue_index_files.matched == 1"
-    msg: "tar 파일 안에서 index.html을 정확히 하나 찾지 못했습니다."
-
-# 16. 실제 빌드 결과 루트 설정
-- name: 실제 Vue 빌드 루트 설정
-  set_fact:
-    vue_extract_root: "{{ vue_index_files.files[0].path | win_dirname }}"
-
-# 17. 기존 client 폴더 삭제
-- name: 기존 Vue 배포 폴더 삭제
-  win_file:
-    path: "{{ vue.deploy_dir }}"
-    state: absent
-
-# 18. client 폴더 재생성
-- name: Vue 배포 폴더 재생성
-  win_file:
-    path: "{{ vue.deploy_dir }}"
-    state: directory
-
-# 19. 빌드 결과 배포
-- name: Vue 빌드 결과 배포
-  win_copy:
-    src: "{{ vue_extract_root }}\\"
-    dest: "{{ vue.deploy_dir }}\\"
-    remote_src: yes
-
-# 20. 배포된 index.html 확인
-- name: 배포된 index.html 확인
-  win_stat:
-    path: "{{ vue.deploy_dir }}\\index.html"
-  register: vue_deployed_index
-
-# 21. 배포된 assets 폴더 확인
-- name: 배포된 assets 폴더 확인
-  win_stat:
-    path: "{{ vue.deploy_dir }}\\assets"
-  register: vue_deployed_assets
-
-# 22. 배포 결과 검증
-- name: Vue 배포 결과 검증
-  assert:
-    that:
-      - "vue_deployed_index.stat.exists"
-      - "vue_deployed_assets.stat.exists"
-    msg: "Vue 배포 후 index.html 또는 assets 폴더가 없습니다."
-
-# 23. 사용한 tar 파일을 백업 폴더로 이동
-- name: 다운로드한 Vue artifact 백업 폴더로 이동
+# 11. 다운로드한 artifact를 먼저 백업 폴더로 이동
+- name: Vue artifact 백업 폴더로 이동
   win_shell: |
     $source = '{{ artifact_path }}'
-    $destination = '{{ vue.backup_dir }}\{{ artifact_name }}'
+    $destination = '{{ artifact_backup_path }}'
 
     if (Test-Path -LiteralPath $destination) {
         Remove-Item -LiteralPath $destination -Force
@@ -190,17 +112,109 @@
       -Force
   changed_when: true
 
-# 24. 임시 폴더 정리
+# 12. 이동된 artifact 확인
+- name: 이동된 Vue artifact 확인
+  win_stat:
+    path: "{{ artifact_backup_path }}"
+  register: vue_moved_artifact
+
+- name: 이동된 Vue artifact 검증
+  assert:
+    that:
+      - "vue_moved_artifact.stat.exists"
+      - "not vue_moved_artifact.stat.isdir"
+    msg: "백업 폴더로 이동한 Vue artifact를 찾을 수 없습니다."
+
+# 13. 이전 임시 폴더 삭제
+- name: Vue 임시 폴더 삭제
+  win_file:
+    path: "{{ vue.temp_dir }}"
+    state: absent
+
+# 14. 임시 폴더 생성
+- name: Vue 임시 폴더 생성
+  win_file:
+    path: "{{ vue.temp_dir }}"
+    state: directory
+
+# 15. 백업 폴더로 이동한 tar 파일 압축 해제
+- name: Vue artifact 압축 해제
+  win_shell: |
+    tar.exe -xf "{{ artifact_backup_path }}" -C "{{ vue.temp_dir }}"
+  register: vue_extract_result
+
+# 16. 압축 해제된 index.html 검색
+- name: 압축 해제된 index.html 검색
+  win_find:
+    paths: "{{ vue.temp_dir }}"
+    patterns:
+      - "index.html"
+    recurse: yes
+    file_type: file
+  register: vue_index_files
+
+# 17. index.html 검색 결과 검증
+- name: Vue 압축 해제 결과 검증
+  assert:
+    that:
+      - "vue_index_files.matched == 1"
+    msg: "tar 파일 안에서 index.html을 정확히 하나 찾지 못했습니다."
+
+# 18. 실제 Vue 빌드 루트 설정
+- name: 실제 Vue 빌드 루트 설정
+  set_fact:
+    vue_extract_root: "{{ vue_index_files.files[0].path | win_dirname }}"
+
+# 19. 기존 client 폴더 삭제
+- name: 기존 Vue 배포 폴더 삭제
+  win_file:
+    path: "{{ vue.deploy_dir }}"
+    state: absent
+
+# 20. client 폴더 재생성
+- name: Vue 배포 폴더 재생성
+  win_file:
+    path: "{{ vue.deploy_dir }}"
+    state: directory
+
+# 21. 새 Vue 빌드 결과 배포
+- name: Vue 빌드 결과 배포
+  win_copy:
+    src: "{{ vue_extract_root }}"
+    dest: "{{ vue.deploy_dir }}"
+    remote_src: yes
+
+# 22. 배포된 index.html 확인
+- name: 배포된 index.html 확인
+  win_stat:
+    path: "{{ vue.deploy_dir }}\\index.html"
+  register: vue_deployed_index
+
+# 23. 배포된 assets 폴더 확인
+- name: 배포된 assets 폴더 확인
+  win_stat:
+    path: "{{ vue.deploy_dir }}\\assets"
+  register: vue_deployed_assets
+
+# 24. 최종 배포 결과 검증
+- name: Vue 배포 결과 검증
+  assert:
+    that:
+      - "vue_deployed_index.stat.exists"
+      - "vue_deployed_assets.stat.exists"
+    msg: "Vue 배포 후 index.html 또는 assets 폴더가 없습니다."
+
+# 25. 임시 폴더 정리
 - name: Vue 임시 폴더 정리
   win_file:
     path: "{{ vue.temp_dir }}"
     state: absent
 
-# 25. 배포 결과 출력
+# 26. 배포 결과 출력
 - name: Vue 배포 완료
   debug:
     msg:
       - "artifact={{ artifact_name }}"
       - "배포 경로={{ vue.deploy_dir }}"
       - "기존 배포 백업={{ vue_backup_file }}"
-      - "artifact 보관={{ vue.backup_dir }}\\{{ artifact_name }}"
+      - "artifact 보관={{ artifact_backup_path }}"
