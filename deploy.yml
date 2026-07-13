@@ -1,12 +1,17 @@
 ---
-- name: Vue 관련 폴더 생성
+# 1. 백업 폴더 생성
+- name: Vue 백업 폴더 생성
   win_file:
-    path: "{{ item }}"
+    path: "{{ vue.backup_dir }}"
     state: directory
-  loop:
-    - "{{ vue.backup_dir }}"
-    - "{{ vue.temp_dir }}"
 
+# 2. 작업 경로 설정
+- name: Vue 작업 경로 설정
+  set_fact:
+    vue_work_dir: "{{ vue.backup_dir }}\\work"
+    vue_work_artifact: "{{ vue.backup_dir }}\\work\\imap-web-client-dev.tar"
+
+# 3. 원본 artifact 확인
 - name: Vue artifact 확인
   win_stat:
     path: "{{ vue.artifact_file }}"
@@ -19,20 +24,24 @@
       - "not vue_artifact.stat.isdir"
     msg: "Vue tar 파일이 없습니다: {{ vue.artifact_file }}"
 
-- name: 배포 시간 생성
+# 4. 배포 시간 생성
+- name: Vue 배포 시간 생성
   win_shell: Get-Date -Format "yyyyMMdd_HHmmss"
   register: vue_timestamp
   changed_when: false
 
-- name: 백업 파일 경로 설정
+# 5. 기존 배포본 백업 경로 설정
+- name: Vue 백업 파일 경로 설정
   set_fact:
     vue_backup_file: "{{ vue.backup_dir }}\\imap-client_{{ vue_timestamp.stdout | trim }}.tar"
 
+# 6. 기존 배포 폴더 확인
 - name: 기존 Vue 배포 폴더 확인
   win_stat:
     path: "{{ vue.deploy_dir }}"
   register: vue_existing_dir
 
+# 7. 기존 배포 폴더 백업
 - name: 기존 Vue 배포 폴더 백업
   win_shell: |
     $source = '{{ vue.deploy_dir }}'
@@ -49,28 +58,52 @@
     - "vue_existing_dir.stat.exists"
     - "vue_existing_dir.stat.isdir"
 
-- name: Vue 임시 폴더 초기화
+# 8. 작업 폴더 초기화
+- name: Vue 작업 폴더 삭제
   win_file:
-    path: "{{ vue.temp_dir }}"
+    path: "{{ vue_work_dir }}"
     state: absent
 
-- name: Vue 임시 폴더 생성
+- name: Vue 작업 폴더 생성
   win_file:
-    path: "{{ vue.temp_dir }}"
+    path: "{{ vue_work_dir }}"
     state: directory
 
+# 9. deploy_dir 안의 artifact를 안전한 작업 폴더로 복사
+- name: Vue artifact 작업 폴더로 복사
+  win_copy:
+    src: "{{ vue.artifact_file }}"
+    dest: "{{ vue_work_artifact }}"
+    remote_src: yes
+
+# 10. 복사된 artifact 확인
+- name: 복사된 Vue artifact 확인
+  win_stat:
+    path: "{{ vue_work_artifact }}"
+  register: vue_work_artifact_stat
+
+- name: 복사된 Vue artifact 검증
+  assert:
+    that:
+      - "vue_work_artifact_stat.stat.exists"
+      - "not vue_work_artifact_stat.stat.isdir"
+    msg: "작업 폴더로 복사된 Vue tar 파일이 없습니다."
+
+# 11. 작업 폴더에 tar 압축 해제
 - name: Vue artifact 압축 해제
   win_shell: |
-    & tar.exe -xf "{{ vue.artifact_file }}" -C "{{ vue.temp_dir }}"
+    & tar.exe -xf "{{ vue_work_artifact }}" -C "{{ vue_work_dir }}"
 
     if ($LASTEXITCODE -ne 0) {
         throw "Vue artifact 압축 해제 실패"
     }
 
-- name: 압축 해제된 index.html 검색
+# 12. 압축 해제된 index.html 검색
+- name: Vue index.html 검색
   win_find:
-    paths: "{{ vue.temp_dir }}"
-    patterns: "index.html"
+    paths: "{{ vue_work_dir }}"
+    patterns:
+      - "index.html"
     recurse: yes
     file_type: file
   register: vue_index
@@ -79,47 +112,65 @@
   assert:
     that:
       - "vue_index.matched == 1"
-    msg: "tar 파일에서 index.html을 찾지 못했습니다."
+    msg: "tar 파일에서 index.html을 정확히 하나 찾지 못했습니다."
 
+# 13. 실제 배포할 소스 폴더 설정
 - name: Vue 배포 소스 경로 설정
   set_fact:
     vue_source_dir: "{{ vue_index.files[0].path | win_dirname }}"
 
+# 14. 기존 배포 폴더 삭제
+# 원본 artifact도 이때 삭제되지만 이미 work 폴더에 복사된 상태
 - name: 기존 Vue 배포 폴더 삭제
   win_file:
     path: "{{ vue.deploy_dir }}"
     state: absent
 
+# 15. 배포 폴더 재생성
 - name: Vue 배포 폴더 생성
   win_file:
     path: "{{ vue.deploy_dir }}"
     state: directory
 
+# 16. 새 Vue 파일 배포
 - name: Vue 파일 배포
-  win_copy:
-    src: "{{ vue_source_dir }}\\"
-    dest: "{{ vue.deploy_dir }}\\"
-    remote_src: yes
+  win_shell: |
+    $source = '{{ vue_source_dir }}'
+    $destination = '{{ vue.deploy_dir }}'
 
+    Copy-Item `
+      -Path "$source\*" `
+      -Destination $destination `
+      -Recurse `
+      -Force
+
+# 17. 배포 결과 확인
 - name: 배포된 index.html 확인
   win_stat:
     path: "{{ vue.deploy_dir }}\\index.html"
   register: vue_deployed_index
 
+- name: 배포된 assets 폴더 확인
+  win_stat:
+    path: "{{ vue.deploy_dir }}\\assets"
+  register: vue_deployed_assets
+
 - name: Vue 배포 결과 검증
   assert:
     that:
       - "vue_deployed_index.stat.exists"
-    msg: "Vue 배포 후 index.html이 없습니다."
+      - "vue_deployed_assets.stat.exists"
+    msg: "Vue 배포 후 index.html 또는 assets 폴더가 없습니다."
 
-- name: Vue 임시 폴더 정리
+# 18. 작업 폴더 정리
+- name: Vue 작업 폴더 정리
   win_file:
-    path: "{{ vue.temp_dir }}"
+    path: "{{ vue_work_dir }}"
     state: absent
 
+# 19. 배포 완료 출력
 - name: Vue 배포 완료
   debug:
     msg:
-      - "artifact={{ vue.artifact_file }}"
-      - "deploy={{ vue.deploy_dir }}"
-      - "backup={{ vue_backup_file }}"
+      - "배포 경로={{ vue.deploy_dir }}"
+      - "기존 배포 백업={{ vue_backup_file }}"
