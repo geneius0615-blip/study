@@ -1,14 +1,22 @@
 - name: 기존 Vue 배포 폴더 백업
   win_shell: |
-    $source = '{{ vue.deploy_dir }}\*'
-    $dest = '{{ vue_backup_file }}'
+    $sourceDir = '{{ vue.deploy_dir }}'
+    $destination = '{{ vue_backup_file }}'
 
-    if (Test-Path -LiteralPath $dest) {
-      Remove-Item -LiteralPath $dest -Force
+    if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
+        throw "Vue 배포 폴더가 없습니다: $sourceDir"
     }
 
-    Compress-Archive `
-      -Path $source `
-      -DestinationPath $dest `
-      -Force
-  when: vue_existing_index.stat.exists
+    if (Test-Path -LiteralPath $destination) {
+        Remove-Item -LiteralPath $destination -Force
+    }
+
+    & tar.exe -cf $destination -C $sourceDir .
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Vue 기존 배포 폴더 백업 실패. exit code=$LASTEXITCODE"
+    }
+  when:
+    - "vue_existing_dir.stat.exists"
+    - "vue_existing_dir.stat.isdir"
+    - "vue_existing_files.matched | int > 0"
