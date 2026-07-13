@@ -1,9 +1,5 @@
 vue:
-  home: 'E:\App\Vue'
-  deploy_dir: 'E:\App\Vue\client'
-  download_dir: 'E:\App\Vue\download'
+  deploy_dir: 'E:\Deploy\Vue\imap-client'
+  artifact_file: 'E:\Deploy\Vue\imap-client.tar'
   backup_dir: 'E:\Backup\Vue'
-  temp_dir: 'E:\App\Vue\temp'
-
-files:
-  artifact: "{{ vue.download_dir }}\\{{ artifact }}"
+  temp_dir: 'E:\Deploy\Vue\temp'
