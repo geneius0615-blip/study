@@ -1,41 +1,19 @@
 pipeline {
     agent any
 
-    options {
-        disableConcurrentBuilds()
-        timestamps()
-    }
-
-    parameters {
-        string(
-            name: 'SPRING_BRANCH',
-            defaultValue: 'develop',
-            description: 'Spring Boot Git branch'
-        )
-
-        string(
-            name: 'VUE_BRANCH',
-            defaultValue: 'develop',
-            description: 'Vue3 Git branch'
-        )
-    }
-
     environment {
-        SPRING_GIT_URL = 'https://github.com/company/imap-edge-backend.git'
-        VUE_GIT_URL = 'https://github.com/company/imap-edge-frontend.git'
-
-        GIT_CREDENTIALS_ID = 'git-credentials'
-
-        SPRING_DIR = 'spring'
         VUE_DIR = 'vue'
+        WORK_DIR = 'war-work'
         OUTPUT_DIR = 'output'
 
-        VUE_DIST_DIR = 'vue/dist'
-        SPRING_STATIC_DIR = 'spring/src/main/resources/static'
-        BUILD_INFO_FILE = 'spring/src/main/resources/build-info.properties'
-        SPRING_TARGET_DIR = 'spring/target'
+        // Jenkins에 전달된 원본 WAR
+        INPUT_WAR = 'input/imap-edge.war'
 
-        WAR_BASE_NAME = 'imap-edge'
+        // 최종 통합 WAR
+        OUTPUT_WAR = 'output/imap-edge-integrated.war'
+
+        VUE_GIT_URL = 'https://github.com/company/imap-web-client.git'
+        GIT_CREDENTIALS_ID = 'git-credentials'
     }
 
     stages {
@@ -43,54 +21,25 @@ pipeline {
             steps {
                 deleteDir()
 
-                script {
-                    env.BUILD_TIMESTAMP_VALUE = sh(
-                        script: 'date +%Y%m%d_%H%M%S',
-                        returnStdout: true
-                    ).trim()
-
-                    env.ARTIFACT_NAME =
-                        "${env.WAR_BASE_NAME}_${env.BUILD_NUMBER}_${env.BUILD_TIMESTAMP_VALUE}.war"
-                }
-
                 sh '''
-                    set -e
-
-                    mkdir -p "${OUTPUT_DIR}"
-
-                    echo "========================================"
-                    echo "JOB_NAME=${JOB_NAME}"
-                    echo "BUILD_NUMBER=${BUILD_NUMBER}"
-                    echo "BUILD_TIMESTAMP=${BUILD_TIMESTAMP_VALUE}"
-                    echo "ARTIFACT_NAME=${ARTIFACT_NAME}"
-                    echo "SPRING_BRANCH=${SPRING_BRANCH}"
-                    echo "VUE_BRANCH=${VUE_BRANCH}"
-                    echo "========================================"
+                    mkdir -p input
+                    mkdir -p output
+                    mkdir -p war-work
                 '''
             }
         }
 
-        stage('Checkout Spring Boot') {
+        stage('Receive Spring WAR') {
             steps {
-                dir("${SPRING_DIR}") {
-                    git(
-                        branch: "${params.SPRING_BRANCH}",
-                        credentialsId: "${GIT_CREDENTIALS_ID}",
-                        url: "${SPRING_GIT_URL}"
-                    )
+                // 여기에는 현재 프레임워크나 Jenkins에서
+                // WAR를 다운로드하는 기존 로직을 넣습니다.
 
-                    script {
-                        env.SPRING_COMMIT = sh(
-                            script: 'git rev-parse HEAD',
-                            returnStdout: true
-                        ).trim()
-
-                        env.SPRING_COMMIT_SHORT = sh(
-                            script: 'git rev-parse --short=8 HEAD',
-                            returnStdout: true
-                        ).trim()
+                sh '''
+                    test -f "${INPUT_WAR}" || {
+                        echo "전달된 Spring Boot WAR가 없습니다: ${INPUT_WAR}"
+                        exit 1
                     }
-                }
+                '''
             }
         }
 
@@ -98,51 +47,11 @@ pipeline {
             steps {
                 dir("${VUE_DIR}") {
                     git(
-                        branch: "${params.VUE_BRANCH}",
+                        branch: 'develop',
                         credentialsId: "${GIT_CREDENTIALS_ID}",
                         url: "${VUE_GIT_URL}"
                     )
-
-                    script {
-                        env.VUE_COMMIT = sh(
-                            script: 'git rev-parse HEAD',
-                            returnStdout: true
-                        ).trim()
-
-                        env.VUE_COMMIT_SHORT = sh(
-                            script: 'git rev-parse --short=8 HEAD',
-                            returnStdout: true
-                        ).trim()
-                    }
                 }
-            }
-        }
-
-        stage('Print Source Versions') {
-            steps {
-                sh '''
-                    echo "========================================"
-                    echo "Spring Branch=${SPRING_BRANCH}"
-                    echo "Spring Commit=${SPRING_COMMIT}"
-                    echo "Vue Branch=${VUE_BRANCH}"
-                    echo "Vue Commit=${VUE_COMMIT}"
-                    echo "Build Number=${BUILD_NUMBER}"
-                    echo "Build Time=${BUILD_TIMESTAMP_VALUE}"
-                    echo "========================================"
-                '''
-            }
-        }
-
-        stage('Check Build Tools') {
-            steps {
-                sh '''
-                    set -e
-
-                    node --version
-                    npm --version
-                    java -version
-                    mvn --version
-                '''
             }
         }
 
@@ -152,12 +61,10 @@ pipeline {
                     sh '''
                         set -e
 
-                        if [ ! -f package.json ]; then
-                            echo "package.json 파일이 없습니다: $(pwd)"
+                        test -f package.json || {
+                            echo "package.json이 없습니다."
                             exit 1
-                        fi
-
-                        npm config set ignore-scripts false
+                        }
 
                         if [ -f package-lock.json ]; then
                             npm ci
@@ -167,115 +74,83 @@ pipeline {
 
                         npm run build:development
 
-                        if [ ! -f dist/index.html ]; then
-                            echo "Vue 빌드 결과에 dist/index.html이 없습니다."
+                        test -f dist/index.html || {
+                            echo "Vue dist/index.html이 없습니다."
                             exit 1
-                        fi
-
-                        if [ ! -d dist/assets ]; then
-                            echo "Vue 빌드 결과에 dist/assets 폴더가 없습니다."
-                            exit 1
-                        fi
+                        }
                     '''
                 }
             }
         }
 
-        stage('Merge Vue into Spring') {
+        stage('Extract WAR') {
             steps {
                 sh '''
                     set -e
 
-                    if [ ! -d "${VUE_DIST_DIR}" ]; then
-                        echo "Vue dist 폴더가 없습니다: ${VUE_DIST_DIR}"
+                    rm -rf "${WORK_DIR}"
+                    mkdir -p "${WORK_DIR}"
+
+                    cd "${WORK_DIR}"
+                    jar xf "../${INPUT_WAR}"
+                '''
+            }
+        }
+
+        stage('Merge Vue into WAR') {
+            steps {
+                sh '''
+                    set -e
+
+                    STATIC_DIR="${WORK_DIR}/WEB-INF/classes/static"
+
+                    rm -rf "${STATIC_DIR}"
+                    mkdir -p "${STATIC_DIR}"
+
+                    cp -a "${VUE_DIR}/dist/." "${STATIC_DIR}/"
+
+                    test -f "${STATIC_DIR}/index.html" || {
+                        echo "WAR 작업 폴더에 Vue index.html 복사가 실패했습니다."
                         exit 1
-                    fi
-
-                    rm -rf "${SPRING_STATIC_DIR}"
-                    mkdir -p "${SPRING_STATIC_DIR}"
-
-                    cp -a "${VUE_DIST_DIR}/." "${SPRING_STATIC_DIR}/"
-
-                    if [ ! -f "${SPRING_STATIC_DIR}/index.html" ]; then
-                        echo "Spring static에 index.html이 복사되지 않았습니다."
-                        exit 1
-                    fi
-
-                    if [ ! -d "${SPRING_STATIC_DIR}/assets" ]; then
-                        echo "Spring static에 assets 폴더가 복사되지 않았습니다."
-                        exit 1
-                    fi
+                    }
                 '''
             }
         }
 
         stage('Create Build Info') {
             steps {
-                sh '''
-                    set -e
+                script {
+                    env.VUE_COMMIT = sh(
+                        script: "git -C ${VUE_DIR} rev-parse HEAD",
+                        returnStdout: true
+                    ).trim()
+                }
 
-                    cat > "${BUILD_INFO_FILE}" <<EOF
+                sh '''
+                    cat > "${WORK_DIR}/WEB-INF/classes/build-info.properties" <<EOF
 build.job.name=${JOB_NAME}
 build.number=${BUILD_NUMBER}
-build.timestamp=${BUILD_TIMESTAMP_VALUE}
-build.artifact.name=${ARTIFACT_NAME}
-
-spring.branch=${SPRING_BRANCH}
-spring.commit=${SPRING_COMMIT}
-spring.commit.short=${SPRING_COMMIT_SHORT}
-
-vue.branch=${VUE_BRANCH}
 vue.commit=${VUE_COMMIT}
-vue.commit.short=${VUE_COMMIT_SHORT}
+source.war=${INPUT_WAR}
 EOF
-
-                    echo "========================================"
-                    echo "build-info.properties"
-                    echo "========================================"
-                    cat "${BUILD_INFO_FILE}"
                 '''
             }
         }
 
-        stage('Build Spring Boot WAR') {
+        stage('Repackage WAR') {
             steps {
-                dir("${SPRING_DIR}") {
-                    sh '''
-                        set -e
-
-                        if [ ! -f pom.xml ]; then
-                            echo "pom.xml 파일이 없습니다: $(pwd)"
-                            exit 1
-                        fi
-
-                        mvn clean package -DskipTests
-                    '''
-                }
-            }
-        }
-
-        stage('Find Built WAR') {
-            steps {
-                script {
-                    env.BUILT_WAR = sh(
-                        script: '''
-                            find "${SPRING_TARGET_DIR}" \
-                                -maxdepth 1 \
-                                -type f \
-                                -name "*.war" \
-                                ! -name "*.war.original" \
-                                | head -1
-                        ''',
-                        returnStdout: true
-                    ).trim()
-
-                    if (!env.BUILT_WAR) {
-                        error('Spring Boot WAR 파일을 찾을 수 없습니다.')
-                    }
-                }
-
                 sh '''
-                    echo "BUILT_WAR=${BUILT_WAR}"
+                    set -e
+
+                    rm -f "${OUTPUT_WAR}"
+
+                    cd "${WORK_DIR}"
+                    jar cf "../${OUTPUT_WAR}" .
+
+                    test -f "../${OUTPUT_WAR}" || {
+                        echo "최종 WAR 생성 실패"
+                        exit 1
+                    }
                 '''
             }
         }
@@ -285,47 +160,22 @@ EOF
                 sh '''
                     set -e
 
-                    jar tf "${BUILT_WAR}" \
-                        | grep -q 'WEB-INF/classes/static/index.html' || {
-                            echo "WAR 안에 Vue index.html이 없습니다."
+                    jar tf "${OUTPUT_WAR}" \
+                        | grep -q "WEB-INF/classes/static/index.html" || {
+                            echo "최종 WAR에 Vue index.html이 없습니다."
                             exit 1
                         }
 
-                    jar tf "${BUILT_WAR}" \
-                        | grep -q 'WEB-INF/classes/static/assets/' || {
-                            echo "WAR 안에 Vue assets가 없습니다."
+                    jar tf "${OUTPUT_WAR}" \
+                        | grep -q "WEB-INF/classes/static/assets/" || {
+                            echo "최종 WAR에 Vue assets가 없습니다."
                             exit 1
                         }
-
-                    jar tf "${BUILT_WAR}" \
-                        | grep -q 'WEB-INF/classes/build-info.properties' || {
-                            echo "WAR 안에 build-info.properties가 없습니다."
-                            exit 1
-                        }
-
-                    echo "WAR 내부 파일 확인 완료"
                 '''
             }
         }
 
-        stage('Package Artifact') {
-            steps {
-                sh '''
-                    set -e
-
-                    cp "${BUILT_WAR}" "${OUTPUT_DIR}/${ARTIFACT_NAME}"
-
-                    if [ ! -f "${OUTPUT_DIR}/${ARTIFACT_NAME}" ]; then
-                        echo "최종 WAR 복사에 실패했습니다."
-                        exit 1
-                    fi
-
-                    ls -lh "${OUTPUT_DIR}/${ARTIFACT_NAME}"
-                '''
-            }
-        }
-
-        stage('Archive Artifact') {
+        stage('Archive WAR') {
             steps {
                 archiveArtifacts(
                     artifacts: 'output/*.war',
@@ -333,33 +183,6 @@ EOF
                     onlyIfSuccessful: true
                 )
             }
-        }
-    }
-
-    post {
-        success {
-            echo """
-빌드 성공
-
-Spring Branch : ${params.SPRING_BRANCH}
-Spring Commit : ${env.SPRING_COMMIT}
-
-Vue Branch    : ${params.VUE_BRANCH}
-Vue Commit    : ${env.VUE_COMMIT}
-
-WAR           : output/${env.ARTIFACT_NAME}
-"""
-        }
-
-        failure {
-            echo 'Spring Boot + Vue3 통합 WAR 빌드가 실패했습니다.'
-        }
-
-        cleanup {
-            sh '''
-                rm -f "${BUILD_INFO_FILE}" || true
-                rm -rf "${SPRING_STATIC_DIR}" || true
-            '''
         }
     }
 }
