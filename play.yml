@@ -18,17 +18,17 @@
     - import_tasks: roles/app/tasks/backup.yml
       tags: backup
 
+    - import_tasks: roles/app/tasks/stop.yml
+      tags: stop
+
     - import_tasks: roles/app/tasks/clean.yml
       tags: clean
 
-    - import_tasks: roles/app/tasks/extract.yml
-      tags: extract
+    - import_tasks: roles/app/tasks/deploy.yml
+      tags: deploy
 
-    - import_tasks: roles/app/tasks/venv.yml
-      tags: venv
-
-    - import_tasks: roles/app/tasks/service.yml
-      tags: service
+    - import_tasks: roles/app/tasks/start.yml
+      tags: start
 
     - import_tasks: roles/app/tasks/nginx.yml
       tags: nginx
