@@ -1,18 +1,18 @@
 ---
 - name: Create Spring deployment timestamp
-  ansible.builtin.set_fact:
+  set_fact:
     spring_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
 
 - name: Create Spring calculated variables
-  ansible.builtin.set_fact:
-    spring_backup_file: >-
-      {{ spring.backup_dir }}\{{ spring.name }}_{{ spring.build_number }}_{{ spring_timestamp }}.zip
+  set_fact:
+    spring_backup_file: "{{ spring.backup_dir }}\\{{ spring.name }}_{{ spring.build_number | default('manual') }}_{{ spring_timestamp }}.zip"
 
 - name: Show Spring deployment context
-  ansible.builtin.debug:
+  debug:
     msg:
-      - "Spring name       : {{ spring.name }}"
-      - "Deploy directory  : {{ spring.deploy_dir }}"
-      - "WAR file          : {{ spring.war_file }}"
-      - "Exploded directory: {{ spring.exploded_dir }}"
-      - "Backup file       : {{ spring_backup_file }}"
+      - "Spring name        : {{ spring.name }}"
+      - "Deploy directory   : {{ spring.deploy_dir }}"
+      - "WAR file           : {{ spring.war_file }}"
+      - "Exploded directory : {{ spring.exploded_dir }}"
+      - "Backup directory   : {{ spring.backup_dir }}"
+      - "Backup file        : {{ spring_backup_file }}"
