@@ -1,5 +1,3 @@
-- name: Test PowerShell win shell
-  win_shell: |
-    Write-Output "PowerShell execution success"
-  args:
-    executable: powershell.exe
+- name: Show Spring backup result
+  debug:
+    var: spring_backup_result.stdout_lines
