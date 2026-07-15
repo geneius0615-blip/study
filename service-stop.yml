@@ -5,47 +5,61 @@
   register: tomcat_shutdown_result
   failed_when: false
 
-- name: Wait for Tomcat process to stop
+- name: Wait after Tomcat shutdown
   win_shell: |
-    $process = Get-CimInstance Win32_Process |
-      Where-Object {
-        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
-      }
+    Start-Sleep -Seconds 5
+  changed_when: false
 
-    if ($process) {
-        exit 1
+- name: Find remaining Tomcat process
+  win_shell: |
+    $processes = Get-CimInstance Win32_Process | Where-Object {
+        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
+        (
+            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
+            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
+        )
     }
 
-    exit 0
-  register: tomcat_process_check
-  retries: 10
-  delay: 3
-  until: tomcat_process_check.rc == 0
+    if ($processes) {
+        $processes | ForEach-Object {
+            Write-Output $_.ProcessId
+        }
+    }
+  register: tomcat_remaining_process
   changed_when: false
-  failed_when: false
+
+- name: Show remaining Tomcat process
+  debug:
+    msg: "Remaining Tomcat PID: {{ tomcat_remaining_process.stdout | default('') }}"
 
 - name: Force stop remaining Tomcat process
   win_shell: |
-    Get-CimInstance Win32_Process |
-      Where-Object {
+    $processes = Get-CimInstance Win32_Process | Where-Object {
         ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
-      } |
-      ForEach-Object {
+        (
+            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
+            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
+        )
+    }
+
+    $processes | ForEach-Object {
         Stop-Process -Id $_.ProcessId -Force
-      }
-  when: tomcat_process_check.rc != 0
+    }
+  when:
+    - tomcat_remaining_process.stdout is defined
+    - tomcat_remaining_process.stdout | trim | length > 0
 
 - name: Verify Tomcat process stopped
   win_shell: |
-    $process = Get-CimInstance Win32_Process |
-      Where-Object {
+    $processes = Get-CimInstance Win32_Process | Where-Object {
         ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
-      }
+        (
+            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
+            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
+        )
+    }
 
-    if ($process) {
+    if ($processes) {
         exit 1
     }
 
