@@ -1,11 +1,43 @@
 ---
-- name: Clean deploy items only
-  win_file:
-    path: "{{ item }}"
+- name: Validate Spring backup status before clean
+  ansible.builtin.assert:
+    that:
+      - spring_backup_success | default(false) | bool
+    fail_msg: >-
+      Spring 백업이 완료되지 않았으므로 기존 배포본을 삭제할 수 없습니다.
+    success_msg: >-
+      Spring 백업 상태가 정상입니다. Clean 작업을 진행합니다.
+
+- name: Remove existing Spring WAR
+  ansible.windows.win_file:
+    path: "{{ spring.war_file }}"
     state: absent
-  loop:
-    - "{{ dirs.apps }}"
-    - "{{ dirs.packages }}"
-    - "{{ dirs.scripts }}"
-    - "{{ files.requirements }}"
-    - "{{ files.pyproject }}"
+  when: spring_war_stat.stat.exists
+
+- name: Remove existing Spring exploded directory
+  ansible.windows.win_file:
+    path: "{{ spring.exploded_dir }}"
+    state: absent
+  when: spring_exploded_stat.stat.exists
+
+- name: Check Spring WAR after clean
+  ansible.windows.win_stat:
+    path: "{{ spring.war_file }}"
+  register: spring_war_after_clean
+
+- name: Check Spring exploded directory after clean
+  ansible.windows.win_stat:
+    path: "{{ spring.exploded_dir }}"
+  register: spring_exploded_after_clean
+
+- name: Validate Spring clean result
+  ansible.builtin.assert:
+    that:
+      - not spring_war_after_clean.stat.exists
+      - not spring_exploded_after_clean.stat.exists
+    fail_msg: >-
+      Spring 기존 배포본 삭제에 실패했습니다.
+      WAR={{ spring.war_file }}
+      디렉터리={{ spring.exploded_dir }}
+    success_msg: >-
+      Spring 기존 WAR와 압축 해제 디렉터리가 정상적으로 삭제되었습니다.
