@@ -1,1 +1,57 @@
- 
+---
+- name: Stop Tomcat by shutdown script
+  win_shell: |
+    cmd /c call "{{ tomcat.home }}\bin\shutdown.bat"
+  register: tomcat_shutdown_result
+  failed_when: false
+
+- name: Wait for Tomcat process to stop
+  win_shell: |
+    $process = Get-CimInstance Win32_Process |
+      Where-Object {
+        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
+        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
+      }
+
+    if ($process) {
+        exit 1
+    }
+
+    exit 0
+  register: tomcat_process_check
+  retries: 10
+  delay: 3
+  until: tomcat_process_check.rc == 0
+  changed_when: false
+  failed_when: false
+
+- name: Force stop remaining Tomcat process
+  win_shell: |
+    Get-CimInstance Win32_Process |
+      Where-Object {
+        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
+        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
+      } |
+      ForEach-Object {
+        Stop-Process -Id $_.ProcessId -Force
+      }
+  when: tomcat_process_check.rc != 0
+
+- name: Verify Tomcat process stopped
+  win_shell: |
+    $process = Get-CimInstance Win32_Process |
+      Where-Object {
+        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
+        $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*"
+      }
+
+    if ($process) {
+        exit 1
+    }
+
+    exit 0
+  register: tomcat_final_check
+  retries: 10
+  delay: 2
+  until: tomcat_final_check.rc == 0
+  changed_when: false
