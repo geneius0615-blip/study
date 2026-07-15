@@ -1,119 +1,111 @@
 ---
 - name: Ensure Spring backup directory exists
-  ansible.windows.win_file:
+  win_file:
     path: "{{ spring.backup_dir }}"
     state: directory
 
 - name: Check current Spring WAR
-  ansible.windows.win_stat:
+  win_stat:
     path: "{{ spring.war_file }}"
   register: spring_war_stat
 
 - name: Check current Spring exploded directory
-  ansible.windows.win_stat:
+  win_stat:
     path: "{{ spring.exploded_dir }}"
   register: spring_exploded_stat
 
 - name: Set Spring deployment existence status
-  ansible.builtin.set_fact:
-    spring_existing_deployment: >-
-      {{
-        spring_war_stat.stat.exists
-        or spring_exploded_stat.stat.exists
-      }}
+  set_fact:
+    spring_existing_deployment: "{{ spring_war_stat.stat.exists or spring_exploded_stat.stat.exists }}"
 
 - name: Show Spring backup status
-  ansible.builtin.debug:
+  debug:
     msg:
       - "WAR exists      : {{ spring_war_stat.stat.exists }}"
       - "Exploded exists : {{ spring_exploded_stat.stat.exists }}"
       - "Backup required : {{ spring_existing_deployment }}"
 
 - name: Create Spring deployment backup
-  ansible.windows.win_powershell:
-    script: |
-      $ErrorActionPreference = "Stop"
+  win_shell: |
+    $ErrorActionPreference = "Stop"
 
-      $backupFile = '{{ spring_backup_file }}'
-      $warFile = '{{ spring.war_file }}'
-      $explodedDir = '{{ spring.exploded_dir }}'
+    $backupFile = "{{ spring_backup_file }}"
+    $warFile = "{{ spring.war_file }}"
+    $explodedDir = "{{ spring.exploded_dir }}"
 
-      $backupItems = @()
+    $backupItems = @()
 
-      if (Test-Path -LiteralPath $warFile -PathType Leaf) {
-          $backupItems += $warFile
-      }
+    if (Test-Path -LiteralPath $warFile -PathType Leaf) {
+        $backupItems += $warFile
+    }
 
-      if (Test-Path -LiteralPath $explodedDir -PathType Container) {
-          $backupItems += $explodedDir
-      }
+    if (Test-Path -LiteralPath $explodedDir -PathType Container) {
+        $backupItems += $explodedDir
+    }
 
-      if ($backupItems.Count -eq 0) {
-          Write-Output "Existing Spring deployment was not found."
-          exit 0
-      }
+    if ($backupItems.Count -eq 0) {
+        Write-Output "Existing Spring deployment was not found."
+        exit 0
+    }
 
-      if (Test-Path -LiteralPath $backupFile) {
-          Remove-Item `
-              -LiteralPath $backupFile `
-              -Force
-      }
+    if (Test-Path -LiteralPath $backupFile) {
+        Remove-Item -LiteralPath $backupFile -Force
+    }
 
-      Compress-Archive `
-          -LiteralPath $backupItems `
-          -DestinationPath $backupFile `
-          -CompressionLevel Optimal `
-          -Force
+    Compress-Archive `
+        -LiteralPath $backupItems `
+        -DestinationPath $backupFile `
+        -CompressionLevel Optimal `
+        -Force
 
-      if (-not (Test-Path -LiteralPath $backupFile -PathType Leaf)) {
-          throw "Spring backup file was not created: $backupFile"
-      }
+    if (-not (Test-Path -LiteralPath $backupFile)) {
+        throw "Backup file was not created."
+    }
 
-      $backupInfo = Get-Item -LiteralPath $backupFile
+    $backupInfo = Get-Item $backupFile
 
-      if ($backupInfo.Length -le 0) {
-          throw "Spring backup file is empty: $backupFile"
-      }
+    if ($backupInfo.Length -le 0) {
+        throw "Backup file size is zero."
+    }
 
-      Write-Output "Spring backup completed."
-      Write-Output "Backup file: $backupFile"
-      Write-Output "Backup size: $($backupInfo.Length) bytes"
+    Write-Output "Backup completed."
+    Write-Output "Backup file : $backupFile"
+    Write-Output "Backup size : $($backupInfo.Length)"
+
+  args:
+    executable: powershell.exe
+
   register: spring_backup_result
   when: spring_existing_deployment
 
 - name: Mark Spring backup success
-  ansible.builtin.set_fact:
+  set_fact:
     spring_backup_success: true
   when:
     - spring_existing_deployment
-    - spring_backup_result is succeeded
+    - spring_backup_result.rc == 0
 
 - name: Mark backup unnecessary for first deployment
-  ansible.builtin.set_fact:
+  set_fact:
     spring_backup_success: true
   when: not spring_existing_deployment
 
 - name: Show Spring backup result
-  ansible.builtin.debug:
-    var: spring_backup_result.output
+  debug:
+    var: spring_backup_result.stdout_lines
   when:
     - spring_existing_deployment
-    - spring_backup_result.output is defined
+    - spring_backup_result.stdout_lines is defined
 
 - name: Verify Spring backup file
-  ansible.windows.win_stat:
+  win_stat:
     path: "{{ spring_backup_file }}"
   register: spring_backup_stat
   when: spring_existing_deployment
 
-- name: Fail when Spring backup was not created
-  ansible.builtin.fail:
-    msg: >-
-      기존 Spring 배포본이 존재하지만 백업 파일이 정상적으로 생성되지 않았습니다.
-      Clean 작업을 중단합니다.
-      예상 백업 파일: {{ spring_backup_file }}
+- name: Verify Spring backup size
+  fail:
+    msg: "Spring 백업 파일이 생성되지 않았거나 크기가 0입니다."
   when:
     - spring_existing_deployment
-    - >
-      not spring_backup_stat.stat.exists
-      or spring_backup_stat.stat.size | default(0) | int <= 0
+    - not spring_backup_stat.stat.exists or (spring_backup_stat.stat.size | int) <= 0
