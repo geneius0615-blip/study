@@ -20,41 +20,34 @@
 
 - name: Create Spring deployment backup
   win_shell: |
-    $ErrorActionPreference = "Stop"
-
     $backupFile = "{{ spring_backup_file }}"
     $warFile = "{{ spring.war_file }}"
     $explodedDir = "{{ spring.exploded_dir }}"
     $tempDir = "{{ spring.backup_dir }}\temp"
 
-    if (Test-Path $tempDir) {
-        Remove-Item $tempDir -Recurse -Force
+    if (Test-Path -LiteralPath $tempDir) {
+        Remove-Item -LiteralPath $tempDir -Recurse -Force
     }
 
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-    if (Test-Path $warFile) {
-        Copy-Item $warFile $tempDir -Force
+    if (Test-Path -LiteralPath $warFile -PathType Leaf) {
+        Copy-Item -LiteralPath $warFile -Destination $tempDir -Force
     }
 
-    if (Test-Path $explodedDir) {
-        Copy-Item $explodedDir $tempDir -Recurse -Force
+    if (Test-Path -LiteralPath $explodedDir -PathType Container) {
+        Copy-Item -LiteralPath $explodedDir -Destination $tempDir -Recurse -Force
     }
 
-    if (Test-Path $backupFile) {
-        Remove-Item $backupFile -Force
+    if (Test-Path -LiteralPath $backupFile) {
+        Remove-Item -LiteralPath $backupFile -Force
     }
 
-    Compress-Archive `
-        -Path "$tempDir\*" `
-        -DestinationPath $backupFile `
-        -Force
+    Compress-Archive -Path "$tempDir\*" -DestinationPath $backupFile -Force
 
-    Remove-Item $tempDir -Recurse -Force
-
-  args:
-    executable: powershell.exe
-
+    if (Test-Path -LiteralPath $tempDir) {
+        Remove-Item -LiteralPath $tempDir -Recurse -Force
+    }
   register: spring_backup_result
   when: spring_existing_deployment
 
@@ -66,7 +59,7 @@
 
 - name: Fail when Spring backup file is invalid
   fail:
-    msg: "Spring 백업 파일이 생성되지 않았거나 크기가 0입니다. ({{ spring_backup_file }})"
+    msg: "Spring 백업 파일이 생성되지 않았거나 크기가 0입니다: {{ spring_backup_file }}"
   when:
     - spring_existing_deployment
     - not spring_backup_stat.stat.exists or (spring_backup_stat.stat.size | default(0) | int) <= 0
