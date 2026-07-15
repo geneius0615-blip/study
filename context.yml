@@ -1,29 +1,18 @@
 ---
-- name: Build context
-  set_fact:
-    dirs:
-      home: "{{ python.home }}"
-      apps: "{{ python.home }}\\apps"
-      packages: "{{ python.home }}\\packages"
-      scripts: "{{ python.home }}\\scripts"
-      logs: "{{ python.home }}\\logs"
-      backup: "{{ backup.home }}"
-      lock: "{{ python.home }}\\.locks"
-      venv: "{{ python.home }}\\venv"
-      legacy_source: "{{ legacy.source }}"
+- name: Create Spring deployment timestamp
+  ansible.builtin.set_fact:
+    spring_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
 
-    files:
-      python: "{{ python.home }}\\venv\\Scripts\\python.exe"
-      requirements: "{{ python.home }}\\requirements.txt"
-      artifact: "{{ python.home }}\\{{ artifact.name }}"
-      lock: "{{ python.home }}\\.locks\\python.deploy.lock"
+- name: Create Spring calculated variables
+  ansible.builtin.set_fact:
+    spring_backup_file: >-
+      {{ spring.backup_dir }}\{{ spring.name }}_{{ spring.build_number }}_{{ spring_timestamp }}.zip
 
-      git_setup_bat: "{{ python.home }}\\scripts\\git_setup.bat"
-      server_config_bat: "{{ python.home }}\\scripts\\server_config.bat"
-      setup_venv_bat: "{{ python.home }}\\scripts\\setup_venv.bat"
-      install_packages_bat: "{{ python.home }}\\scripts\\install_packages.bat"
-
-    junctions:
-      apps:
-        link: "{{ legacy.source }}\\apps"
-        target: "{{ python.home }}\\apps"
+- name: Show Spring deployment context
+  ansible.builtin.debug:
+    msg:
+      - "Spring name       : {{ spring.name }}"
+      - "Deploy directory  : {{ spring.deploy_dir }}"
+      - "WAR file          : {{ spring.war_file }}"
+      - "Exploded directory: {{ spring.exploded_dir }}"
+      - "Backup file       : {{ spring_backup_file }}"
