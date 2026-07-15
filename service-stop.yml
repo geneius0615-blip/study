@@ -10,62 +10,45 @@
     Start-Sleep -Seconds 5
   changed_when: false
 
-- name: Find remaining Tomcat process
+- name: Find Tomcat process by port
   win_shell: |
-    $processes = Get-CimInstance Win32_Process | Where-Object {
-        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        (
-            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
-            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
-        )
-    }
+    $connection = Get-NetTCPConnection `
+        -LocalPort {{ tomcat.port }} `
+        -State Listen `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
 
-    if ($processes) {
-        $processes | ForEach-Object {
-            Write-Output $_.ProcessId
-        }
+    if ($connection) {
+        Write-Output $connection.OwningProcess
     }
-  register: tomcat_remaining_process
+  register: tomcat_port_process
   changed_when: false
 
-- name: Show remaining Tomcat process
+- name: Show Tomcat process id
   debug:
-    msg: "Remaining Tomcat PID: {{ tomcat_remaining_process.stdout | default('') }}"
+    msg: "Tomcat PID: {{ tomcat_port_process.stdout | default('') }}"
 
 - name: Force stop remaining Tomcat process
   win_shell: |
-    $processes = Get-CimInstance Win32_Process | Where-Object {
-        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        (
-            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
-            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
-        )
-    }
-
-    $processes | ForEach-Object {
-        Stop-Process -Id $_.ProcessId -Force
-    }
+    Stop-Process -Id {{ tomcat_port_process.stdout | trim }} -Force
   when:
-    - tomcat_remaining_process.stdout is defined
-    - tomcat_remaining_process.stdout | trim | length > 0
+    - tomcat_port_process.stdout is defined
+    - (tomcat_port_process.stdout | trim | length) > 0
 
-- name: Verify Tomcat process stopped
+- name: Wait until Tomcat port is released
   win_shell: |
-    $processes = Get-CimInstance Win32_Process | Where-Object {
-        ($_.Name -eq "java.exe" -or $_.Name -eq "javaw.exe") -and
-        (
-            $_.CommandLine -like "*-Dcatalina.home={{ tomcat.home }}*" -or
-            $_.CommandLine -like "*-Dcatalina.base={{ tomcat.home }}*"
-        )
-    }
+    $connection = Get-NetTCPConnection `
+        -LocalPort {{ tomcat.port }} `
+        -State Listen `
+        -ErrorAction SilentlyContinue
 
-    if ($processes) {
+    if ($connection) {
         exit 1
     }
 
     exit 0
-  register: tomcat_final_check
+  register: tomcat_port_check
   retries: 10
   delay: 2
-  until: tomcat_final_check.rc == 0
+  until: tomcat_port_check.rc == 0
   changed_when: false
