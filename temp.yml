@@ -1,18 +1,16 @@
-# 6. 배포 시간 생성
-- name: Vue 배포 시간 생성
-  win_shell: |
-    Get-Date -Format "yyyyMMdd_HHmmss"
-  register: vue_timestamp
-  changed_when: false
+---
+- hosts: windows
+  gather_facts: false
 
-# 7. 백업 경로 설정
-- name: Vue 백업 경로 설정
-  set_fact:
-    vue_backup_file: "{{ vue.backup_dir }}\\client_backup_{{ vue_timestamp.stdout | trim }}.tar"
-    artifact_backup_path: "{{ vue.backup_dir }}\\{{ artifact_name }}"
+  tasks:
+    - import_tasks: roles/spring/tasks/context.yml
+      tags:
+        - always
 
-# 8. 기존 배포 폴더 확인
-- name: 기존 Vue 배포 폴더 확인
-  win_stat:
-    path: "{{ vue.deploy_dir }}"
-  register: vue_existing_dir
+    - import_tasks: roles/spring/tasks/backup.yml
+      tags:
+        - backup
+
+    - import_tasks: roles/spring/tasks/clean.yml
+      tags:
+        - clean
