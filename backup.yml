@@ -18,90 +18,44 @@
   set_fact:
     spring_existing_deployment: "{{ spring_war_stat.stat.exists or spring_exploded_stat.stat.exists }}"
 
-- name: Show Spring backup context
-  debug:
-    msg:
-      - "WAR exists       : {{ spring_war_stat.stat.exists }}"
-      - "Exploded exists  : {{ spring_exploded_stat.stat.exists }}"
-      - "Backup required  : {{ spring_existing_deployment }}"
-      - "Backup directory : {{ spring.backup_dir }}"
-      - "Backup file      : {{ spring_backup_file }}"
-
 - name: Create Spring deployment backup
   win_shell: |
     $ErrorActionPreference = "Stop"
 
-    $backupFile  = "{{ spring_backup_file }}"
-    $backupDir   = "{{ spring.backup_dir }}"
-    $warFile     = "{{ spring.war_file }}"
+    $backupFile = "{{ spring_backup_file }}"
+    $warFile = "{{ spring.war_file }}"
     $explodedDir = "{{ spring.exploded_dir }}"
-    $stageDir    = Join-Path $backupDir "_spring_backup_stage"
+    $tempDir = "{{ spring.backup_dir }}\temp"
 
-    Write-Output "Backup File : $backupFile"
-    Write-Output "Stage Dir   : $stageDir"
-
-    if(Test-Path $stageDir){
-        Remove-Item $stageDir -Recurse -Force
+    if (Test-Path $tempDir) {
+        Remove-Item $tempDir -Recurse -Force
     }
 
-    New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-    $copied = $false
-
-    if(Test-Path $warFile){
-        Copy-Item $warFile $stageDir -Force
-        Write-Output "WAR copied."
-        $copied = $true
+    if (Test-Path $warFile) {
+        Copy-Item $warFile $tempDir -Force
     }
 
-    if(Test-Path $explodedDir){
-        Copy-Item $explodedDir $stageDir -Recurse -Force
-        Write-Output "Exploded directory copied."
-        $copied = $true
+    if (Test-Path $explodedDir) {
+        Copy-Item $explodedDir $tempDir -Recurse -Force
     }
 
-    if(-not $copied){
-        Remove-Item $stageDir -Recurse -Force
-        throw "Nothing to backup."
-    }
-
-    if(Test-Path $backupFile){
+    if (Test-Path $backupFile) {
         Remove-Item $backupFile -Force
     }
 
     Compress-Archive `
-        -Path "$stageDir\*" `
+        -Path "$tempDir\*" `
         -DestinationPath $backupFile `
-        -CompressionLevel Optimal `
         -Force
 
-    Remove-Item $stageDir -Recurse -Force
-
-    if(!(Test-Path $backupFile)){
-        throw "Backup file not created."
-    }
-
-    $size = (Get-Item $backupFile).Length
-
-    if($size -le 0){
-        throw "Backup file size is zero."
-    }
-
-    Write-Output "Backup completed."
-    Write-Output "Backup size : $size"
+    Remove-Item $tempDir -Recurse -Force
 
   args:
     executable: powershell.exe
 
   register: spring_backup_result
-  when: spring_existing_deployment
-
-- name: Show Spring backup result
-  debug:
-    msg:
-      - "RC      : {{ spring_backup_result.rc }}"
-      - "STDOUT  : {{ spring_backup_result.stdout }}"
-      - "STDERR  : {{ spring_backup_result.stderr }}"
   when: spring_existing_deployment
 
 - name: Verify Spring backup file
@@ -110,25 +64,12 @@
   register: spring_backup_stat
   when: spring_existing_deployment
 
-- name: Show Spring backup file
-  debug:
-    var: spring_backup_stat
-  when: spring_existing_deployment
-
-- name: Fail when backup file does not exist
+- name: Fail when Spring backup file is invalid
   fail:
-    msg: "Spring 백업 파일이 생성되지 않았습니다."
+    msg: "Spring 백업 파일이 생성되지 않았거나 크기가 0입니다. ({{ spring_backup_file }})"
   when:
     - spring_existing_deployment
-    - not spring_backup_stat.stat.exists
-
-- name: Fail when backup file size is zero
-  fail:
-    msg: "Spring 백업 파일 크기가 0 Byte 입니다."
-  when:
-    - spring_existing_deployment
-    - spring_backup_stat.stat.exists
-    - spring_backup_stat.stat.size | int <= 0
+    - not spring_backup_stat.stat.exists or (spring_backup_stat.stat.size | default(0) | int) <= 0
 
 - name: Mark Spring backup success
   set_fact:
@@ -136,7 +77,7 @@
   when:
     - spring_existing_deployment
     - spring_backup_stat.stat.exists
-    - spring_backup_stat.stat.size | int > 0
+    - (spring_backup_stat.stat.size | default(0) | int) > 0
 
 - name: Mark backup unnecessary
   set_fact:
