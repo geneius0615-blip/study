@@ -1,65 +1,119 @@
 ---
-- name: Create backup timestamp
-  win_shell: |
-    Get-Date -Format "yyyyMMdd_HHmmss"
-  register: backup_time
-  changed_when: false
-
-- name: Build backup paths
-  set_fact:
-    backup_work_dir: "{{ dirs.backup }}\\work_{{ backup_time.stdout | trim }}"
-    backup_zip_file: "{{ dirs.backup }}\\Python_{{ backup_time.stdout | trim }}.zip"
-
-- name: Create backup root directory
-  win_file:
-    path: "{{ dirs.backup }}"
+- name: Ensure Spring backup directory exists
+  ansible.windows.win_file:
+    path: "{{ spring.backup_dir }}"
     state: directory
 
-- name: Create backup work directory
-  win_file:
-    path: "{{ backup_work_dir }}"
-    state: directory
+- name: Check current Spring WAR
+  ansible.windows.win_stat:
+    path: "{{ spring.war_file }}"
+  register: spring_war_stat
 
-- name: Copy deploy items to backup work directory
-  win_shell: |
-    $workDir = "{{ backup_work_dir }}"
+- name: Check current Spring exploded directory
+  ansible.windows.win_stat:
+    path: "{{ spring.exploded_dir }}"
+  register: spring_exploded_stat
 
-    $items = @(
-      "{{ dirs.apps }}",
-      "{{ dirs.packages }}",
-      "{{ dirs.scripts }}",
-      "{{ files.requirements }}",
-      "{{ files.pyproject }}"
-    )
+- name: Set Spring deployment existence status
+  ansible.builtin.set_fact:
+    spring_existing_deployment: >-
+      {{
+        spring_war_stat.stat.exists
+        or spring_exploded_stat.stat.exists
+      }}
 
-    foreach ($item in $items) {
-      if (Test-Path $item) {
-        $name = Split-Path $item -Leaf
-        Copy-Item $item "$workDir\$name" -Recurse -Force
+- name: Show Spring backup status
+  ansible.builtin.debug:
+    msg:
+      - "WAR exists      : {{ spring_war_stat.stat.exists }}"
+      - "Exploded exists : {{ spring_exploded_stat.stat.exists }}"
+      - "Backup required : {{ spring_existing_deployment }}"
+
+- name: Create Spring deployment backup
+  ansible.windows.win_powershell:
+    script: |
+      $ErrorActionPreference = "Stop"
+
+      $backupFile = '{{ spring_backup_file }}'
+      $warFile = '{{ spring.war_file }}'
+      $explodedDir = '{{ spring.exploded_dir }}'
+
+      $backupItems = @()
+
+      if (Test-Path -LiteralPath $warFile -PathType Leaf) {
+          $backupItems += $warFile
       }
-    }
 
-- name: Check backup work directory contents
-  win_shell: |
-    $workDir = "{{ backup_work_dir }}"
+      if (Test-Path -LiteralPath $explodedDir -PathType Container) {
+          $backupItems += $explodedDir
+      }
 
-    if (-not (Test-Path "$workDir\*")) {
-      Write-Host "No backup target exists. Skip compress."
-      exit 0
-    }
+      if ($backupItems.Count -eq 0) {
+          Write-Output "Existing Spring deployment was not found."
+          exit 0
+      }
 
-- name: Compress backup work directory
-  win_shell: |
-    Compress-Archive `
-      -Path "{{ backup_work_dir }}\\*" `
-      -DestinationPath "{{ backup_zip_file }}" `
-      -Force
+      if (Test-Path -LiteralPath $backupFile) {
+          Remove-Item `
+              -LiteralPath $backupFile `
+              -Force
+      }
 
-- name: Remove backup work directory
-  win_file:
-    path: "{{ backup_work_dir }}"
-    state: absent
+      Compress-Archive `
+          -LiteralPath $backupItems `
+          -DestinationPath $backupFile `
+          -CompressionLevel Optimal `
+          -Force
 
-- name: Show backup file
-  debug:
-    msg: "Backup created: {{ backup_zip_file }}"
+      if (-not (Test-Path -LiteralPath $backupFile -PathType Leaf)) {
+          throw "Spring backup file was not created: $backupFile"
+      }
+
+      $backupInfo = Get-Item -LiteralPath $backupFile
+
+      if ($backupInfo.Length -le 0) {
+          throw "Spring backup file is empty: $backupFile"
+      }
+
+      Write-Output "Spring backup completed."
+      Write-Output "Backup file: $backupFile"
+      Write-Output "Backup size: $($backupInfo.Length) bytes"
+  register: spring_backup_result
+  when: spring_existing_deployment
+
+- name: Mark Spring backup success
+  ansible.builtin.set_fact:
+    spring_backup_success: true
+  when:
+    - spring_existing_deployment
+    - spring_backup_result is succeeded
+
+- name: Mark backup unnecessary for first deployment
+  ansible.builtin.set_fact:
+    spring_backup_success: true
+  when: not spring_existing_deployment
+
+- name: Show Spring backup result
+  ansible.builtin.debug:
+    var: spring_backup_result.output
+  when:
+    - spring_existing_deployment
+    - spring_backup_result.output is defined
+
+- name: Verify Spring backup file
+  ansible.windows.win_stat:
+    path: "{{ spring_backup_file }}"
+  register: spring_backup_stat
+  when: spring_existing_deployment
+
+- name: Fail when Spring backup was not created
+  ansible.builtin.fail:
+    msg: >-
+      기존 Spring 배포본이 존재하지만 백업 파일이 정상적으로 생성되지 않았습니다.
+      Clean 작업을 중단합니다.
+      예상 백업 파일: {{ spring_backup_file }}
+  when:
+    - spring_existing_deployment
+    - >
+      not spring_backup_stat.stat.exists
+      or spring_backup_stat.stat.size | default(0) | int <= 0
