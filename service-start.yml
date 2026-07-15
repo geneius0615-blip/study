@@ -1,1 +1,52 @@
- 
+---
+- name: Check Tomcat port before start
+  win_shell: |
+    $connection = Get-NetTCPConnection `
+        -LocalPort {{ tomcat.port }} `
+        -State Listen `
+        -ErrorAction SilentlyContinue
+
+    if ($null -ne $connection) {
+        Write-Output "RUNNING"
+    }
+    else {
+        Write-Output "STOPPED"
+    }
+
+    exit 0
+  register: tomcat_before_start
+  changed_when: false
+  failed_when: false
+
+- name: Start Tomcat by startup script
+  win_shell: |
+    if (-not (Test-Path -LiteralPath "{{ tomcat.home }}\bin\startup.bat")) {
+        Write-Error "startup.bat file was not found."
+        exit 1
+    }
+
+    cmd /c call "{{ tomcat.home }}\bin\startup.bat"
+  register: tomcat_start_result
+  when: "'STOPPED' in tomcat_before_start.stdout"
+
+- name: Wait until Tomcat port is listening
+  win_shell: |
+    $connection = Get-NetTCPConnection `
+        -LocalPort {{ tomcat.port }} `
+        -State Listen `
+        -ErrorAction SilentlyContinue
+
+    if ($null -ne $connection) {
+        exit 0
+    }
+
+    exit 1
+  register: tomcat_start_check
+  retries: 30
+  delay: 2
+  until: tomcat_start_check.rc == 0
+  changed_when: false
+
+- name: Show Tomcat start result
+  debug:
+    msg: "Tomcat started. Port {{ tomcat.port }} is listening."
