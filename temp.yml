@@ -1,3 +1,8 @@
-- name: Show Spring backup result
-  debug:
-    var: spring_backup_result.stdout_lines
+- name: Check PowerShell version
+  win_shell: |
+    $PSVersionTable.PSVersion
+
+  register: ps_version
+
+- debug:
+    var: ps_version.stdout
