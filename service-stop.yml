@@ -1,7 +1,9 @@
 ---
-- name: Stop Tomcat by shutdown script
+- name: Try to stop Tomcat by shutdown script
   win_shell: |
-    cmd /c call "{{ tomcat.home }}\bin\shutdown.bat"
+    if (Test-Path -LiteralPath "{{ tomcat.home }}\bin\shutdown.bat") {
+        cmd /c call "{{ tomcat.home }}\bin\shutdown.bat"
+    }
   register: tomcat_shutdown_result
   failed_when: false
 
@@ -18,19 +20,22 @@
         -ErrorAction SilentlyContinue |
         Select-Object -First 1
 
-    if ($connection) {
+    if ($null -ne $connection) {
         Write-Output $connection.OwningProcess
     }
+
+    exit 0
   register: tomcat_port_process
   changed_when: false
-
-- name: Show Tomcat process id
-  debug:
-    msg: "Tomcat PID: {{ tomcat_port_process.stdout | default('') }}"
+  failed_when: false
 
 - name: Force stop remaining Tomcat process
   win_shell: |
-    Stop-Process -Id {{ tomcat_port_process.stdout | trim }} -Force
+    $processId = "{{ tomcat_port_process.stdout | default('') | trim }}"
+
+    if ($processId) {
+        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+    }
   when:
     - tomcat_port_process.stdout is defined
     - (tomcat_port_process.stdout | trim | length) > 0
@@ -42,13 +47,17 @@
         -State Listen `
         -ErrorAction SilentlyContinue
 
-    if ($connection) {
-        exit 1
+    if ($null -eq $connection) {
+        exit 0
     }
 
-    exit 0
-  register: tomcat_port_check
+    exit 1
+  register: tomcat_stop_check
   retries: 10
   delay: 2
-  until: tomcat_port_check.rc == 0
+  until: tomcat_stop_check.rc == 0
   changed_when: false
+
+- name: Show Tomcat stop result
+  debug:
+    msg: "Tomcat stopped. Port {{ tomcat.port }} is not listening."
