@@ -1,1 +1,57 @@
- 
+---
+- name: Validate Spring backup retention count
+  assert:
+    that:
+      - backup_retention.keep_count is defined
+      - backup_retention.keep_count | int >= 0
+    msg: 'backup_retention.keep_count는 0 이상의 숫자여야 합니다.'
+
+- name: Remove old Spring backup files
+  win_shell: |
+    $backupDirectory = "{{ spring.backup_dir }}"
+    $keepCount = {{ backup_retention.keep_count | int }}
+    $filePattern = "{{ spring.backup_pattern | default('*.war') }}"
+
+    if (-not (Test-Path -LiteralPath $backupDirectory)) {
+        Write-Output "BACKUP_DIRECTORY_NOT_FOUND=$backupDirectory"
+        exit 0
+    }
+
+    $backupFiles = @(
+        Get-ChildItem `
+            -LiteralPath $backupDirectory `
+            -File `
+            -Filter $filePattern `
+            -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+    )
+
+    Write-Output "BACKUP_DIRECTORY=$backupDirectory"
+    Write-Output "BACKUP_PATTERN=$filePattern"
+    Write-Output "TOTAL_COUNT=$($backupFiles.Count)"
+    Write-Output "KEEP_COUNT=$keepCount"
+
+    $deleteFiles = @(
+        $backupFiles |
+        Select-Object -Skip $keepCount
+    )
+
+    foreach ($file in $deleteFiles) {
+        Write-Output "DELETE=$($file.FullName)"
+
+        Remove-Item `
+            -LiteralPath $file.FullName `
+            -Force `
+            -ErrorAction Stop
+    }
+
+    Write-Output "DELETE_COUNT=$($deleteFiles.Count)"
+    exit 0
+  register: spring_backup_cleanup_result
+  changed_when: >-
+    'DELETE_COUNT=0' not in
+    spring_backup_cleanup_result.stdout
+
+- name: Show Spring backup cleanup result
+  debug:
+    var: spring_backup_cleanup_result.stdout_lines
