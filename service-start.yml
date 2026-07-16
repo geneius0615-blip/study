@@ -1,47 +1,10 @@
 ---
-- name: Check Tomcat Windows service
-  win_shell: |
-    $service = Get-Service `
-        -Name "{{ tomcat.service_name }}" `
-        -ErrorAction SilentlyContinue
-
-    if ($null -eq $service) {
-        Write-Error "Tomcat Windows service was not found: {{ tomcat.service_name }}"
-        exit 1
-    }
-
-    Write-Output $service.Status
-    exit 0
-  register: tomcat_before_start
-  changed_when: false
-
 - name: Start Tomcat Windows service
   win_service:
     name: "{{ tomcat.service_name }}"
     state: started
     start_mode: auto
   register: tomcat_start_result
-  when: "'Running' not in tomcat_before_start.stdout"
-
-- name: Wait until Tomcat Windows service is running
-  win_shell: |
-    $service = Get-Service `
-        -Name "{{ tomcat.service_name }}" `
-        -ErrorAction SilentlyContinue
-
-    if (
-        $null -ne $service -and
-        $service.Status -eq "Running"
-    ) {
-        exit 0
-    }
-
-    exit 1
-  register: tomcat_service_start_check
-  retries: 30
-  delay: 2
-  until: tomcat_service_start_check.rc == 0
-  changed_when: false
 
 - name: Wait until Tomcat port is listening
   win_shell: |
@@ -63,6 +26,4 @@
 
 - name: Show Tomcat start result
   debug:
-    msg:
-      - "Tomcat service is running: {{ tomcat.service_name }}"
-      - "Tomcat port is listening: {{ tomcat.port }}"
+    msg: "Tomcat service started. Port {{ tomcat.port }} is listening."
