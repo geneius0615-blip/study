@@ -8,3 +8,4 @@ add_header Content-Security-Policy "default-src 'self';" always;
 
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
