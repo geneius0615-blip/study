@@ -1,10 +1,23 @@
 ---
-- name: Start Tomcat Windows service
+- name: Check Tomcat service
+  win_shell: |
+    $service = Get-Service `
+        -Name "{{ tomcat.service_name }}" `
+        -ErrorAction SilentlyContinue
+
+    if ($null -eq $service) {
+        Write-Error "Tomcat service '{{ tomcat.service_name }}' was not found."
+        exit 1
+    }
+
+    exit 0
+  changed_when: false
+
+- name: Start Tomcat service
   win_service:
     name: "{{ tomcat.service_name }}"
     state: started
     start_mode: auto
-  register: tomcat_start_result
 
 - name: Wait until Tomcat port is listening
   win_shell: |
@@ -26,6 +39,4 @@
 
 - name: Show Tomcat start result
   debug:
-    msg:
-      - "Tomcat service started: {{ tomcat.service_name }}"
-      - "Tomcat port is listening: {{ tomcat.port }}"
+    msg: "Tomcat service started. Port {{ tomcat.port }} is listening."
