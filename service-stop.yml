@@ -1,44 +1,9 @@
 ---
-- name: Try to stop Tomcat by shutdown script
-  win_shell: |
-    if (Test-Path -LiteralPath "{{ tomcat.home }}\bin\shutdown.bat") {
-        cmd /c call "{{ tomcat.home }}\bin\shutdown.bat"
-    }
-  register: tomcat_shutdown_result
-  failed_when: false
-
-- name: Wait after Tomcat shutdown
-  win_shell: |
-    Start-Sleep -Seconds 5
-  changed_when: false
-
-- name: Find Tomcat process by port
-  win_shell: |
-    $connection = Get-NetTCPConnection `
-        -LocalPort {{ tomcat.port }} `
-        -State Listen `
-        -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-
-    if ($null -ne $connection) {
-        Write-Output $connection.OwningProcess
-    }
-
-    exit 0
-  register: tomcat_port_process
-  changed_when: false
-  failed_when: false
-
-- name: Force stop remaining Tomcat process
-  win_shell: |
-    $processId = "{{ tomcat_port_process.stdout | default('') | trim }}"
-
-    if ($processId) {
-        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-    }
-  when:
-    - tomcat_port_process.stdout is defined
-    - (tomcat_port_process.stdout | trim | length) > 0
+- name: Stop Tomcat Windows service
+  win_service:
+    name: "{{ tomcat.service_name }}"
+    state: stopped
+  register: tomcat_stop_result
 
 - name: Wait until Tomcat port is released
   win_shell: |
@@ -53,11 +18,11 @@
 
     exit 1
   register: tomcat_stop_check
-  retries: 10
+  retries: 30
   delay: 2
   until: tomcat_stop_check.rc == 0
   changed_when: false
 
 - name: Show Tomcat stop result
   debug:
-    msg: "Tomcat stopped. Port {{ tomcat.port }} is not listening."
+    msg: "Tomcat service stopped. Port {{ tomcat.port }} is not listening."
