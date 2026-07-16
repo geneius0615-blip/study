@@ -26,4 +26,6 @@
 
 - name: Show Tomcat start result
   debug:
-    msg: "Tomcat service started. Port {{ tomcat.port }} is listening."
+    msg:
+      - "Tomcat service started: {{ tomcat.service_name }}"
+      - "Tomcat port is listening: {{ tomcat.port }}"
