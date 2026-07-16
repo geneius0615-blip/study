@@ -8,56 +8,87 @@
 
 - name: Remove old Spring backup files
   win_shell: |
-    $backupDirectory = "{{ spring.backup_dir }}"
-    $keepCount = {{ spring.backup_keep_count | int }}
+    $ErrorActionPreference = "Stop"
 
-    if (-not (Test-Path -LiteralPath $backupDirectory)) {
-        Write-Output "RESULT=BACKUP_DIRECTORY_NOT_FOUND"
-        Write-Output "BACKUP_DIRECTORY=$backupDirectory"
-        exit 0
+    $backupDirectory = "{{ spring.backup_dir }}"
+    $keepCount = [int]{{ spring.backup_keep_count | int }}
+
+    Write-Output "BACKUP_DIRECTORY=$backupDirectory"
+    Write-Output "KEEP_COUNT=$keepCount"
+
+    if (-not (Test-Path -LiteralPath $backupDirectory -PathType Container)) {
+        Write-Error "백업 폴더가 없습니다: $backupDirectory"
+        exit 1
     }
 
-    $backupFiles = @(
-        Get-ChildItem `
-            -LiteralPath $backupDirectory `
-            -File `
-            -Filter "*.zip" `
-            -ErrorAction Stop |
+    # ZIP 파일을 명시적인 배열로 생성
+    [array]$backupFiles = Get-ChildItem `
+        -LiteralPath $backupDirectory `
+        -Filter "*.zip" `
+        -File |
         Sort-Object `
             -Property LastWriteTime `
             -Descending
-    )
 
-    Write-Output "BACKUP_DIRECTORY=$backupDirectory"
-    Write-Output "TOTAL_COUNT=$($backupFiles.Count)"
-    Write-Output "KEEP_COUNT=$keepCount"
+    $totalCount = $backupFiles.Count
+
+    Write-Output "TOTAL_COUNT=$totalCount"
 
     foreach ($file in $backupFiles) {
-        Write-Output "FOUND=$($file.Name)"
+        Write-Output "FOUND=$($file.FullName)"
+        Write-Output "LAST_WRITE_TIME=$($file.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))"
     }
 
-    $deleteFiles = @(
-        $backupFiles |
-        Select-Object -Skip $keepCount
-    )
+    if ($totalCount -le $keepCount) {
+        Write-Output "DELETE_COUNT=0"
+        Write-Output "RESULT=NOTHING_TO_DELETE"
+        exit 0
+    }
 
-    foreach ($file in $deleteFiles) {
+    $deleteCount = 0
+
+    # keepCount 이후 인덱스의 파일 삭제
+    for ($index = $keepCount; $index -lt $totalCount; $index++) {
+        $targetFile = $backupFiles[$index]
+
+        Write-Output "DELETE_TARGET=$($targetFile.FullName)"
+
         Remove-Item `
-            -LiteralPath $file.FullName `
+            -LiteralPath $targetFile.FullName `
             -Force `
             -ErrorAction Stop
 
-        Write-Output "DELETED=$($file.FullName)"
+        if (Test-Path -LiteralPath $targetFile.FullName) {
+            Write-Error "백업 파일이 삭제되지 않았습니다: $($targetFile.FullName)"
+            exit 1
+        }
+
+        $deleteCount++
+        Write-Output "DELETED=$($targetFile.FullName)"
     }
 
-    Write-Output "DELETE_COUNT=$($deleteFiles.Count)"
+    Write-Output "DELETE_COUNT=$deleteCount"
+
+    # 삭제 후 실제 남은 파일 개수 검증
+    [array]$remainingFiles = Get-ChildItem `
+        -LiteralPath $backupDirectory `
+        -Filter "*.zip" `
+        -File
+
+    Write-Output "REMAINING_COUNT=$($remainingFiles.Count)"
+
+    if ($remainingFiles.Count -gt $keepCount) {
+        Write-Error "백업 정리 후에도 $keepCount개보다 많은 파일이 남아 있습니다."
+        exit 1
+    }
+
     Write-Output "RESULT=SUCCESS"
+    exit 0
   register: spring_backup_cleanup_result
   changed_when: >-
-    (
-      spring_backup_cleanup_result.stdout
-      | regex_search('DELETE_COUNT=([1-9][0-9]*)')
-    ) is not none
+    'RESULT=SUCCESS' in spring_backup_cleanup_result.stdout
+    and
+    'DELETE_COUNT=0' not in spring_backup_cleanup_result.stdout
 
 - name: Show Spring backup cleanup result
   debug:
