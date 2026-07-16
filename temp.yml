@@ -1,11 +1,10 @@
-add_header Content-Security-Policy "default-src 'self';" always;
+- name: Check Tomcat port
+  win_shell: |
+    $connection = Get-NetTCPConnection `
+        -LocalPort {{ tomcat.port }} `
+        -State Listen `
+        -ErrorAction Stop
 
-    add_header X-Frame-Options "DENY" always;
-
-    add_header X-Content-Type-Options "nosniff" always;
-
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-
-    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    Write-Output $connection
+  register: tomcat_port_debug
+  changed_when: false
