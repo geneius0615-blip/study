@@ -1,4 +1,3 @@
----
 - name: Check Tomcat Windows service registration
   win_shell: |
     $service = Get-Service `
@@ -16,7 +15,7 @@
   register: tomcat_service_registration
   changed_when: false
 
-- name: Install Tomcat Windows service
+- name: Install Tomcat 10 Windows service
   win_shell: |
     $env:JAVA_HOME = "{{ java.home }}"
     $env:CATALINA_HOME = "{{ tomcat.home }}"
@@ -32,8 +31,3 @@
   args:
     chdir: "{{ tomcat.home }}\bin"
   when: "'NOT_EXISTS' in tomcat_service_registration.stdout"
-
-- name: Configure Tomcat service startup mode
-  win_service:
-    name: "{{ tomcat.service_name }}"
-    start_mode: auto
