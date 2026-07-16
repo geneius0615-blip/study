@@ -1,0 +1,39 @@
+---
+- name: Check Tomcat Windows service registration
+  win_shell: |
+    $service = Get-Service `
+        -Name "{{ tomcat.service_name }}" `
+        -ErrorAction SilentlyContinue
+
+    if ($null -eq $service) {
+        Write-Output "NOT_EXISTS"
+    }
+    else {
+        Write-Output "EXISTS"
+    }
+
+    exit 0
+  register: tomcat_service_registration
+  changed_when: false
+
+- name: Install Tomcat Windows service
+  win_shell: |
+    $env:JAVA_HOME = "{{ java.home }}"
+    $env:CATALINA_HOME = "{{ tomcat.home }}"
+    $env:CATALINA_BASE = "{{ tomcat.home }}"
+
+    & "{{ tomcat.home }}\bin\service.bat" `
+        install `
+        "{{ tomcat.service_name }}"
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+  args:
+    chdir: "{{ tomcat.home }}\bin"
+  when: "'NOT_EXISTS' in tomcat_service_registration.stdout"
+
+- name: Configure Tomcat service startup mode
+  win_service:
+    name: "{{ tomcat.service_name }}"
+    start_mode: auto
