@@ -25,4 +25,6 @@
 
 - name: Show Tomcat stop result
   debug:
-    msg: "Tomcat service stopped. Port {{ tomcat.port }} is not listening."
+    msg:
+      - "Tomcat service stopped: {{ tomcat.service_name }}"
+      - "Tomcat port is not listening: {{ tomcat.port }}"
