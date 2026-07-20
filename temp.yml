@@ -1,68 +1,32 @@
----
-- name: Start Tomcat Windows service
-  win_service:
-    name: "{{ tomcat.service_name }}"
-    state: started
-    start_mode: auto
-  register: tomcat_start_result
+location = /_auth_check {
+    internal;
 
-- name: Check Tomcat service status
-  win_shell: |
-    $service = Get-Service `
-        -Name "{{ tomcat.service_name }}" `
-        -ErrorAction Stop
+    proxy_pass http://spring_backend/internal/auth/check;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
 
-    Write-Output "SERVICE_NAME=$($service.Name)"
-    Write-Output "SERVICE_STATUS=$($service.Status)"
+    proxy_set_header Cookie $http_cookie;
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header X-Original-URI $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+}
 
-    if ($service.Status -eq "Running") {
-        exit 0
-    }
+location /user/ {
+    auth_request /_auth_check;
 
-    exit 1
-  register: tomcat_service_start_check
-  retries: 30
-  delay: 2
-  until: tomcat_service_start_check.rc == 0
-  changed_when: false
+    alias D:/Deploy/Vue/user/dist/;
+    try_files $uri $uri/ /user/index.html;
+}
 
-- name: Show Tomcat service status
-  debug:
-    var: tomcat_service_start_check.stdout_lines
+location /admin/ {
+    auth_request /_admin_auth_check;
 
-- name: Wait until Tomcat port is listening
-  win_shell: |
-    $connection = Get-NetTCPConnection `
-        -LocalPort {{ tomcat.port }} `
-        -State Listen `
-        -ErrorAction SilentlyContinue |
-        Select-Object -First 1
+    alias D:/Deploy/Vue/admin/dist/;
+    try_files $uri $uri/ /admin/index.html;
+}
 
-    if ($null -ne $connection) {
-        Write-Output "LISTEN_PORT=$($connection.LocalPort)"
-        Write-Output "PROCESS_ID=$($connection.OwningProcess)"
-        exit 0
-    }
+location / {
+    auth_request /_auth_check;
 
-    Write-Output "Tomcat port {{ tomcat.port }} is not listening yet."
-    exit 1
-  register: tomcat_port_start_check
-  retries: 60
-  delay: 2
-  until: tomcat_port_start_check.rc == 0
-  changed_when: false
-  failed_when: false
-
-- name: Fail when Tomcat port is not listening
-  fail:
-    msg:
-      - "Tomcat service status: {{ tomcat_service_start_check.stdout_lines }}"
-      - "Tomcat port {{ tomcat.port }} did not open."
-      - "Check Tomcat logs: {{ tomcat.home }}\\logs"
-  when: tomcat_port_start_check.rc != 0
-
-- name: Show Tomcat start result
-  debug:
-    msg:
-      - "Tomcat service started: {{ tomcat.service_name }}"
-      - "Tomcat port is listening: {{ tomcat.port }}"
+    proxy_pass http://spring_backend;
+}
