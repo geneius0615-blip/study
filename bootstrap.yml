@@ -1,27 +1,13 @@
 ---
-- name: Create Python directories
-  win_file:
+- name: Ensure bootstrap directories exist
+  ansible.windows.win_file:
     path: "{{ item }}"
     state: directory
   loop:
-    - "{{ dirs.home }}"
-    - "{{ dirs.apps }}"
-    - "{{ dirs.packages }}"
-    - "{{ dirs.scripts }}"
-    - "{{ dirs.logs }}"
-    - "{{ dirs.upload }}"
-    - "{{ dirs.whl }}"
-    - "{{ dirs.backup }}"
-    - "{{ dirs.lock }}"
-    - "{{ dirs.venv }}"
-    - "{{ dirs.as }}"
-
-- name: Check junction
-  win_stat:
-    path: "{{ files.junction }}"
-  register: junction_check
-
-- name: Create junction
-  win_shell: |
-    cmd /c mklink /J "{{ files.junction }}" "{{ dirs.apps }}"
-  when: not junction_check.stat.exists
+    - "{{ base.app }}"
+    - "{{ base.backup }}"
+    - "{{ base.tools }}"
+    - "{{ python.home }}"
+    - "{{ python.logs_dir }}"
+    - "{{ backup.directory }}"
+    - "{{ legacy.root }}"
