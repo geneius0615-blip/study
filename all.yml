@@ -1,52 +1,35 @@
 ---
-# =============================================================================
-# Application
-# =============================================================================
 app:
-  name: imap-gateway
+  name: "imap-gateway"
 
-# =============================================================================
-# Git
-# =============================================================================
-git:
-  url: https://git.example.com/imap/imap-gateway.git
-  branch: main
+base:
+  app: "E:\\App"
+  backup: "E:\\Backup"
+  tools: "E:\\Tools"
+  imap: "E:\\digital-twin-studio\\imap"
 
-# =============================================================================
-# Python
-# =============================================================================
 python:
-  home: E:\Deploy\Python
+  home: "E:\\App\\Python"
+  venv_dir: "E:\\App\\Python\\venv"
+  executable: "E:\\App\\Python\\venv\\Scripts\\python.exe"
+  packages_dir: "E:\\digital-twin-studio\\imap\\source\\packages"
+  logs_dir: "E:\\App\\Python\\logs"
 
-  app_dir: E:\Deploy\Python\imap-gateway
-  packages_dir: E:\Deploy\Python\packages
-
-  venv_dir: E:\Deploy\Python\venv
-  python_exe: E:\Deploy\Python\venv\Scripts\python.exe
-
-# =============================================================================
-# Legacy (하드코딩 호환)
-# =============================================================================
-legacy:
-  root: E:\digital-twin-studio\imap
-
-  source: E:\digital-twin-studio\imap\source
-  apps: E:\digital-twin-studio\imap\source\apps
-
-# =============================================================================
-# Install
-# =============================================================================
 install:
-  batch: E:\Deploy\Python\imap-gateway\script\install.bat
+  batch: "E:\\digital-twin-studio\\imap\\source\\script\\install.bat"
+  working_dir: "E:\\digital-twin-studio\\imap\\source"
 
-# =============================================================================
-# Service
-# =============================================================================
 service:
-  name: IMAPGatewayService
+  name: "IMAPGatewayService"
+  port: 8001
+  working_dir: "E:\\digital-twin-studio\\imap\\source\\apps\\imap-gateway"
+  start_file: "run.py"
+  stdout_log: "E:\\App\\Python\\logs\\imap-gateway-stdout.log"
+  stderr_log: "E:\\App\\Python\\logs\\imap-gateway-stderr.log"
 
-# =============================================================================
-# Health Check
-# =============================================================================
-health:
-  url: http://127.0.0.1:8001/health
+backup:
+  directory: "E:\\Backup\\Python\\imap-gateway"
+
+legacy:
+  root: "E:\\digital-twin-studio\\imap"
+  source_dir: "E:\\digital-twin-studio\\imap\\source"
