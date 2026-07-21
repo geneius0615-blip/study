@@ -3,17 +3,17 @@ app:
   name: "imap-gateway"
 
 base:
-  app: "E:\\App"
+  deploy: "E:\\Deploy"
   backup: "E:\\Backup"
   tools: "E:\\Tools"
   imap: "E:\\digital-twin-studio\\imap"
 
 python:
-  home: "E:\\App\\Python"
-  venv_dir: "E:\\App\\Python\\venv"
-  executable: "E:\\App\\Python\\venv\\Scripts\\python.exe"
+  home: "E:\\Deploy\\Python"
+  venv_dir: "E:\\Deploy\\Python\\venv"
+  executable: "E:\\Deploy\\Python\\venv\\Scripts\\python.exe"
   packages_dir: "E:\\digital-twin-studio\\imap\\source\\packages"
-  logs_dir: "E:\\App\\Python\\logs"
+  logs_dir: "E:\\Deploy\\Python\\logs"
 
 install:
   batch: "E:\\digital-twin-studio\\imap\\source\\script\\install.bat"
@@ -24,8 +24,8 @@ service:
   port: 8001
   working_dir: "E:\\digital-twin-studio\\imap\\source\\apps\\imap-gateway"
   start_file: "run.py"
-  stdout_log: "E:\\App\\Python\\logs\\imap-gateway-stdout.log"
-  stderr_log: "E:\\App\\Python\\logs\\imap-gateway-stderr.log"
+  stdout_log: "E:\\Deploy\\Python\\logs\\imap-gateway-stdout.log"
+  stderr_log: "E:\\Deploy\\Python\\logs\\imap-gateway-stderr.log"
 
 backup:
   directory: "E:\\Backup\\Python\\imap-gateway"
@@ -33,3 +33,8 @@ backup:
 legacy:
   root: "E:\\digital-twin-studio\\imap"
   source_dir: "E:\\digital-twin-studio\\imap\\source"
+
+junction:
+  links:
+    - link: "E:\\digital-twin-studio\\imap\\source\\logs"
+      target: "E:\\Deploy\\Python\\logs"
