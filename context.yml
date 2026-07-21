@@ -1,18 +1,14 @@
 ---
-- name: Create Spring deployment timestamp
-  set_fact:
-    spring_timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
-
-- name: Create Spring calculated variables
-  set_fact:
-    spring_backup_file: "{{ spring.backup_dir }}\\{{ spring.name }}_{{ spring.build_number | default('manual') }}_{{ spring_timestamp }}.zip"
-
-- name: Show Spring deployment context
-  debug:
+- name: Show OCR deployment context
+  ansible.builtin.debug:
     msg:
-      - "Spring name        : {{ spring.name }}"
-      - "Deploy directory   : {{ spring.deploy_dir }}"
-      - "WAR file           : {{ spring.war_file }}"
-      - "Exploded directory : {{ spring.exploded_dir }}"
-      - "Backup directory   : {{ spring.backup_dir }}"
-      - "Backup file        : {{ spring_backup_file }}"
+      - 'Python home      : {{ python.home }}'
+      - 'Packages path   : {{ python.packages_dir }}'
+      - 'OCR path        : {{ python.ocr_dir }}'
+      - 'Legacy source   : {{ python.legacy_source_dir }}'
+      - 'Legacy packages : {{ python.legacy_packages_link }}'
+      - 'Legacy OCR      : {{ python.legacy_ocr_link }}'
+      - 'Venv Python     : {{ python.venv_python }}'
+      - 'Install batch   : {{ python.install_bat }}'
+      - 'Service name    : {{ ocr.service_name }}'
+      - 'Health URL      : {{ ocr.health_url }}'
