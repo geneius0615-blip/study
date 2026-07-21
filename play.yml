@@ -1,37 +1,41 @@
+# play.yml
 ---
-- hosts: windows
+- name: Deploy OCR service
+  hosts: windows
   gather_facts: false
 
+  vars_files:
+    - roles/ocr/vars/main.yml
+
   tasks:
-    - import_tasks: roles/app/tasks/context.yml
-      tags: always
+    - import_tasks: roles/ocr/tasks/context.yml
+      tags:
+        - context
 
-    - import_tasks: roles/app/tasks/bootstrap.yml
-      tags: bootstrap
+    - import_tasks: roles/ocr/tasks/bootstrap.yml
+      tags:
+        - bootstrap
 
-    - import_tasks: roles/app/tasks/init.yml
-      tags: init
+    - import_tasks: roles/ocr/tasks/git.yml
+      tags:
+        - git
 
-    - import_tasks: roles/app/tasks/download.yml
-      tags: download
+    - import_tasks: roles/ocr/tasks/junction.yml
+      tags:
+        - junction
 
-    - import_tasks: roles/app/tasks/backup.yml
-      tags: backup
+    - import_tasks: roles/ocr/tasks/install.yml
+      tags:
+        - install
 
-    - import_tasks: roles/app/tasks/stop.yml
-      tags: stop
+    - import_tasks: roles/ocr/tasks/service-stop.yml
+      tags:
+        - service_stop
 
-    - import_tasks: roles/app/tasks/clean.yml
-      tags: clean
+    - import_tasks: roles/ocr/tasks/service-start.yml
+      tags:
+        - service_start
 
-    - import_tasks: roles/app/tasks/deploy.yml
-      tags: deploy
-
-    - import_tasks: roles/app/tasks/start.yml
-      tags: start
-
-    - import_tasks: roles/app/tasks/nginx.yml
-      tags: nginx
-
-    - import_tasks: roles/app/tasks/healthcheck.yml
-      tags: healthcheck
+    - import_tasks: roles/ocr/tasks/healthcheck.yml
+      tags:
+        - healthcheck
