@@ -1,17 +1,63 @@
 ---
+- name: Validate imap-gateway deployment variables
+  ansible.builtin.assert:
+    that:
+      - app is defined
+      - app.name is defined
+      - app.name | length > 0
+
+      - base is defined
+      - base.app is defined
+      - base.backup is defined
+      - base.tools is defined
+      - base.imap is defined
+
+      - python is defined
+      - python.home is defined
+      - python.venv_dir is defined
+      - python.executable is defined
+      - python.packages_dir is defined
+      - python.logs_dir is defined
+
+      - install is defined
+      - install.batch is defined
+      - install.working_dir is defined
+
+      - service is defined
+      - service.name is defined
+      - service.port is defined
+      - service.working_dir is defined
+      - service.start_file is defined
+
+      - backup is defined
+      - backup.directory is defined
+
+      - legacy is defined
+      - legacy.root is defined
+      - legacy.source_dir is defined
+
+    fail_msg: "group_vars/all.yml 필수 변수를 확인하세요."
+    success_msg: "imap-gateway 배포 변수 검증 완료"
+
 - name: Show imap-gateway deployment context
   ansible.builtin.debug:
     msg:
       - "APP_NAME={{ app.name }}"
-      - "DEPLOY_ROOT={{ app.deploy_root }}"
-      - "DEPLOY_DIR={{ app.deploy_dir }}"
-      - "GIT_URL={{ app.git_url }}"
-      - "GIT_BRANCH={{ app.git_branch }}"
+      - "BASE_APP={{ base.app }}"
+      - "BASE_BACKUP={{ base.backup }}"
+      - "BASE_TOOLS={{ base.tools }}"
+      - "BASE_IMAP={{ base.imap }}"
       - "PYTHON_HOME={{ python.home }}"
-      - "VENV_DIR={{ python.venv_dir }}"
+      - "PYTHON_VENV_DIR={{ python.venv_dir }}"
       - "PYTHON_EXECUTABLE={{ python.executable }}"
-      - "PACKAGES_DIR={{ python.packages_dir }}"
-      - "INSTALL_BAT={{ python.install_bat }}"
-      - "LEGACY_SOURCE={{ legacy.source_dir }}"
-      - "LEGACY_PACKAGES_LINK={{ legacy.packages_link }}"
-      - "LEGACY_GATEWAY_LINK={{ legacy.gateway_link }}"
+      - "PYTHON_PACKAGES_DIR={{ python.packages_dir }}"
+      - "PYTHON_LOGS_DIR={{ python.logs_dir }}"
+      - "INSTALL_BATCH={{ install.batch }}"
+      - "INSTALL_WORKING_DIR={{ install.working_dir }}"
+      - "SERVICE_NAME={{ service.name }}"
+      - "SERVICE_PORT={{ service.port }}"
+      - "SERVICE_WORKING_DIR={{ service.working_dir }}"
+      - "SERVICE_START_FILE={{ service.start_file }}"
+      - "BACKUP_DIRECTORY={{ backup.directory }}"
+      - "LEGACY_ROOT={{ legacy.root }}"
+      - "LEGACY_SOURCE_DIR={{ legacy.source_dir }}"
