@@ -1,5 +1,22 @@
-vue:
-  deploy_dir: 'E:\Deploy\Vue\imap-client'
-  artifact_file: 'E:\Deploy\Vue\packages\imap-web-client-dev.tar'
-  backup_dir: 'E:\Backup\Vue\imap-client'
-  temp_dir: 'E:\Deploy\Vue\temp\imap-client'
+base:
+  deploy: 'E:\Deploy'
+
+python:
+  home: '{{ base.deploy }}\Python'
+  packages_dir: '{{ python.home }}\packages'
+  ocr_dir: '{{ python.home }}\ocr'
+
+  legacy_source_dir: 'E:\digital-twin-studio\imap\source'
+  legacy_apps_dir: '{{ python.legacy_source_dir }}\apps'
+
+  legacy_packages_link: '{{ python.legacy_source_dir }}\packages'
+  legacy_ocr_link: '{{ python.legacy_apps_dir }}\ocr'
+
+  venv_dir: '{{ python.home }}\venv'
+  venv_python: '{{ python.venv_dir }}\Scripts\python.exe'
+
+  install_bat: '{{ python.ocr_dir }}\script\install.bat'
+
+ocr:
+  service_name: 'OCRService'
+  health_url: 'http://127.0.0.1:8001/health'
