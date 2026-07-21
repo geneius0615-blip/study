@@ -4,10 +4,30 @@
     path: "{{ item }}"
     state: directory
   loop:
-    - "{{ base.app }}"
+    - "{{ base.deploy }}"
     - "{{ base.backup }}"
     - "{{ base.tools }}"
     - "{{ python.home }}"
     - "{{ python.logs_dir }}"
     - "{{ backup.directory }}"
     - "{{ legacy.root }}"
+
+- name: Verify bootstrap directories
+  ansible.windows.win_stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ base.deploy }}"
+    - "{{ base.backup }}"
+    - "{{ base.tools }}"
+    - "{{ python.home }}"
+    - "{{ python.logs_dir }}"
+    - "{{ backup.directory }}"
+    - "{{ legacy.root }}"
+  register: bootstrap_result
+
+- name: Show bootstrap result
+  ansible.builtin.debug:
+    msg: "{{ item.item }} : {{ item.stat.exists }}"
+  loop: "{{ bootstrap_result.results }}"
+  loop_control:
+    label: "{{ item.item }}"
