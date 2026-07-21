@@ -1,22 +1,52 @@
-base:
-  deploy: 'E:\Deploy'
+---
+# =============================================================================
+# Application
+# =============================================================================
+app:
+  name: imap-gateway
 
+# =============================================================================
+# Git
+# =============================================================================
+git:
+  url: https://git.example.com/imap/imap-gateway.git
+  branch: main
+
+# =============================================================================
+# Python
+# =============================================================================
 python:
-  home: '{{ base.deploy }}\Python'
-  packages_dir: '{{ python.home }}\packages'
-  ocr_dir: '{{ python.home }}\ocr'
+  home: E:\Deploy\Python
 
-  legacy_source_dir: 'E:\digital-twin-studio\imap\source'
-  legacy_apps_dir: '{{ python.legacy_source_dir }}\apps'
+  app_dir: E:\Deploy\Python\imap-gateway
+  packages_dir: E:\Deploy\Python\packages
 
-  legacy_packages_link: '{{ python.legacy_source_dir }}\packages'
-  legacy_ocr_link: '{{ python.legacy_apps_dir }}\ocr'
+  venv_dir: E:\Deploy\Python\venv
+  python_exe: E:\Deploy\Python\venv\Scripts\python.exe
 
-  venv_dir: '{{ python.home }}\venv'
-  venv_python: '{{ python.venv_dir }}\Scripts\python.exe'
+# =============================================================================
+# Legacy (하드코딩 호환)
+# =============================================================================
+legacy:
+  root: E:\digital-twin-studio\imap
 
-  install_bat: '{{ python.ocr_dir }}\script\install.bat'
+  source: E:\digital-twin-studio\imap\source
+  apps: E:\digital-twin-studio\imap\source\apps
 
-ocr:
-  service_name: 'OCRService'
-  health_url: 'http://127.0.0.1:8001/health'
+# =============================================================================
+# Install
+# =============================================================================
+install:
+  batch: E:\Deploy\Python\imap-gateway\script\install.bat
+
+# =============================================================================
+# Service
+# =============================================================================
+service:
+  name: IMAPGatewayService
+
+# =============================================================================
+# Health Check
+# =============================================================================
+health:
+  url: http://127.0.0.1:8001/health
