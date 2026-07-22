@@ -1,32 +1,21 @@
-location = /_auth_check {
-    internal;
-
-    proxy_pass http://spring_backend/internal/auth/check;
-    proxy_pass_request_body off;
-    proxy_set_header Content-Length "";
-
-    proxy_set_header Cookie $http_cookie;
-    proxy_set_header Authorization $http_authorization;
-    proxy_set_header X-Original-URI $request_uri;
-    proxy_set_header X-Original-Method $request_method;
+location = /client {
+    return 301 /client/;
 }
 
-location /user/ {
-    auth_request /_auth_check;
-
-    alias D:/Deploy/Vue/user/dist/;
-    try_files $uri $uri/ /user/index.html;
+location = /client/ {
+    alias D:/Deploy/Vue/imap-client/dist/index.html;
 }
 
-location /admin/ {
-    auth_request /_admin_auth_check;
-
-    alias D:/Deploy/Vue/admin/dist/;
-    try_files $uri $uri/ /admin/index.html;
+location /client/assets/ {
+    alias D:/Deploy/Vue/imap-client/dist/assets/;
 }
 
-location / {
-    auth_request /_auth_check;
+location /client/ {
+    alias D:/Deploy/Vue/imap-client/dist/;
+    try_files $uri @client_spa;
+}
 
-    proxy_pass http://spring_backend;
+location @client_spa {
+    root D:/Deploy/Vue/imap-client/dist;
+    try_files /index.html =404;
 }
