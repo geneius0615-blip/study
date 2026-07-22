@@ -3,19 +3,20 @@ location = /client {
 }
 
 location = /client/ {
-    alias D:/Deploy/Vue/imap-client/dist/index.html;
+    alias E:/Deploy/Vue/imap-client/dist/index.html;
 }
 
 location /client/assets/ {
-    alias D:/Deploy/Vue/imap-client/dist/assets/;
+    alias E:/Deploy/Vue/imap-client/dist/assets/;
 }
 
 location /client/ {
-    alias D:/Deploy/Vue/imap-client/dist/;
-    try_files $uri @client_spa;
+    alias E:/Deploy/Vue/imap-client/dist/;
+    try_files $uri @client_fallback;
 }
 
-location @client_spa {
-    root D:/Deploy/Vue/imap-client/dist;
+location @client_fallback {
+    internal;
+    root E:/Deploy/Vue/imap-client/dist;
     try_files /index.html =404;
 }
