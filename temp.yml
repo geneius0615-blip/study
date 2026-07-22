@@ -12,11 +12,4 @@ location /client/assets/ {
 
 location /client/ {
     alias E:/Deploy/Vue/imap-client/dist/;
-    try_files $uri @client_fallback;
-}
-
-location @client_fallback {
-    internal;
-    root E:/Deploy/Vue/imap-client/dist;
-    try_files /index.html =404;
 }
