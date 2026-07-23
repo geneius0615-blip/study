@@ -1,7 +1,4 @@
 ---
-app:
-  name: "imap-gateway"
-
 base:
   deploy: "E:\\Deploy"
   backup: "E:\\Backup"
@@ -9,32 +6,24 @@ base:
   imap: "E:\\digital-twin-studio\\imap"
 
 python:
-  home: "E:\\Deploy\\Python"
-  venv_dir: "E:\\Deploy\\Python\\venv"
-  executable: "E:\\Deploy\\Python\\venv\\Scripts\\python.exe"
-  packages_dir: "E:\\digital-twin-studio\\imap\\source\\packages"
-  logs_dir: "E:\\Deploy\\Python\\logs"
+  home: "{{ base.deploy }}\\Python"
+  venv_root: "{{ python.home }}\\venv"
+  logs_root: "{{ python.home }}\\logs"
 
-install:
-  batch: "E:\\digital-twin-studio\\imap\\source\\script\\install.bat"
-  working_dir: "E:\\digital-twin-studio\\imap\\source"
+app:
+  name: "imap-gateway"
+  source_root: "{{ base.imap }}\\source\\apps"
+  source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
+  venv_dir: "{{ python.venv_root }}\\imap-gateway"
+  log_dir: "{{ python.logs_root }}\\imap-gateway"
+  backup_dir: "{{ base.backup }}\\Python\\imap-gateway"
+  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
 
-service:
-  name: "IMAPGatewayService"
-  port: 8001
-  working_dir: "E:\\digital-twin-studio\\imap\\source\\apps\\imap-gateway"
-  start_file: "run.py"
-  stdout_log: "E:\\Deploy\\Python\\logs\\imap-gateway-stdout.log"
-  stderr_log: "E:\\Deploy\\Python\\logs\\imap-gateway-stderr.log"
-
-backup:
-  directory: "E:\\Backup\\Python\\imap-gateway"
-
-legacy:
-  root: "E:\\digital-twin-studio\\imap"
-  source_dir: "E:\\digital-twin-studio\\imap\\source"
+git:
+  repo_url: "실제-Git-저장소-주소"
+  repo_dir: "{{ app.source_dir }}"
+  branch: "main"
 
 junction:
-  links:
-    - link: "E:\\digital-twin-studio\\imap\\source\\logs"
-      target: "E:\\Deploy\\Python\\logs"
+  link: "{{ app.source_dir }}\\logs"
+  target: "{{ app.log_dir }}"
