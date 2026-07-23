@@ -1,41 +1,25 @@
-# play.yml
 ---
-- name: Deploy OCR service
-  hosts: windows
+- hosts: windows
   gather_facts: false
 
-  vars_files:
-    - roles/ocr/vars/main.yml
-
   tasks:
-    - import_tasks: roles/ocr/tasks/context.yml
-      tags:
-        - context
+    - import_tasks: roles/apps/tasks/context.yml
+      tags: always
 
-    - import_tasks: roles/ocr/tasks/bootstrap.yml
-      tags:
-        - bootstrap
+    - import_tasks: roles/apps/tasks/bootstrap.yml
+      tags: bootstrap
 
-    - import_tasks: roles/ocr/tasks/git.yml
-      tags:
-        - git
+    - import_tasks: roles/apps/tasks/git.yml
+      tags: git
 
-    - import_tasks: roles/ocr/tasks/junction.yml
-      tags:
-        - junction
+    - import_tasks: roles/apps/tasks/junction.yml
+      tags: junction
 
-    - import_tasks: roles/ocr/tasks/install.yml
-      tags:
-        - install
+    - import_tasks: roles/apps/tasks/install.yml
+      tags: install
 
-    - import_tasks: roles/ocr/tasks/service-stop.yml
-      tags:
-        - service_stop
+    - import_tasks: roles/apps/tasks/service-stop.yml
+      tags: service-stop
 
-    - import_tasks: roles/ocr/tasks/service-start.yml
-      tags:
-        - service_start
-
-    - import_tasks: roles/ocr/tasks/healthcheck.yml
-      tags:
-        - healthcheck
+    - import_tasks: roles/apps/tasks/service-start.yml
+      tags: service-start
