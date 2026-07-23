@@ -1,122 +1,42 @@
 ---
-- name: Validate imap-gateway deployment variables
-  ansible.builtin.assert:
+- name: Validate base variables
+  assert:
+    that:
+      - base is defined
+      - base.deploy is defined
+      - base.backup is defined
+      - base.tools is defined
+      - base.imap is defined
+    msg: "base 경로 변수가 올바르게 선언되지 않았습니다."
+
+- name: Validate Python variables
+  assert:
+    that:
+      - python is defined
+      - python.home is defined
+      - python.venv_root is defined
+      - python.logs_root is defined
+    msg: "Python 경로 변수가 올바르게 선언되지 않았습니다."
+
+- name: Validate application variables
+  assert:
     that:
       - app is defined
       - app.name is defined
-      - app.name | length > 0
-
-      - base is defined
-      - base.deploy is defined
-      - base.deploy | length > 0
-      - base.backup is defined
-      - base.backup | length > 0
-      - base.tools is defined
-      - base.tools | length > 0
-      - base.imap is defined
-      - base.imap | length > 0
-
-      - python is defined
-      - python.home is defined
-      - python.home | length > 0
-      - python.venv_dir is defined
-      - python.venv_dir | length > 0
-      - python.executable is defined
-      - python.executable | length > 0
-      - python.packages_dir is defined
-      - python.packages_dir | length > 0
-      - python.logs_dir is defined
-      - python.logs_dir | length > 0
-
-      - install is defined
-      - install.batch is defined
-      - install.batch | length > 0
-      - install.working_dir is defined
-      - install.working_dir | length > 0
-
-      - service is defined
-      - service.name is defined
-      - service.name | length > 0
-      - service.port is defined
-      - service.port | int > 0
-      - service.working_dir is defined
-      - service.working_dir | length > 0
-      - service.start_file is defined
-      - service.start_file | length > 0
-      - service.stdout_log is defined
-      - service.stdout_log | length > 0
-      - service.stderr_log is defined
-      - service.stderr_log | length > 0
-
-      - backup is defined
-      - backup.directory is defined
-      - backup.directory | length > 0
-
-      - legacy is defined
-      - legacy.root is defined
-      - legacy.root | length > 0
-      - legacy.source_dir is defined
-      - legacy.source_dir | length > 0
-
-      - junction is defined
-      - junction.links is defined
-      - junction.links | length > 0
-
-    fail_msg: "group_vars/all.yml의 필수 변수 설정을 확인하세요."
-    success_msg: "imap-gateway 배포 변수 검증 완료"
-
-- name: Validate junction variables
-  ansible.builtin.assert:
-    that:
-      - item.link is defined
-      - item.link | length > 0
-      - item.target is defined
-      - item.target | length > 0
-      - item.link != item.target
-    fail_msg: >-
-      Junction 설정을 확인하세요.
-      LINK={{ item.link | default('undefined') }}
-      TARGET={{ item.target | default('undefined') }}
-  loop: "{{ junction.links }}"
-  loop_control:
-    label: "{{ item.link | default('undefined') }}"
+      - app.source_root is defined
+      - app.source_dir is defined
+      - app.venv_dir is defined
+      - app.log_dir is defined
+      - app.backup_dir is defined
+    msg: "애플리케이션 변수가 올바르게 선언되지 않았습니다."
 
 - name: Show deployment context
-  ansible.builtin.debug:
+  debug:
     msg:
       - "APP_NAME={{ app.name }}"
-
-      - "BASE_DEPLOY={{ base.deploy }}"
-      - "BASE_BACKUP={{ base.backup }}"
-      - "BASE_TOOLS={{ base.tools }}"
-      - "BASE_IMAP={{ base.imap }}"
-
-      - "PYTHON_HOME={{ python.home }}"
-      - "PYTHON_VENV_DIR={{ python.venv_dir }}"
-      - "PYTHON_EXECUTABLE={{ python.executable }}"
-      - "PYTHON_PACKAGES_DIR={{ python.packages_dir }}"
-      - "PYTHON_LOGS_DIR={{ python.logs_dir }}"
-
-      - "INSTALL_BATCH={{ install.batch }}"
-      - "INSTALL_WORKING_DIR={{ install.working_dir }}"
-
-      - "SERVICE_NAME={{ service.name }}"
-      - "SERVICE_PORT={{ service.port }}"
-      - "SERVICE_WORKING_DIR={{ service.working_dir }}"
-      - "SERVICE_START_FILE={{ service.start_file }}"
-      - "SERVICE_STDOUT_LOG={{ service.stdout_log }}"
-      - "SERVICE_STDERR_LOG={{ service.stderr_log }}"
-
-      - "BACKUP_DIRECTORY={{ backup.directory }}"
-
-      - "LEGACY_ROOT={{ legacy.root }}"
-      - "LEGACY_SOURCE_DIR={{ legacy.source_dir }}"
-
-- name: Show junction context
-  ansible.builtin.debug:
-    msg:
-      - "JUNCTION_LINK={{ item.link }}"
-      - "JUNCTION_TARGET={{ item.target }}"
-  loop: "{{ junction.links }}"
-  loop_control:
-    label: "{{ item.link }}"
+      - "SOURCE_DIR={{ app.source_dir }}"
+      - "VENV_DIR={{ app.venv_dir }}"
+      - "LOG_DIR={{ app.log_dir }}"
+      - "BACKUP_DIR={{ app.backup_dir }}"
+      - "JUNCTION_LINK={{ junction.link }}"
+      - "JUNCTION_TARGET={{ junction.target }}"
