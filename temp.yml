@@ -1,15 +1,7 @@
-location = /client {
-    return 301 /client/;
-}
+name: Install Python application dependencies
 
-location = /client/ {
-    alias E:/Deploy/Vue/imap-client/dist/index.html;
-}
+      import_tasks: roles/apps/tasks/install.yml
 
-location /client/assets/ {
-    alias E:/Deploy/Vue/imap-client/dist/assets/;
-}
+      tags:
 
-location /client/ {
-    alias E:/Deploy/Vue/imap-client/dist/;
-}
+        - install
