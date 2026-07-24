@@ -1,36 +1,17 @@
 ---
-- name: Create deployment directories
+- name: Create Deploy directories
   win_file:
     path: "{{ item }}"
     state: directory
   loop:
     - "{{ base.deploy }}"
-    - "{{ python.home }}"
-    - "{{ python.venv_root }}"
-    - "{{ python.logs_root }}"
+    - "{{ base.deploy }}\\Python"
+    - "{{ base.deploy }}\\Python\\logs"
     - "{{ app.log_dir }}"
-
     - "{{ base.backup }}"
     - "{{ base.backup }}\\Python"
     - "{{ app.backup_dir }}"
-
-    - "{{ base.tools }}"
-
     - "{{ base.imap }}"
     - "{{ base.imap }}\\source"
-
-    # 공용 BAT 저장 폴더
     - "{{ scripts.home }}"
-
-    # Git Clone 부모 폴더
     - "{{ base.imap }}\\source\\apps"
-
-- name: Show bootstrap result
-  debug:
-    msg:
-      - "PATH={{ item.item }}"
-      - "CHANGED={{ item.changed }}"
-  loop: "{{ create_directory.results }}"
-  loop_control:
-    label: "{{ item.item }}"
-  when: create_directory is defined
