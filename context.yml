@@ -7,16 +7,14 @@
       - base.backup is defined
       - base.tools is defined
       - base.imap is defined
-    msg: "base 경로 변수가 올바르게 선언되지 않았습니다."
+    fail_msg: "base 변수 설정을 확인하세요."
 
 - name: Validate Python variables
   assert:
     that:
       - python is defined
-      - python.home is defined
-      - python.venv_root is defined
-      - python.logs_root is defined
-    msg: "Python 경로 변수가 올바르게 선언되지 않았습니다."
+      - python.executable is defined
+    fail_msg: "python 변수 설정을 확인하세요."
 
 - name: Validate application variables
   assert:
@@ -24,12 +22,22 @@
       - app is defined
       - app.name is defined
       - app.source_dir is defined
+      - app.requirements_file is defined
+      - app.requirements_link is defined
       - app.venv_dir is defined
       - app.python_executable is defined
       - app.log_dir is defined
       - app.backup_dir is defined
-      - app.requirements_file is defined
-    msg: "애플리케이션 변수가 올바르게 선언되지 않았습니다."
+    fail_msg: "app 변수 설정을 확인하세요."
+
+- name: Validate script variables
+  assert:
+    that:
+      - scripts is defined
+      - scripts.home is defined
+      - install is defined
+      - install.script_file is defined
+    fail_msg: "설치 스크립트 변수를 확인하세요."
 
 - name: Validate junction variables
   assert:
@@ -37,18 +45,16 @@
       - junction is defined
       - junction.link is defined
       - junction.target is defined
-    msg: "Junction 변수가 올바르게 선언되지 않았습니다."
+    fail_msg: "junction 변수 설정을 확인하세요."
 
 - name: Show deployment context
   debug:
     msg:
       - "APP_NAME={{ app.name }}"
       - "SOURCE_DIR={{ app.source_dir }}"
-      - "VENV_ROOT={{ python.venv_root }}"
       - "VENV_DIR={{ app.venv_dir }}"
       - "PYTHON_EXECUTABLE={{ app.python_executable }}"
-      - "LOG_DIR={{ app.log_dir }}"
-      - "BACKUP_DIR={{ app.backup_dir }}"
       - "REQUIREMENTS_FILE={{ app.requirements_file }}"
-      - "JUNCTION_LINK={{ junction.link }}"
-      - "JUNCTION_TARGET={{ junction.target }}"
+      - "REQUIREMENTS_LINK={{ app.requirements_link }}"
+      - "INSTALL_SCRIPT={{ install.script_file }}"
+      - "LOG_DIR={{ app.log_dir }}"
