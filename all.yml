@@ -7,18 +7,20 @@ base:
 
 python:
   home: "{{ base.deploy }}\\Python"
-  venv_root: "{{ python.home }}\\venv"
-  logs_root: "{{ python.home }}\\logs"
+  venv_root: "{{ base.deploy }}\\Python\\venv"
+  logs_root: "{{ base.deploy }}\\Python\\logs"
 
 app:
   name: "imap-gateway"
   source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
-  venv_dir: "{{ python.venv_root }}\\{{ app.name }}"
-  python_executable: "{{ app.venv_dir }}\\Scripts\\python.exe"
-  log_dir: "{{ python.logs_root }}\\{{ app.name }}"
-  backup_dir: "{{ base.backup }}\\Python\\{{ app.name }}"
-  requirements_file: "{{ app.source_dir }}\\requirements.txt"
+  venv_dir: "{{ base.deploy }}\\Python\\venv\\imap-gateway"
+  python_executable: "{{ base.deploy }}\\Python\\venv\\imap-gateway\\Scripts\\python.exe"
+  log_dir: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
+  backup_dir: "{{ base.backup }}\\Python\\imap-gateway"
+  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
 
 junction:
   link: "{{ app.source_dir }}\\logs"
   target: "{{ app.log_dir }}"
+
+# 기존 git 설정은 그대로 유지
