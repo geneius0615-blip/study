@@ -1,5 +1,5 @@
 ---
-- name: Create bootstrap directories
+- name: Create Python root directories
   win_file:
     path: "{{ item }}"
     state: directory
@@ -8,40 +8,46 @@
     - "{{ python.home }}"
     - "{{ python.venv_root }}"
     - "{{ python.logs_root }}"
-    - "{{ app.log_dir }}"
+
+- name: Create application log directory
+  win_file:
+    path: "{{ app.log_dir }}"
+    state: directory
+
+- name: Create backup directories
+  win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
     - "{{ base.backup }}"
     - "{{ base.backup }}\\Python"
     - "{{ app.backup_dir }}"
+
+- name: Create base source directories
+  win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
     - "{{ base.tools }}"
     - "{{ base.imap }}"
     - "{{ base.imap }}\\source"
     - "{{ base.imap }}\\source\\apps"
 
-- name: Check bootstrap directories
+- name: Check application log directory
   win_stat:
-    path: "{{ item }}"
-  loop:
-    - "{{ python.venv_root }}"
-    - "{{ python.logs_root }}"
-    - "{{ app.log_dir }}"
-    - "{{ app.backup_dir }}"
-    - "{{ base.tools }}"
-    - "{{ base.imap }}\\source\\apps"
-  register: bootstrap_directory_results
+    path: "{{ app.log_dir }}"
+  register: app_log_dir_result
 
-- name: Validate bootstrap directories
-  assert:
-    that:
-      - item.stat.exists
-      - item.stat.isdir
-    msg: "디렉터리 생성에 실패했습니다: {{ item.item }}"
-  loop: "{{ bootstrap_directory_results.results }}"
-
-- name: Show bootstrap result
+- name: Show application log directory result
   debug:
     msg:
-      - "VENV_ROOT={{ python.venv_root }}"
-      - "LOG_ROOT={{ python.logs_root }}"
       - "APP_LOG_DIR={{ app.log_dir }}"
-      - "APP_BACKUP_DIR={{ app.backup_dir }}"
-      - "SOURCE_APPS_DIR={{ base.imap }}\\source\\apps"
+      - "EXISTS={{ app_log_dir_result.stat.exists | default(false) }}"
+      - "IS_DIRECTORY={{ app_log_dir_result.stat.isdir | default(false) }}"
+
+- name: Validate application log directory
+  assert:
+    that:
+      - app_log_dir_result.stat.exists
+      - app_log_dir_result.stat.isdir
+    msg: "로그 디렉터리 생성에 실패했습니다: {{ app.log_dir }}"
