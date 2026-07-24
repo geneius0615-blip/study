@@ -1,26 +1,28 @@
----
 base:
   deploy: "E:\\Deploy"
   backup: "E:\\Backup"
   tools: "E:\\Tools"
   imap: "E:\\digital-twin-studio\\imap"
 
-python:
-  home: "{{ base.deploy }}\\Python"
-  venv_root: "{{ base.deploy }}\\Python\\venv"
-  logs_root: "{{ base.deploy }}\\Python\\logs"
-
 app:
   name: "imap-gateway"
+
   source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
-  venv_dir: "{{ base.deploy }}\\Python\\venv\\imap-gateway"
-  python_executable: "{{ base.deploy }}\\Python\\venv\\imap-gateway\\Scripts\\python.exe"
+
+  requirements_file: "{{ app.source_dir }}\\requirements.txt"
+
+  requirements_link: "{{ base.imap }}\\source\\requirements.txt"
+
+  venv_dir: "{{ base.imap }}\\source\\.venv"
+
+  python_executable: "{{ app.venv_dir }}\\Scripts\\python.exe"
+
   log_dir: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
+
   backup_dir: "{{ base.backup }}\\Python\\imap-gateway"
-  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
 
-junction:
-  link: "{{ app.source_dir }}\\logs"
-  target: "{{ app.log_dir }}"
+scripts:
+  home: "{{ base.imap }}\\source\\Scripts"
 
-# 기존 git 설정은 그대로 유지
+install:
+  script_file: "{{ scripts.home }}\\python-install.bat"
