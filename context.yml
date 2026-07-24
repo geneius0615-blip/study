@@ -23,20 +23,32 @@
     that:
       - app is defined
       - app.name is defined
-      - app.source_root is defined
       - app.source_dir is defined
       - app.venv_dir is defined
+      - app.python_executable is defined
       - app.log_dir is defined
       - app.backup_dir is defined
+      - app.requirements_file is defined
     msg: "애플리케이션 변수가 올바르게 선언되지 않았습니다."
+
+- name: Validate junction variables
+  assert:
+    that:
+      - junction is defined
+      - junction.link is defined
+      - junction.target is defined
+    msg: "Junction 변수가 올바르게 선언되지 않았습니다."
 
 - name: Show deployment context
   debug:
     msg:
       - "APP_NAME={{ app.name }}"
       - "SOURCE_DIR={{ app.source_dir }}"
+      - "VENV_ROOT={{ python.venv_root }}"
       - "VENV_DIR={{ app.venv_dir }}"
+      - "PYTHON_EXECUTABLE={{ app.python_executable }}"
       - "LOG_DIR={{ app.log_dir }}"
       - "BACKUP_DIR={{ app.backup_dir }}"
+      - "REQUIREMENTS_FILE={{ app.requirements_file }}"
       - "JUNCTION_LINK={{ junction.link }}"
       - "JUNCTION_TARGET={{ junction.target }}"
