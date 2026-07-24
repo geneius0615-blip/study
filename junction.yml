@@ -1,1 +1,75 @@
- 
+---
+- name: Check application source directory
+  win_stat:
+    path: "{{ app.source_dir }}"
+  register: app_source_result
+
+- name: Validate application source directory
+  assert:
+    that:
+      - app_source_result.stat.exists
+      - app_source_result.stat.isdir
+    msg: "소스 디렉터리가 없습니다: {{ app.source_dir }}"
+
+- name: Check application log directory
+  win_stat:
+    path: "{{ app.log_dir }}"
+  register: app_log_result
+
+- name: Validate application log directory
+  assert:
+    that:
+      - app_log_result.stat.exists
+      - app_log_result.stat.isdir
+    msg: "로그 대상 디렉터리가 없습니다: {{ app.log_dir }}"
+
+- name: Check existing log path
+  win_stat:
+    path: "{{ junction.link }}"
+  register: junction_link_result
+
+- name: Show existing log path status
+  debug:
+    msg:
+      - "LINK={{ junction.link }}"
+      - "TARGET={{ junction.target }}"
+      - "EXISTS={{ junction_link_result.stat.exists | default(false) }}"
+      - "IS_LINK={{ junction_link_result.stat.islnk | default(false) }}"
+      - "IS_DIRECTORY={{ junction_link_result.stat.isdir | default(false) }}"
+
+- name: Remove existing real log directory
+  win_file:
+    path: "{{ junction.link }}"
+    state: absent
+  when:
+    - junction_link_result.stat.exists | default(false)
+    - not junction_link_result.stat.islnk | default(false)
+
+- name: Create log junction
+  win_command: >
+    cmd.exe /c mklink /J
+    "{{ junction.link }}"
+    "{{ junction.target }}"
+  when:
+    - not junction_link_result.stat.exists | default(false)
+      or not junction_link_result.stat.islnk | default(false)
+
+- name: Check created junction
+  win_stat:
+    path: "{{ junction.link }}"
+  register: created_junction_result
+
+- name: Validate created junction
+  assert:
+    that:
+      - created_junction_result.stat.exists
+      - created_junction_result.stat.isdir
+    msg: "로그 Junction 생성에 실패했습니다: {{ junction.link }}"
+
+- name: Show junction result
+  debug:
+    msg:
+      - "JUNCTION_LINK={{ junction.link }}"
+      - "JUNCTION_TARGET={{ junction.target }}"
+      - "EXISTS={{ created_junction_result.stat.exists }}"
+      - "IS_DIRECTORY={{ created_junction_result.stat.isdir }}"
