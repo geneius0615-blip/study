@@ -1,33 +1,47 @@
 ---
-- name: Ensure bootstrap directories exist
-  ansible.windows.win_file:
+- name: Create bootstrap directories
+  win_file:
     path: "{{ item }}"
     state: directory
   loop:
     - "{{ base.deploy }}"
-    - "{{ base.backup }}"
-    - "{{ base.tools }}"
     - "{{ python.home }}"
-    - "{{ python.logs_dir }}"
-    - "{{ backup.directory }}"
-    - "{{ legacy.root }}"
+    - "{{ python.venv_root }}"
+    - "{{ python.logs_root }}"
+    - "{{ app.log_dir }}"
+    - "{{ base.backup }}"
+    - "{{ base.backup }}\\Python"
+    - "{{ app.backup_dir }}"
+    - "{{ base.tools }}"
+    - "{{ base.imap }}"
+    - "{{ base.imap }}\\source"
+    - "{{ base.imap }}\\source\\apps"
 
-- name: Verify bootstrap directories
-  ansible.windows.win_stat:
+- name: Check bootstrap directories
+  win_stat:
     path: "{{ item }}"
   loop:
-    - "{{ base.deploy }}"
-    - "{{ base.backup }}"
+    - "{{ python.venv_root }}"
+    - "{{ python.logs_root }}"
+    - "{{ app.log_dir }}"
+    - "{{ app.backup_dir }}"
     - "{{ base.tools }}"
-    - "{{ python.home }}"
-    - "{{ python.logs_dir }}"
-    - "{{ backup.directory }}"
-    - "{{ legacy.root }}"
-  register: bootstrap_result
+    - "{{ base.imap }}\\source\\apps"
+  register: bootstrap_directory_results
+
+- name: Validate bootstrap directories
+  assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    msg: "디렉터리 생성에 실패했습니다: {{ item.item }}"
+  loop: "{{ bootstrap_directory_results.results }}"
 
 - name: Show bootstrap result
-  ansible.builtin.debug:
-    msg: "{{ item.item }} : {{ item.stat.exists }}"
-  loop: "{{ bootstrap_result.results }}"
-  loop_control:
-    label: "{{ item.item }}"
+  debug:
+    msg:
+      - "VENV_ROOT={{ python.venv_root }}"
+      - "LOG_ROOT={{ python.logs_root }}"
+      - "APP_LOG_DIR={{ app.log_dir }}"
+      - "APP_BACKUP_DIR={{ app.backup_dir }}"
+      - "SOURCE_APPS_DIR={{ base.imap }}\\source\\apps"
