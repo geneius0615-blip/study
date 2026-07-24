@@ -1,7 +1,7 @@
-name: Install Python application dependencies
-
-      import_tasks: roles/apps/tasks/install.yml
-
-      tags:
-
-        - install
+- name: Show Python installation paths
+  debug:
+    msg:
+      - "INSTALL_SCRIPT={{ install.script_file }}"
+      - "SOURCE_DIR={{ app.source_dir }}"
+      - "VENV_DIR={{ app.venv_dir }}"
+      - "REQUIREMENTS_FILE={{ app.requirements_file }}"
