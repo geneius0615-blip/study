@@ -1,1 +1,98 @@
- 
+---
+- name: Check Python installation batch file
+  win_stat:
+    path: "{{ install.script_file }}"
+  register: install_script_status
+
+- name: Validate Python installation batch file
+  assert:
+    that:
+      - install_script_status.stat.exists | default(false)
+      - not install_script_status.stat.isdir | default(true)
+    fail_msg: >-
+      Python 설치 BAT 파일이 없습니다.
+      공용 Git에서 다음 위치로 BAT 파일을 적재하세요:
+      {{ install.script_file }}
+    success_msg: >-
+      Python 설치 BAT 파일 확인 완료:
+      {{ install.script_file }}
+
+- name: Check application source directory
+  win_stat:
+    path: "{{ app.source_dir }}"
+  register: application_source_status
+
+- name: Validate application source directory
+  assert:
+    that:
+      - application_source_status.stat.exists | default(false)
+      - application_source_status.stat.isdir | default(false)
+    fail_msg: >-
+      애플리케이션 소스 폴더가 없습니다:
+      {{ app.source_dir }}
+
+- name: Check application run file
+  win_stat:
+    path: "{{ app.run_file }}"
+  register: application_run_status
+
+- name: Validate application run file
+  assert:
+    that:
+      - application_run_status.stat.exists | default(false)
+      - not application_run_status.stat.isdir | default(true)
+    fail_msg: >-
+      애플리케이션 실행 파일이 없습니다:
+      {{ app.run_file }}
+
+- name: Check requirements file
+  win_stat:
+    path: "{{ app.requirements_file }}"
+  register: requirements_status
+
+- name: Validate requirements file
+  assert:
+    that:
+      - requirements_status.stat.exists | default(false)
+      - not requirements_status.stat.isdir | default(true)
+    fail_msg: >-
+      requirements.txt 파일이 없습니다:
+      {{ app.requirements_file }}
+    success_msg: >-
+      requirements.txt 파일 확인 완료:
+      {{ app.requirements_file }}
+
+- name: Execute Python installation batch file
+  win_command: >
+    cmd.exe /c call "{{ install.script_file }}"
+    "{{ app.venv_dir }}"
+    "{{ app.requirements_file }}"
+  args:
+    chdir: "{{ app.source_dir }}"
+  register: install_result
+  changed_when: install_result.rc == 0
+  failed_when: install_result.rc != 0
+
+- name: Show Python installation output
+  debug:
+    msg:
+      - "COMMAND_RC={{ install_result.rc }}"
+      - "STDOUT={{ install_result.stdout | default('') }}"
+      - "STDERR={{ install_result.stderr | default('') }}"
+
+- name: Check virtual environment Python executable
+  win_stat:
+    path: "{{ app.python_executable }}"
+  register: venv_python_status
+
+- name: Validate virtual environment Python executable
+  assert:
+    that:
+      - venv_python_status.stat.exists | default(false)
+      - not venv_python_status.stat.isdir | default(true)
+    fail_msg: >-
+      BAT 실행은 완료됐지만 가상환경 Python을 찾을 수 없습니다:
+      {{ app.python_executable }}
+    success_msg: >-
+      가상환경 생성 및 requirements 설치 확인 완료:
+      {{ app.python_executable }}
