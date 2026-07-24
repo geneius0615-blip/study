@@ -1,5 +1,5 @@
 ---
-- name: Create Python root directories
+- name: Create deployment directories
   win_file:
     path: "{{ item }}"
     state: directory
@@ -8,46 +8,29 @@
     - "{{ python.home }}"
     - "{{ python.venv_root }}"
     - "{{ python.logs_root }}"
+    - "{{ app.log_dir }}"
 
-- name: Create application log directory
-  win_file:
-    path: "{{ app.log_dir }}"
-    state: directory
-
-- name: Create backup directories
-  win_file:
-    path: "{{ item }}"
-    state: directory
-  loop:
     - "{{ base.backup }}"
     - "{{ base.backup }}\\Python"
     - "{{ app.backup_dir }}"
 
-- name: Create base source directories
-  win_file:
-    path: "{{ item }}"
-    state: directory
-  loop:
     - "{{ base.tools }}"
+
     - "{{ base.imap }}"
     - "{{ base.imap }}\\source"
+
+    # 공용 BAT 저장 폴더
+    - "{{ scripts.home }}"
+
+    # Git Clone 부모 폴더
     - "{{ base.imap }}\\source\\apps"
 
-- name: Check application log directory
-  win_stat:
-    path: "{{ app.log_dir }}"
-  register: app_log_dir_result
-
-- name: Show application log directory result
+- name: Show bootstrap result
   debug:
     msg:
-      - "APP_LOG_DIR={{ app.log_dir }}"
-      - "EXISTS={{ app_log_dir_result.stat.exists | default(false) }}"
-      - "IS_DIRECTORY={{ app_log_dir_result.stat.isdir | default(false) }}"
-
-- name: Validate application log directory
-  assert:
-    that:
-      - app_log_dir_result.stat.exists
-      - app_log_dir_result.stat.isdir
-    msg: "로그 디렉터리 생성에 실패했습니다: {{ app.log_dir }}"
+      - "PATH={{ item.item }}"
+      - "CHANGED={{ item.changed }}"
+  loop: "{{ create_directory.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: create_directory is defined
