@@ -1,21 +1,25 @@
+---
 base:
   deploy: "E:\\Deploy"
   backup: "E:\\Backup"
   tools: "E:\\Tools"
   imap: "E:\\digital-twin-studio\\imap"
 
+python:
+  executable: "C:\\Python313\\python.exe"
+
 app:
   name: "imap-gateway"
 
   source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
 
-  requirements_file: "{{ app.source_dir }}\\requirements.txt"
+  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
 
   requirements_link: "{{ base.imap }}\\source\\requirements.txt"
 
   venv_dir: "{{ base.imap }}\\source\\.venv"
 
-  python_executable: "{{ app.venv_dir }}\\Scripts\\python.exe"
+  python_executable: "{{ base.imap }}\\source\\.venv\\Scripts\\python.exe"
 
   log_dir: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
 
@@ -25,4 +29,8 @@ scripts:
   home: "{{ base.imap }}\\source\\Scripts"
 
 install:
-  script_file: "{{ scripts.home }}\\python-install.bat"
+  script_file: "{{ base.imap }}\\source\\Scripts\\python-install.bat"
+
+junction:
+  link: "{{ base.imap }}\\source\\apps\\imap-gateway\\logs"
+  target: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
