@@ -12,17 +12,12 @@ python:
 
 app:
   name: "imap-gateway"
-  source_root: "{{ base.imap }}\\source\\apps"
   source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
-  venv_dir: "{{ python.venv_root }}\\imap-gateway"
-  log_dir: "{{ python.logs_root }}\\imap-gateway"
-  backup_dir: "{{ base.backup }}\\Python\\imap-gateway"
-  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
-
-git:
-  repo_url: "실제-Git-저장소-주소"
-  repo_dir: "{{ app.source_dir }}"
-  branch: "main"
+  venv_dir: "{{ python.venv_root }}\\{{ app.name }}"
+  python_executable: "{{ app.venv_dir }}\\Scripts\\python.exe"
+  log_dir: "{{ python.logs_root }}\\{{ app.name }}"
+  backup_dir: "{{ base.backup }}\\Python\\{{ app.name }}"
+  requirements_file: "{{ app.source_dir }}\\requirements.txt"
 
 junction:
   link: "{{ app.source_dir }}\\logs"
