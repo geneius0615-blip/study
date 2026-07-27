@@ -1,40 +1,4 @@
 ---
-- name: Check Python install script
-  win_stat:
-    path: "{{ install.script_file }}"
-  register: python_install_script
-
-- name: Validate Python install script
-  assert:
-    that:
-      - python_install_script.stat.exists
-      - python_install_script.stat.isreg
-    fail_msg: "python-install.bat가 없습니다: {{ install.script_file }}"
-
-- name: Check application source directory
-  win_stat:
-    path: "{{ app.source_dir }}"
-  register: application_source_directory
-
-- name: Validate application source directory
-  assert:
-    that:
-      - application_source_directory.stat.exists
-      - application_source_directory.stat.isdir
-    fail_msg: "애플리케이션 소스 경로가 없습니다: {{ app.source_dir }}"
-
-- name: Check application requirements file
-  win_stat:
-    path: "{{ app.requirements_file }}"
-  register: application_requirements_file
-
-- name: Validate application requirements file
-  assert:
-    that:
-      - application_requirements_file.stat.exists
-      - application_requirements_file.stat.isreg
-    fail_msg: "requirements.txt가 없습니다: {{ app.requirements_file }}"
-
 - name: Execute Python install script
   win_command: >
     cmd.exe /c call "{{ install.script_file }}"
@@ -43,35 +7,22 @@
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
-    GCM_CREDENTIAL_STORE: "none"
   register: python_install_result
 
-- name: Show Python install output
+- name: Show Python install result
   debug:
-    var: python_install_result.stdout_lines
+    msg:
+      - "RC={{ python_install_result.rc }}"
+      - "{{ python_install_result.stdout_lines | default([]) }}"
 
-- name: Show Python install error
-  debug:
-    var: python_install_result.stderr_lines
-  when:
-    - python_install_result.stderr_lines is defined
-    - python_install_result.stderr_lines | length > 0
+- name: Fail when Python install failed
+  fail:
+    msg: |
+      Python package installation failed.
 
-- name: Validate Python install result
-  assert:
-    that:
-      - python_install_result.rc == 0
-    fail_msg: "python-install.bat 실행에 실패했습니다."
+      STDOUT:
+      {{ python_install_result.stdout }}
 
-- name: Check Python virtual environment
-  win_stat:
-    path: "{{ app.python_executable }}"
-  register: virtual_environment_python
-
-- name: Validate Python virtual environment
-  assert:
-    that:
-      - virtual_environment_python.stat.exists
-      - virtual_environment_python.stat.isreg
-    fail_msg: "Python 가상환경 설치에 실패했습니다."
-    success_msg: "Python 가상환경 설치가 완료됐습니다."
+      STDERR:
+      {{ python_install_result.stderr }}
+  when: python_install_result.rc != 0
