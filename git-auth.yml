@@ -1,1 +1,33 @@
- 
+---
+- name: Check Windows user profile
+  win_shell: |
+    Write-Output $env:USERPROFILE
+  register: user_profile_result
+  changed_when: false
+
+- name: Set Windows user profile path
+  set_fact:
+    windows_user_profile: "{{ user_profile_result.stdout | trim }}"
+
+- name: Create Git netrc authentication file
+  win_copy:
+    dest: "{{ windows_user_profile }}\\_netrc"
+    content: |
+      machine {{ git_auth.host }}
+      login {{ git_auth.username }}
+      password {{ git_auth.token }}
+  no_log: true
+
+- name: Disable incompatible Git credential helpers
+  win_command: git config --global --unset-all credential.helper
+  register: unset_git_credential_helper
+  failed_when: false
+  changed_when: unset_git_credential_helper.rc == 0
+
+- name: Disable interactive Git credential prompt
+  win_command: git config --global credential.interactive never
+  changed_when: true
+
+- name: Enable credential path matching
+  win_command: git config --global credential.useHttpPath true
+  changed_when: true
