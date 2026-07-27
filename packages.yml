@@ -1,1 +1,59 @@
- 
+---
+- name: Validate package variables
+  assert:
+    that:
+      - base is defined
+      - base.imap is defined
+      - packages is defined
+      - packages.wheelhouse_dir is defined
+      - packages.local_wheel_dir is defined
+    fail_msg: "base.imap 또는 packages 변수 설정을 확인하세요."
+
+- name: Create wheelhouse directory
+  win_file:
+    path: "{{ packages.wheelhouse_dir }}"
+    state: directory
+
+- name: Check local wheel directory
+  stat:
+    path: "{{ packages.local_wheel_dir }}"
+  delegate_to: localhost
+  register: local_wheel_directory
+
+- name: Fail when local wheel directory does not exist
+  fail:
+    msg: >-
+      Ansible 서버의 로컬 wheel 경로가 존재하지 않습니다.
+      경로={{ packages.local_wheel_dir }}
+  when: not local_wheel_directory.stat.exists
+
+- name: Find local wheel files
+  find:
+    paths: "{{ packages.local_wheel_dir }}"
+    patterns:
+      - "*.whl"
+    file_type: file
+  delegate_to: localhost
+  register: local_wheel_files
+
+- name: Fail when local wheel files do not exist
+  fail:
+    msg: >-
+      복사할 wheel 파일이 없습니다.
+      경로={{ packages.local_wheel_dir }}
+  when: local_wheel_files.matched | int == 0
+
+- name: Copy wheel files to Windows server
+  win_copy:
+    src: "{{ item.path }}"
+    dest: "{{ packages.wheelhouse_dir }}\\{{ item.path | basename }}"
+  with_items: "{{ local_wheel_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Show package preparation result
+  debug:
+    msg:
+      - "Wheelhouse 준비가 완료되었습니다."
+      - "대상 경로={{ packages.wheelhouse_dir }}"
+      - "복사 파일 수={{ local_wheel_files.matched }}"
