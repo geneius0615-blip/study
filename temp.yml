@@ -1,12 +1,4 @@
-- name: Validate Git authentication variables
-  assert:
-    that:
-      - git_auth is defined
-      - git_auth.host is defined
-      - git_auth.host | length > 0
-      - git_auth.username is defined
-      - git_auth.username | length > 0
-      - git_auth.token is defined
-      - git_auth.token | length > 0
-    fail_msg: "GitHub Enterprise 인증 변수 설정을 확인하세요."
-  no_log: true
+- name: Disable interactive Git credential prompt
+  win_command: git config --global credential.interactive never
+  register: git_interactive_config
+  changed_when: git_interactive_config.rc == 0
