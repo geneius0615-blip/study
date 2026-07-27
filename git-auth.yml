@@ -1,6 +1,6 @@
 ---
 - name: Validate Git authentication variables
-  ansible.builtin.assert:
+  assert:
     that:
       - git_auth is defined
       - git_auth.host is defined
@@ -11,78 +11,44 @@
       - git_id | trim | length > 0
       - git_password is defined
       - git_password | trim | length > 0
-    fail_msg: >-
-      git_auth.host, git_auth.test_repositories,
-      git_id, git_password 설정을 확인하세요.
+    fail_msg: "git_auth, git_id, git_password 변수 설정을 확인하세요."
   no_log: true
 
-- name: Create Git _netrc authentication file
-  ansible.windows.win_powershell:
-    script: |
-      $ErrorActionPreference = "Stop"
+- name: Create Git authentication file
+  win_shell: |
+    $ErrorActionPreference = "Stop"
 
-      $netrcPath = Join-Path $env:USERPROFILE "_netrc"
+    $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
-      $netrcContent = @"
-      machine {{ git_auth.host }}
-      login {{ git_id }}
-      password {{ git_password }}
-      "@
+    $lines = @(
+        "machine {{ git_auth.host }}"
+        "login {{ git_id }}"
+        "password {{ git_password }}"
+    )
 
-      # 들여쓰기와 앞뒤 공백을 제거한 뒤 ASCII로 저장
-      $netrcContent = $netrcContent.Trim()
+    $content = $lines -join [Environment]::NewLine
 
-      [System.IO.File]::WriteAllText(
-          $netrcPath,
-          $netrcContent + [Environment]::NewLine,
-          [System.Text.Encoding]::ASCII
-      )
+    [System.IO.File]::WriteAllText(
+        $netrcPath,
+        $content + [Environment]::NewLine,
+        [System.Text.Encoding]::ASCII
+    )
 
-      Write-Output "NETRC_PATH=$netrcPath"
-      Write-Output "RESULT=CREATED"
+    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
+        throw "_netrc file creation failed: $netrcPath"
+    }
+
+    Write-Output "RESULT=CREATED"
+    Write-Output "NETRC_PATH=$netrcPath"
+  args:
+    executable: powershell.exe
+  register: git_auth_create
+  changed_when: "'RESULT=CREATED' in git_auth_create.stdout"
   no_log: true
 
-- name: Verify Git _netrc file
-  ansible.windows.win_powershell:
-    script: |
-      $ErrorActionPreference = "Stop"
-
-      $netrcPath = Join-Path $env:USERPROFILE "_netrc"
-
-      if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
-          throw "_netrc file not found: $netrcPath"
-      }
-
-      $content = Get-Content -LiteralPath $netrcPath -Raw
-
-      if ($content -notmatch '(?m)^machine\s+{{ git_auth.host | regex_escape }}\s*$') {
-          throw "Git host is missing from _netrc."
-      }
-
-      if ($content -notmatch '(?m)^login\s+.+$') {
-          throw "Git login is missing from _netrc."
-      }
-
-      if ($content -notmatch '(?m)^password\s+.+$') {
-          throw "Git password or token is missing from _netrc."
-      }
-
-      Write-Output "NETRC_PATH=$netrcPath"
-      Write-Output "HOST={{ git_auth.host }}"
-      Write-Output "RESULT=VALID"
-  register: git_netrc_verify
-  changed_when: false
-  no_log: true
-
-- name: Test access to Git repositories
-  ansible.windows.win_command:
-    argv:
-      - git
-      - ls-remote
-      - "{{ item }}"
-  loop: "{{ git_auth.test_repositories }}"
-  loop_control:
-    label: "{{ item }}"
+- name: Test Git repository access
+  win_command: git ls-remote "{{ item }}"
+  with_items: "{{ git_auth.test_repositories }}"
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
@@ -91,7 +57,7 @@
   no_log: true
 
 - name: Show Git authentication result
-  ansible.builtin.debug:
-    msg: >-
-      Git 인증 설정 및 저장소 접근 검증이 완료되었습니다.
-      검증 저장소 수={{ git_auth.test_repositories | length }}
+  debug:
+    msg:
+      - "Git 인증 파일 생성이 완료되었습니다."
+      - "검증 저장소 수={{ git_auth.test_repositories | length }}"
