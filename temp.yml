@@ -1,4 +1,9 @@
-- name: Disable interactive Git credential prompt
-  win_command: git config --global credential.interactive never
-  register: git_interactive_config
-  changed_when: git_interactive_config.rc == 0
+- name: Test GitHub Enterprise repository authentication
+  win_command: >
+    git ls-remote "{{ git_auth.test_repository }}"
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GCM_INTERACTIVE: "Never"
+  register: git_auth_test
+  changed_when: false
+  no_log: true
