@@ -11,16 +11,29 @@
       - python_install_script.stat.isreg
     fail_msg: "python-install.bat가 없습니다: {{ install.script_file }}"
 
-- name: Check Git netrc authentication file
+- name: Check application source directory
   win_stat:
-    path: "{{ git_user_profile }}\\_netrc"
-  register: install_git_netrc
+    path: "{{ app.source_dir }}"
+  register: application_source_directory
 
-- name: Validate Git netrc authentication file
+- name: Validate application source directory
   assert:
     that:
-      - install_git_netrc.stat.exists
-    fail_msg: "_netrc 인증 파일이 없습니다: {{ git_user_profile }}\\_netrc"
+      - application_source_directory.stat.exists
+      - application_source_directory.stat.isdir
+    fail_msg: "애플리케이션 소스 경로가 없습니다: {{ app.source_dir }}"
+
+- name: Check application requirements file
+  win_stat:
+    path: "{{ app.requirements_file }}"
+  register: application_requirements_file
+
+- name: Validate application requirements file
+  assert:
+    that:
+      - application_requirements_file.stat.exists
+      - application_requirements_file.stat.isreg
+    fail_msg: "requirements.txt가 없습니다: {{ app.requirements_file }}"
 
 - name: Execute Python install script
   win_command: >
@@ -30,7 +43,6 @@
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
-    HOME: "{{ git_user_profile }}"
   register: python_install_result
 
 - name: Show Python install output
@@ -47,5 +59,7 @@
     that:
       - virtual_environment_python.stat.exists
       - virtual_environment_python.stat.isreg
+    fail_msg: >-
+      Python 가상환경 설치에 실패했습니다:
+      {{ app.python_executable }}
     success_msg: "Python 가상환경 설치가 완료됐습니다."
-    fail_msg: "Python 가상환경 설치에 실패했습니다: {{ app.python_executable }}"
