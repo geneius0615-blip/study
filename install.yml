@@ -1,34 +1,51 @@
 ---
-- name: Check install script
+- name: Check Python install script
   win_stat:
     path: "{{ install.script_file }}"
-  register: install_script
+  register: python_install_script
 
-- name: Validate install script
+- name: Validate Python install script
   assert:
     that:
-      - install_script.stat.exists
-    fail_msg: "python-install.bat가 없습니다."
+      - python_install_script.stat.exists
+      - python_install_script.stat.isreg
+    fail_msg: "python-install.bat가 없습니다: {{ install.script_file }}"
 
-- name: Execute install script
+- name: Check Git netrc authentication file
+  win_stat:
+    path: "{{ git_user_profile }}\\_netrc"
+  register: install_git_netrc
+
+- name: Validate Git netrc authentication file
+  assert:
+    that:
+      - install_git_netrc.stat.exists
+    fail_msg: "_netrc 인증 파일이 없습니다: {{ git_user_profile }}\\_netrc"
+
+- name: Execute Python install script
   win_command: >
-    cmd /c call "{{ install.script_file }}"
+    cmd.exe /c call "{{ install.script_file }}"
   args:
     chdir: "{{ base.imap }}\\source"
-  register: install_result
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GCM_INTERACTIVE: "Never"
+    HOME: "{{ git_user_profile }}"
+  register: python_install_result
 
-- name: Show install output
+- name: Show Python install output
   debug:
-    var: install_result.stdout_lines
+    var: python_install_result.stdout_lines
 
-- name: Check virtual environment
+- name: Check virtual environment Python
   win_stat:
     path: "{{ app.python_executable }}"
-  register: venv
+  register: virtual_environment_python
 
 - name: Validate virtual environment
   assert:
     that:
-      - venv.stat.exists
-    success_msg: ".venv 생성 완료"
-    fail_msg: ".venv 생성 실패"
+      - virtual_environment_python.stat.exists
+      - virtual_environment_python.stat.isreg
+    success_msg: "Python 가상환경 설치가 완료됐습니다."
+    fail_msg: "Python 가상환경 설치에 실패했습니다: {{ app.python_executable }}"
