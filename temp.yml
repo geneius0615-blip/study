@@ -1,10 +1,17 @@
-- name: Remove Git credential helper
-  win_shell: |
-    git config --system --unset-all credential.helper 2>$null
-    git config --global --unset-all credential.helper 2>$null
-    git config --local --unset-all credential.helper 2>$null
-    exit 0
+- name: Execute Python install script
+  win_command: >
+    cmd.exe /c call "{{ install.script_file }}"
   args:
-    chdir: "{{ app.source_dir }}"
-  changed_when: false
-  failed_when: false
+    chdir: "{{ base.imap }}\\source"
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GCM_INTERACTIVE: "Never"
+    GCM_CREDENTIAL_STORE: "none"
+    GIT_CONFIG_COUNT: "1"
+    GIT_CONFIG_KEY_0: "credential.helper"
+    GIT_CONFIG_VALUE_0: ""
+  register: python_install_result
+
+- name: Show Python install output
+  debug:
+    var: python_install_result.stdout_lines
