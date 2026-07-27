@@ -49,17 +49,15 @@
   debug:
     var: python_install_result.stdout_lines
 
-- name: Check virtual environment Python
+- name: Check Python virtual environment
   win_stat:
     path: "{{ app.python_executable }}"
   register: virtual_environment_python
 
-- name: Validate virtual environment
+- name: Validate Python virtual environment
   assert:
     that:
       - virtual_environment_python.stat.exists
       - virtual_environment_python.stat.isreg
-    fail_msg: >-
-      Python 가상환경 설치에 실패했습니다:
-      {{ app.python_executable }}
+    fail_msg: "Python 가상환경 설치에 실패했습니다."
     success_msg: "Python 가상환경 설치가 완료됐습니다."
