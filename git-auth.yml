@@ -1,33 +1,84 @@
 ---
-- name: Check Windows user profile
+- name: Get Ansible execution user profile
   win_shell: |
-    Write-Output $env:USERPROFILE
-  register: user_profile_result
+    Write-Output "USERNAME=$env:USERNAME"
+    Write-Output "USERPROFILE=$env:USERPROFILE"
+  register: git_user_profile_result
   changed_when: false
 
-- name: Set Windows user profile path
+- name: Set Ansible execution user profile
   set_fact:
-    windows_user_profile: "{{ user_profile_result.stdout | trim }}"
+    git_user_profile: >-
+      {{
+        (
+          git_user_profile_result.stdout_lines
+          | select('match', '^USERPROFILE=')
+          | list
+          | first
+        )
+        | regex_replace('^USERPROFILE=', '')
+        | trim
+      }}
 
-- name: Create Git netrc authentication file
+- name: Validate Ansible execution user profile
+  assert:
+    that:
+      - git_user_profile is defined
+      - git_user_profile | length > 0
+    fail_msg: "Ansible 실행 계정의 USERPROFILE을 확인할 수 없습니다."
+
+- name: Show Git authentication target profile
+  debug:
+    msg: "Git 인증 파일 위치: {{ git_user_profile }}\\_netrc"
+
+- name: Create GitHub Enterprise netrc authentication file
   win_copy:
-    dest: "{{ windows_user_profile }}\\_netrc"
+    dest: "{{ git_user_profile }}\\_netrc"
     content: |
       machine {{ git_auth.host }}
       login {{ git_auth.username }}
       password {{ git_auth.token }}
   no_log: true
 
-- name: Disable incompatible Git credential helpers
+- name: Remove global Git credential helper
   win_command: git config --global --unset-all credential.helper
-  register: unset_git_credential_helper
-  failed_when: false
-  changed_when: unset_git_credential_helper.rc == 0
+  register: remove_global_credential_helper
+  changed_when: remove_global_credential_helper.rc == 0
+  failed_when:
+    - remove_global_credential_helper.rc != 0
+    - "'has multiple values' not in remove_global_credential_helper.stderr"
+    - "'not found' not in remove_global_credential_helper.stderr"
 
-- name: Disable interactive Git credential prompt
+- name: Remove local Git credential helper environment setting
   win_command: git config --global credential.interactive never
-  changed_when: true
+  changed_when: false
 
-- name: Enable credential path matching
-  win_command: git config --global credential.useHttpPath true
-  changed_when: true
+- name: Check created netrc file
+  win_stat:
+    path: "{{ git_user_profile }}\\_netrc"
+  register: git_netrc_file
+
+- name: Validate created netrc file
+  assert:
+    that:
+      - git_netrc_file.stat.exists
+      - git_netrc_file.stat.isreg
+    fail_msg: "_netrc 인증 파일 생성에 실패했습니다."
+
+- name: Test GitHub Enterprise repository authentication
+  win_command: >
+    git ls-remote
+    https://{{ git_auth.host }}/team/imap-shared.git
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GCM_INTERACTIVE: "Never"
+  register: git_auth_test
+  changed_when: false
+  no_log: true
+
+- name: Validate GitHub Enterprise repository authentication
+  assert:
+    that:
+      - git_auth_test.rc == 0
+    fail_msg: "GitHub Enterprise 저장소 인증에 실패했습니다."
+    success_msg: "GitHub Enterprise 저장소 인증이 정상입니다."
