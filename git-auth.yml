@@ -1,74 +1,77 @@
 ---
-- name: Get Ansible execution user profile
-  win_shell: |
-    Write-Output "USERNAME=$env:USERNAME"
-    Write-Output "USERPROFILE=$env:USERPROFILE"
-  register: git_user_profile_result
-  changed_when: false
-
-- name: Set Ansible execution user profile
-  set_fact:
-    git_user_profile: >-
-      {{
-        (
-          git_user_profile_result.stdout_lines
-          | select('match', '^USERPROFILE=')
-          | list
-          | first
-        )
-        | regex_replace('^USERPROFILE=', '')
-        | trim
-      }}
-
-- name: Validate Ansible execution user profile
+- name: Validate Git authentication variables
   assert:
     that:
-      - git_user_profile is defined
-      - git_user_profile | length > 0
-    fail_msg: "Ansible 실행 계정의 USERPROFILE을 확인할 수 없습니다."
+      - git_auth is defined
+      - git_auth.host is defined
+      - git_auth.host | length > 0
+      - git_auth.username is defined
+      - git_auth.username | length > 0
+      - git_auth.token is defined
+      - git_auth.token | length > 0
+    fail_msg: "GitHub Enterprise 인증 변수 설정을 확인하세요."
 
-- name: Show Git authentication target profile
-  debug:
-    msg: "Git 인증 파일 위치: {{ git_user_profile }}\\_netrc"
+- name: Create Git authentication file
+  win_shell: |
+    $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
-- name: Create GitHub Enterprise netrc authentication file
-  win_copy:
-    dest: "{{ git_user_profile }}\\_netrc"
-    content: |
-      machine {{ git_auth.host }}
-      login {{ git_auth.username }}
-      password {{ git_auth.token }}
+    @"
+    machine {{ git_auth.host }}
+    login {{ git_auth.username }}
+    password {{ git_auth.token }}
+    "@ | Set-Content `
+        -LiteralPath $netrcPath `
+        -Encoding ASCII
   no_log: true
 
 - name: Remove global Git credential helper
   win_command: git config --global --unset-all credential.helper
-  register: remove_global_credential_helper
-  changed_when: remove_global_credential_helper.rc == 0
-  failed_when:
-    - remove_global_credential_helper.rc != 0
-    - "'has multiple values' not in remove_global_credential_helper.stderr"
-    - "'not found' not in remove_global_credential_helper.stderr"
+  register: remove_git_credential_helper
+  failed_when: false
+  changed_when: remove_git_credential_helper.rc == 0
 
-- name: Remove local Git credential helper environment setting
+- name: Disable interactive Git credential prompt
   win_command: git config --global credential.interactive never
+  register: disable_git_interactive
+  changed_when: disable_git_interactive.rc == 0
+
+- name: Check Git authentication file
+  win_shell: |
+    $netrcPath = Join-Path $env:USERPROFILE "_netrc"
+
+    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
+        throw "_netrc 파일이 없습니다: $netrcPath"
+    }
+
+    $netrcContent = Get-Content `
+        -LiteralPath $netrcPath `
+        -Raw
+
+    if ($netrcContent -notmatch "machine\s+{{ git_auth.host | regex_escape }}") {
+        throw "_netrc 파일에 Git 호스트가 없습니다."
+    }
+
+    if ($netrcContent -notmatch "login\s+{{ git_auth.username | regex_escape }}") {
+        throw "_netrc 파일에 Git 사용자명이 없습니다."
+    }
+
+    if ($netrcContent -notmatch "password\s+\S+") {
+        throw "_netrc 파일에 Git 인증 토큰이 없습니다."
+    }
+
+    Write-Output "NETRC_EXISTS=True"
+    Write-Output "NETRC_PATH=$netrcPath"
+  register: git_netrc_check
   changed_when: false
+  no_log: true
 
-- name: Check created netrc file
-  win_stat:
-    path: "{{ git_user_profile }}\\_netrc"
-  register: git_netrc_file
+- name: Show Git authentication file result
+  debug:
+    msg: "GitHub Enterprise 인증 파일 생성이 완료됐습니다."
 
-- name: Validate created netrc file
-  assert:
-    that:
-      - git_netrc_file.stat.exists
-      - git_netrc_file.stat.isreg
-    fail_msg: "_netrc 인증 파일 생성에 실패했습니다."
-
-- name: Test GitHub Enterprise repository authentication
+- name: Test Git repository authentication
   win_command: >
-    git ls-remote
-    https://{{ git_auth.host }}/team/imap-shared.git
+    git ls-remote "{{ git_auth.test_repository }}"
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
@@ -76,7 +79,7 @@
   changed_when: false
   no_log: true
 
-- name: Validate GitHub Enterprise repository authentication
+- name: Validate Git repository authentication
   assert:
     that:
       - git_auth_test.rc == 0
