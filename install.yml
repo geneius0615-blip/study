@@ -43,11 +43,18 @@
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
+    GCM_CREDENTIAL_STORE: "none"
   register: python_install_result
 
 - name: Show Python install output
   debug:
     var: python_install_result.stdout_lines
+
+- name: Validate Python install result
+  assert:
+    that:
+      - python_install_result.rc == 0
+    fail_msg: "python-install.bat 실행에 실패했습니다."
 
 - name: Check Python virtual environment
   win_stat:
