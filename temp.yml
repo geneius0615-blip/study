@@ -1,7 +1,14 @@
-- name: Show Python installation paths
+- name: Execute Python install script
+  win_command: >
+    cmd.exe /c call "{{ install.script_file }}"
+  args:
+    chdir: "{{ base.imap }}\\source"
+  environment:
+    GIT_TERMINAL_PROMPT: "0"
+    GCM_INTERACTIVE: "Never"
+  register: install_result
+  no_log: false
+
+- name: Show Python install output
   debug:
-    msg:
-      - "INSTALL_SCRIPT={{ install.script_file }}"
-      - "SOURCE_DIR={{ app.source_dir }}"
-      - "VENV_DIR={{ app.venv_dir }}"
-      - "REQUIREMENTS_FILE={{ app.requirements_file }}"
+    var: install_result.stdout_lines
