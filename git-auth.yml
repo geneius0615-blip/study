@@ -1,163 +1,97 @@
 ---
 - name: Validate Git authentication variables
-  assert:
+  ansible.builtin.assert:
     that:
       - git_auth is defined
       - git_auth.host is defined
-      - git_auth.host | string | length > 0
+      - git_auth.host | trim | length > 0
+      - git_auth.test_repositories is defined
+      - git_auth.test_repositories | length > 0
       - git_id is defined
-      - git_id | string | length > 0
+      - git_id | trim | length > 0
       - git_password is defined
-      - git_password | string | length > 0
-    fail_msg: "git_auth.host, git_id, git_password 설정을 확인하세요."
+      - git_password | trim | length > 0
+    fail_msg: >-
+      git_auth.host, git_auth.test_repositories,
+      git_id, git_password 설정을 확인하세요.
   no_log: true
 
+- name: Create Git _netrc authentication file
+  ansible.windows.win_powershell:
+    script: |
+      $ErrorActionPreference = "Stop"
 
-- name: Detect WinRM execution profile
-  win_shell: |
-    Write-Output "USERNAME=$env:USERNAME"
-    Write-Output "USERPROFILE=$env:USERPROFILE"
-    Write-Output "HOMEDRIVE=$env:HOMEDRIVE"
-    Write-Output "HOMEPATH=$env:HOMEPATH"
-  register: git_profile_result
-  changed_when: false
+      $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
+      $netrcContent = @"
+      machine {{ git_auth.host }}
+      login {{ git_id }}
+      password {{ git_password }}
+      "@
 
-- name: Show WinRM execution profile
-  debug:
-    var: git_profile_result.stdout_lines
+      # 들여쓰기와 앞뒤 공백을 제거한 뒤 ASCII로 저장
+      $netrcContent = $netrcContent.Trim()
 
+      [System.IO.File]::WriteAllText(
+          $netrcPath,
+          $netrcContent + [Environment]::NewLine,
+          [System.Text.Encoding]::ASCII
+      )
 
-- name: Create netrc file for WinRM execution user
-  win_shell: |
-    $profilePath = $env:USERPROFILE
-
-    if ([string]::IsNullOrWhiteSpace($profilePath)) {
-        $profilePath = "$env:HOMEDRIVE$env:HOMEPATH"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($profilePath)) {
-        throw "WinRM 실행 계정의 프로필 경로를 확인할 수 없습니다."
-    }
-
-    if (-not (Test-Path -LiteralPath $profilePath -PathType Container)) {
-        New-Item `
-          -ItemType Directory `
-          -Path $profilePath `
-          -Force | Out-Null
-    }
-
-    $netrcPath = Join-Path $profilePath "_netrc"
-
-    $netrcContent = @(
-        "machine {{ git_auth.host }}"
-        "login {{ git_id }}"
-        "password {{ git_password }}"
-    )
-
-    $netrcContent |
-      Set-Content `
-        -LiteralPath $netrcPath `
-        -Encoding ASCII `
-        -Force
-
-    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
-        throw "_netrc 생성에 실패했습니다: $netrcPath"
-    }
-
-    Write-Output "NETRC_PATH=$netrcPath"
-  register: create_netrc_result
+      Write-Output "NETRC_PATH=$netrcPath"
+      Write-Output "RESULT=CREATED"
   no_log: true
 
+- name: Verify Git _netrc file
+  ansible.windows.win_powershell:
+    script: |
+      $ErrorActionPreference = "Stop"
 
-- name: Disable interactive Git authentication
-  win_shell: |
-    git config --global credential.interactive never
-    git config --global credential.credentialStore none
+      $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Git 인증 설정에 실패했습니다."
-    }
+      if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
+          throw "_netrc file not found: $netrcPath"
+      }
+
+      $content = Get-Content -LiteralPath $netrcPath -Raw
+
+      if ($content -notmatch '(?m)^machine\s+{{ git_auth.host | regex_escape }}\s*$') {
+          throw "Git host is missing from _netrc."
+      }
+
+      if ($content -notmatch '(?m)^login\s+.+$') {
+          throw "Git login is missing from _netrc."
+      }
+
+      if ($content -notmatch '(?m)^password\s+.+$') {
+          throw "Git password or token is missing from _netrc."
+      }
+
+      Write-Output "NETRC_PATH=$netrcPath"
+      Write-Output "HOST={{ git_auth.host }}"
+      Write-Output "RESULT=VALID"
+  register: git_netrc_verify
   changed_when: false
+  no_log: true
 
-
-- name: Verify netrc file without displaying credentials
-  win_shell: |
-    $profilePath = $env:USERPROFILE
-
-    if ([string]::IsNullOrWhiteSpace($profilePath)) {
-        $profilePath = "$env:HOMEDRIVE$env:HOMEPATH"
-    }
-
-    $netrcPath = Join-Path $profilePath "_netrc"
-
-    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
-        throw "_netrc 파일이 없습니다: $netrcPath"
-    }
-
-    $content = Get-Content -LiteralPath $netrcPath
-
-    $machineExists = (
-        $content |
-        Where-Object {
-            $_.Trim() -eq "machine {{ git_auth.host }}"
-        }
-    ).Count -gt 0
-
-    $loginExists = (
-        $content |
-        Where-Object {
-            $_.Trim() -eq "login {{ git_id }}"
-        }
-    ).Count -gt 0
-
-    $passwordExists = (
-        $content |
-        Where-Object {
-            $_.Trim() -match '^password\s+.+'
-        }
-    ).Count -gt 0
-
-    Write-Output "NETRC_PATH=$netrcPath"
-    Write-Output "MACHINE_EXISTS=$machineExists"
-    Write-Output "LOGIN_EXISTS=$loginExists"
-    Write-Output "PASSWORD_EXISTS=$passwordExists"
-
-    if (
-        -not $machineExists -or
-        -not $loginExists -or
-        -not $passwordExists
-    ) {
-        throw "_netrc 파일 내용이 올바르지 않습니다."
-    }
-  register: verify_netrc_result
-  changed_when: false
-
-
-- name: Show netrc verification result
-  debug:
-    var: verify_netrc_result.stdout_lines
-
-
-- name: Test Git repository authentication
-  win_command: >
-    git ls-remote
-    "https://{{ git_auth.host }}/team/imap-shared.git"
+- name: Test access to Git repositories
+  ansible.windows.win_command:
+    argv:
+      - git
+      - ls-remote
+      - "{{ item }}"
+  loop: "{{ git_auth.test_repositories }}"
+  loop_control:
+    label: "{{ item }}"
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
-    GCM_CREDENTIAL_STORE: "none"
-  register: git_auth_test
+  register: git_repository_test
   changed_when: false
   no_log: true
 
-
-- name: Validate Git repository authentication
-  assert:
-    that:
-      - git_auth_test.rc == 0
-    fail_msg: >-
-      Git 저장소 인증에 실패했습니다.
-      WinRM 실행 계정의 _netrc 경로와
-      git_id, git_password 값을 확인하세요.
-    success_msg: "Git 저장소 인증이 정상입니다."
+- name: Show Git authentication result
+  ansible.builtin.debug:
+    msg: >-
+      Git 인증 설정 및 저장소 접근 검증이 완료되었습니다.
+      검증 저장소 수={{ git_auth.test_repositories | length }}
