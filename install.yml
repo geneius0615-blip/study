@@ -50,6 +50,13 @@
   debug:
     var: python_install_result.stdout_lines
 
+- name: Show Python install error
+  debug:
+    var: python_install_result.stderr_lines
+  when:
+    - python_install_result.stderr_lines is defined
+    - python_install_result.stderr_lines | length > 0
+
 - name: Validate Python install result
   assert:
     that:
