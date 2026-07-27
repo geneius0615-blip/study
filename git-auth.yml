@@ -2,16 +2,18 @@
 - name: Validate Git authentication variables
   assert:
     that:
-      - git_auth is defined
       - git_auth.host is defined
       - git_auth.host | length > 0
       - git_auth.username is defined
       - git_auth.username | length > 0
       - git_auth.token is defined
       - git_auth.token | length > 0
-    fail_msg: "GitHub Enterprise 인증 변수 설정을 확인하세요."
+      - git_auth.test_repository is defined
+      - git_auth.test_repository | length > 0
+    fail_msg: "git_auth 설정을 확인하세요."
+  no_log: true
 
-- name: Create Git authentication file
+- name: Create Git netrc authentication file
   win_shell: |
     $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
@@ -19,55 +21,52 @@
     machine {{ git_auth.host }}
     login {{ git_auth.username }}
     password {{ git_auth.token }}
-    "@ | Set-Content `
-        -LiteralPath $netrcPath `
-        -Encoding ASCII
-  no_log: true
+    "@ | Set-Content -LiteralPath $netrcPath -Encoding ASCII
 
-- name: Remove global Git credential helper
-  win_command: git config --global --unset-all credential.helper
-  register: remove_git_credential_helper
-  failed_when: false
-  changed_when: remove_git_credential_helper.rc == 0
-
-- name: Disable interactive Git credential prompt
-  win_command: git config --global credential.interactive never
-  register: disable_git_interactive
-  changed_when: disable_git_interactive.rc == 0
-
-- name: Check Git authentication file
-  win_shell: |
-    $netrcPath = Join-Path $env:USERPROFILE "_netrc"
-
-    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
-        throw "_netrc 파일이 없습니다: $netrcPath"
-    }
-
-    $netrcContent = Get-Content `
-        -LiteralPath $netrcPath `
-        -Raw
-
-    if ($netrcContent -notmatch "machine\s+{{ git_auth.host | regex_escape }}") {
-        throw "_netrc 파일에 Git 호스트가 없습니다."
-    }
-
-    if ($netrcContent -notmatch "login\s+{{ git_auth.username | regex_escape }}") {
-        throw "_netrc 파일에 Git 사용자명이 없습니다."
-    }
-
-    if ($netrcContent -notmatch "password\s+\S+") {
-        throw "_netrc 파일에 Git 인증 토큰이 없습니다."
-    }
-
-    Write-Output "NETRC_EXISTS=True"
     Write-Output "NETRC_PATH=$netrcPath"
-  register: git_netrc_check
-  changed_when: false
   no_log: true
 
-- name: Show Git authentication file result
+- name: Remove global Git credential helpers
+  win_shell: |
+    git config --global --unset-all credential.helper 2>$null
+
+    if ($LASTEXITCODE -ne 0) {
+        $globalConfig = Join-Path $env:USERPROFILE ".gitconfig"
+
+        if (Test-Path -LiteralPath $globalConfig) {
+            Write-Output "No existing global credential helper"
+        }
+    }
+
+    exit 0
+  changed_when: false
+  failed_when: false
+
+- name: Reset Git credential helper list
+  win_shell: |
+    git config --global --add credential.helper ""
+    git config --global credential.interactive never
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Git credential 설정에 실패했습니다."
+    }
+  changed_when: false
+
+- name: Check effective Git credential helper configuration
+  win_shell: |
+    git config --show-origin --get-all credential.helper
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Output "No credential helper configured"
+        exit 0
+    }
+  register: git_credential_helper_result
+  changed_when: false
+  failed_when: false
+
+- name: Show effective Git credential helper configuration
   debug:
-    msg: "GitHub Enterprise 인증 파일 생성이 완료됐습니다."
+    var: git_credential_helper_result.stdout_lines
 
 - name: Test Git repository authentication
   win_command: >
@@ -75,6 +74,7 @@
   environment:
     GIT_TERMINAL_PROMPT: "0"
     GCM_INTERACTIVE: "Never"
+    GCM_CREDENTIAL_STORE: "none"
   register: git_auth_test
   changed_when: false
   no_log: true
@@ -83,5 +83,5 @@
   assert:
     that:
       - git_auth_test.rc == 0
-    fail_msg: "GitHub Enterprise 저장소 인증에 실패했습니다."
-    success_msg: "GitHub Enterprise 저장소 인증이 정상입니다."
+    fail_msg: "Git 저장소 인증에 실패했습니다."
+    success_msg: "Git 저장소 인증이 정상입니다."
