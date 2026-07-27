@@ -34,3 +34,37 @@
 
     Write-Output "NETRC_PATH=$netrcPath"
   no_log: true
+
+
+- name: Verify netrc file without displaying credentials
+  win_shell: |
+    $profilePath = $env:USERPROFILE
+
+    if ([string]::IsNullOrWhiteSpace($profilePath)) {
+        $profilePath = "$env:HOMEDRIVE$env:HOMEPATH"
+    }
+
+    $netrcPath = Join-Path $profilePath "_netrc"
+
+    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
+        throw "_netrc 파일이 없습니다: $netrcPath"
+    }
+
+    $content = Get-Content -LiteralPath $netrcPath
+
+    $machineExists = $content -contains "machine {{ git_auth.host }}"
+    $loginExists = $content -contains "login {{ git_id }}"
+    $passwordExists = ($content | Where-Object {
+        $_ -match '^password\s+.+'
+    }).Count -gt 0
+
+    Write-Output "NETRC_PATH=$netrcPath"
+    Write-Output "MACHINE_EXISTS=$machineExists"
+    Write-Output "LOGIN_EXISTS=$loginExists"
+    Write-Output "PASSWORD_EXISTS=$passwordExists"
+
+    if (-not $machineExists -or -not $loginExists -or -not $passwordExists) {
+        throw "_netrc 파일 내용이 올바르지 않습니다."
+    }
+  register: verify_netrc_result
+  changed_when: false
