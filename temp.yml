@@ -1,17 +1,36 @@
-- name: Execute Python install script
-  win_command: >
-    cmd.exe /c call "{{ install.script_file }}"
-  args:
-    chdir: "{{ base.imap }}\\source"
-  environment:
-    GIT_TERMINAL_PROMPT: "0"
-    GCM_INTERACTIVE: "Never"
-    GCM_CREDENTIAL_STORE: "none"
-    GIT_CONFIG_COUNT: "1"
-    GIT_CONFIG_KEY_0: "credential.helper"
-    GIT_CONFIG_VALUE_0: ""
-  register: python_install_result
+- name: Create netrc file for WinRM execution user
+  win_shell: |
+    $profilePath = $env:USERPROFILE
 
-- name: Show Python install output
-  debug:
-    var: python_install_result.stdout_lines
+    if ([string]::IsNullOrWhiteSpace($profilePath)) {
+        $profilePath = "$env:HOMEDRIVE$env:HOMEPATH"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($profilePath)) {
+        throw "WinRM 실행 계정의 프로필 경로를 확인할 수 없습니다."
+    }
+
+    if (-not (Test-Path -LiteralPath $profilePath)) {
+        New-Item `
+          -ItemType Directory `
+          -Path $profilePath `
+          -Force | Out-Null
+    }
+
+    $netrcPath = Join-Path $profilePath "_netrc"
+
+    @"
+    machine {{ git_auth.host }}
+    login {{ git_id }}
+    password {{ git_password }}
+    "@ | Set-Content `
+          -LiteralPath $netrcPath `
+          -Encoding ASCII `
+          -Force
+
+    if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
+        throw "_netrc 생성에 실패했습니다: $netrcPath"
+    }
+
+    Write-Output "NETRC_PATH=$netrcPath"
+  no_log: true
