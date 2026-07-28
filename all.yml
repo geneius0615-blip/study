@@ -1,9 +1,5 @@
 ---
-# ============================================================
-# Service
-# ============================================================
-
-service_name: "gateway"
+service_name: 'gateway'
 
 
 # ============================================================
@@ -18,30 +14,26 @@ base:
 
 # ============================================================
 # Source directories
-#
-# E:\digital-twin-studio\imap\source\gateway
 # ============================================================
 
 source:
   root: '{{ base.imap }}\source\{{ service_name }}'
-  app: '{{ source.root }}\app'
-  packages: '{{ source.root }}\packages'
-  wheelhouse: '{{ source.root }}\wheelhouse'
+  app: '{{ base.imap }}\source\{{ service_name }}\app'
+  packages: '{{ base.imap }}\source\{{ service_name }}\packages'
+  wheelhouse: '{{ base.imap }}\source\{{ service_name }}\wheelhouse'
 
 
 # ============================================================
 # Deployment directories
-#
-# E:\Deploy\Python\gateway
 # ============================================================
 
 deploy:
   root: '{{ base.app }}\{{ service_name }}'
-  app: '{{ deploy.root }}\app'
-  packages: '{{ deploy.root }}\packages'
-  temp: '{{ deploy.root }}\temp'
-  logs: '{{ deploy.root }}\logs'
-  workplaces: '{{ deploy.root }}\workplaces'
+  app: '{{ base.app }}\{{ service_name }}\app'
+  packages: '{{ base.app }}\{{ service_name }}\packages'
+  temp: '{{ base.app }}\{{ service_name }}\temp'
+  logs: '{{ base.app }}\{{ service_name }}\logs'
+  workplaces: '{{ base.app }}\{{ service_name }}\workplaces'
   backup: '{{ base.backup }}\{{ service_name }}'
 
 
@@ -52,55 +44,49 @@ deploy:
 python:
   home: 'C:\Python313'
   executable: 'C:\Python313\python.exe'
-
-  venv: '{{ deploy.root }}\.venv'
-  venv_python: '{{ deploy.root }}\.venv\Scripts\python.exe'
-  venv_pip: '{{ deploy.root }}\.venv\Scripts\pip.exe'
+  venv: '{{ base.app }}\{{ service_name }}\.venv'
+  venv_python: '{{ base.app }}\{{ service_name }}\.venv\Scripts\python.exe'
+  venv_pip: '{{ base.app }}\{{ service_name }}\.venv\Scripts\pip.exe'
 
 
 # ============================================================
 # Requirements
-#
-# requirements.txt가 app 폴더 안에 있다면 아래 경로 사용
 # ============================================================
 
 requirements:
-  file: '{{ source.app }}\requirements.txt'
-  deploy_file: '{{ deploy.app }}\requirements.txt'
+  file: '{{ base.imap }}\source\{{ service_name }}\app\requirements.txt'
+  deploy_file: '{{ base.app }}\{{ service_name }}\app\requirements.txt'
 
 
 # ============================================================
-# Gateway local packages
-#
-# 실제 폴더명에 맞게 package_two ~ package_four 수정
-# 목록 순서대로 복사 및 설치됨
+# Gateway packages
 # ============================================================
 
 python_packages:
   - name: 'imap_shared'
-    source_path: '{{ source.packages }}\imap_shared'
-    deploy_path: '{{ deploy.packages }}\imap_shared'
+    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\imap_shared'
+    deploy_path: '{{ base.app }}\{{ service_name }}\packages\imap_shared'
 
   - name: 'package_two'
-    source_path: '{{ source.packages }}\package_two'
-    deploy_path: '{{ deploy.packages }}\package_two'
+    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_two'
+    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_two'
 
   - name: 'package_three'
-    source_path: '{{ source.packages }}\package_three'
-    deploy_path: '{{ deploy.packages }}\package_three'
+    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_three'
+    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_three'
 
   - name: 'package_four'
-    source_path: '{{ source.packages }}\package_four'
-    deploy_path: '{{ deploy.packages }}\package_four'
+    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_four'
+    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_four'
 
 
 # ============================================================
-# Torch local wheelhouse
+# Torch
 # ============================================================
 
 torch:
   enabled: true
-  wheelhouse: '{{ source.wheelhouse }}'
+  wheelhouse: '{{ base.imap }}\source\{{ service_name }}\wheelhouse'
   package: 'torch'
 
 
@@ -112,31 +98,29 @@ application:
   host: '127.0.0.1'
   port: 8001
   module: 'main:app'
-  working_directory: '{{ deploy.app }}'
+  working_directory: '{{ base.app }}\{{ service_name }}\app'
 
 
 # ============================================================
-# Windows service / NSSM
+# Windows service
 # ============================================================
 
 windows_service:
   name: 'GatewayService'
   display_name: 'IMAP Gateway Service'
   description: 'IMAP Gateway FastAPI Service'
-
   nssm_exe: 'C:\Tools\nssm.exe'
 
-  executable: '{{ python.venv_python }}'
-  working_directory: '{{ application.working_directory }}'
+  executable: '{{ base.app }}\{{ service_name }}\.venv\Scripts\python.exe'
+  working_directory: '{{ base.app }}\{{ service_name }}\app'
 
   arguments: >-
     -m uvicorn {{ application.module }}
     --host {{ application.host }}
     --port {{ application.port }}
 
-  stdout_log: '{{ deploy.logs }}\stdout.log'
-  stderr_log: '{{ deploy.logs }}\stderr.log'
-
+  stdout_log: '{{ base.app }}\{{ service_name }}\logs\stdout.log'
+  stderr_log: '{{ base.app }}\{{ service_name }}\logs\stderr.log'
   start_mode: 'auto'
 
 
@@ -155,7 +139,7 @@ deployment_lock:
 
 backup:
   enabled: true
-  directory: '{{ deploy.backup }}'
+  directory: '{{ base.backup }}\{{ service_name }}'
   keep_count: 5
 
 
