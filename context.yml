@@ -1,60 +1,48 @@
 ---
-- name: Validate base variables
+- name: Set base deployment path
+  set_fact:
+    base:
+      imap: "E:\\digital-twin-studio\\imap"
+
+- name: Set source deployment paths
+  set_fact:
+    source:
+      root: "{{ base.imap }}\\source"
+      requirements_file: "{{ base.imap }}\\source\\requirements.txt"
+
+    packages:
+      wheelhouse_dir: "{{ base.imap }}\\source\\wheelhouse"
+      local_wheel_dir: "{{ playbook_dir }}/files/wheelhouse"
+
+    install:
+      script_file: "{{ base.imap }}\\source\\Scripts\\python-install.bat"
+      working_dir: "{{ base.imap }}\\source"
+
+    git_auth:
+      host: "github.company.com"
+      test_repositories:
+        - "https://github.company.com/team/imap-shared.git"
+        - "https://github.company.com/team/another-package.git"
+
+- name: Validate deployment context
   assert:
     that:
-      - base is defined
-      - base.deploy is defined
-      - base.backup is defined
-      - base.tools is defined
       - base.imap is defined
-    fail_msg: "base 변수 설정을 확인하세요."
-
-- name: Validate Python variables
-  assert:
-    that:
-      - python is defined
-      - python.executable is defined
-    fail_msg: "python 변수 설정을 확인하세요."
-
-- name: Validate application variables
-  assert:
-    that:
-      - app is defined
-      - app.name is defined
-      - app.source_dir is defined
-      - app.requirements_file is defined
-      - app.requirements_link is defined
-      - app.venv_dir is defined
-      - app.python_executable is defined
-      - app.log_dir is defined
-      - app.backup_dir is defined
-    fail_msg: "app 변수 설정을 확인하세요."
-
-- name: Validate script variables
-  assert:
-    that:
-      - scripts is defined
-      - scripts.home is defined
-      - install is defined
+      - source.root is defined
+      - source.requirements_file is defined
+      - packages.wheelhouse_dir is defined
+      - packages.local_wheel_dir is defined
       - install.script_file is defined
-    fail_msg: "설치 스크립트 변수를 확인하세요."
+      - install.working_dir is defined
+      - git_auth.host is defined
+      - git_auth.test_repositories is defined
+    fail_msg: "Python 배포 경로 또는 Git 설정 변수를 확인하세요."
 
-- name: Validate junction variables
-  assert:
-    that:
-      - junction is defined
-      - junction.link is defined
-      - junction.target is defined
-    fail_msg: "junction 변수 설정을 확인하세요."
-
-- name: Show deployment context
+- name: Show Python deployment context
   debug:
     msg:
-      - "APP_NAME={{ app.name }}"
-      - "SOURCE_DIR={{ app.source_dir }}"
-      - "VENV_DIR={{ app.venv_dir }}"
-      - "PYTHON_EXECUTABLE={{ app.python_executable }}"
-      - "REQUIREMENTS_FILE={{ app.requirements_file }}"
-      - "REQUIREMENTS_LINK={{ app.requirements_link }}"
+      - "BASE={{ base.imap }}"
+      - "SOURCE={{ source.root }}"
+      - "REQUIREMENTS={{ source.requirements_file }}"
+      - "WHEELHOUSE={{ packages.wheelhouse_dir }}"
       - "INSTALL_SCRIPT={{ install.script_file }}"
-      - "LOG_DIR={{ app.log_dir }}"
