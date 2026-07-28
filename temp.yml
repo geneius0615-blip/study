@@ -1,5 +1,8 @@
-source:
-  root: '{{ base.imap }}\source\{{ service_name }}'
-  app: '{{ source.root }}\app'
-  packages: '{{ source.root }}\packages'
-  wheelhouse: '{{ source.root }}\wheelhouse'
+deploy:
+  root: '{{ base.app }}\{{ service_name }}'
+  app: '{{ deploy.root }}\app'
+  packages: '{{ deploy.root }}\packages'
+  backup: '{{ base.backup }}\{{ service_name }}'
+  temp: '{{ deploy.root }}\temp'
+  logs: '{{ deploy.root }}\logs'
+  workplaces: '{{ deploy.root }}\workplaces'
