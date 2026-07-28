@@ -1,44 +1,24 @@
 ---
-# =========================================================
-# Base paths
-# =========================================================
 base:
   imap: "E:\\digital-twin-studio\\imap"
 
-
-# =========================================================
-# Python source paths
-# =========================================================
 source:
   root: "{{ base.imap }}\\source"
-  requirements_file: "{{ base.imap }}\\source\\requirements.txt"
+  backup: "{{ base.imap }}\\backup"
+  logs: "{{ base.imap }}\\logs"
+  workplaces: "{{ base.imap }}\\workplaces"
 
+python:
+  venv: "{{ source.root }}\\.venv"
+  executable: "{{ source.root }}\\.venv\\Scripts\\python.exe"
+  pip_executable: "{{ source.root }}\\.venv\\Scripts\\pip.exe"
 
-# =========================================================
-# Python package paths
-# =========================================================
+requirements:
+  file: "{{ source.root }}\\requirements.txt"
+
 packages:
-  # Windows 배포 대상 서버의 wheel 저장 경로
-  wheelhouse_dir: "{{ base.imap }}\\source\\wheelhouse"
+  wheelhouse: "{{ source.root }}\\wheelhouse"
 
-  # Ansible 제어 서버의 wheel 원본 경로
-  local_wheel_dir: "{{ playbook_dir }}/files/wheelhouse"
-
-
-# =========================================================
-# Python installation
-# =========================================================
 install:
-  script_file: "{{ base.imap }}\\source\\Scripts\\python-install.bat"
-  working_dir: "{{ base.imap }}\\source"
-
-
-# =========================================================
-# Git authentication
-# =========================================================
-git_auth:
-  host: "github.company.com"
-
-  test_repositories:
-    - "https://github.company.com/team/imap-shared.git"
-    - "https://github.company.com/team/another-package.git"
+  script: "{{ source.root }}\\Scripts\\python-install.bat"
+  working_dir: "{{ source.root }}"
