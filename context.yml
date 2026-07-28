@@ -1,35 +1,30 @@
 ---
-- name: Validate Python deployment variables
+- name: Validate Python deployment context
   assert:
     that:
       - base is defined
       - base.imap is defined
-      - base.imap | trim | length > 0
-
       - source is defined
       - source.root is defined
-      - source.requirements_file is defined
-
+      - python is defined
+      - python.venv is defined
+      - python.executable is defined
+      - requirements is defined
+      - requirements.file is defined
       - packages is defined
-      - packages.wheelhouse_dir is defined
-      - packages.wheelhouse_dir | trim | length > 0
-
+      - packages.wheelhouse is defined
       - install is defined
-      - install.script_file is defined
+      - install.script is defined
       - install.working_dir is defined
-
-      - git_auth is defined
-      - git_auth.host is defined
-      - git_auth.test_repositories is defined
-      - git_auth.test_repositories | length > 0
-    fail_msg: "group_vars/all.yml의 Python 배포 변수를 확인하세요."
+    fail_msg: "Python 배포 변수 설정이 올바르지 않습니다."
 
 - name: Show Python deployment context
   debug:
     msg:
       - "BASE={{ base.imap }}"
       - "SOURCE={{ source.root }}"
-      - "REQUIREMENTS={{ source.requirements_file }}"
-      - "WHEELHOUSE={{ packages.wheelhouse_dir }}"
-      - "INSTALL_SCRIPT={{ install.script_file }}"
-      - "GIT_HOST={{ git_auth.host }}"
+      - "VENV={{ python.venv }}"
+      - "PYTHON={{ python.executable }}"
+      - "REQUIREMENTS={{ requirements.file }}"
+      - "WHEELHOUSE={{ packages.wheelhouse }}"
+      - "INSTALL_SCRIPT={{ install.script }}"
