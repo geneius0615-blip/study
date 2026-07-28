@@ -1,166 +1,75 @@
 ---
-service_name: 'gateway'
+# ============================================================
+# System Python
+# ============================================================
+
+python_executable: 'C:\Users\appuser\AppData\Local\Programs\Python\Python311\python.exe'
+python_required_version: '3.11'
 
 
 # ============================================================
-# Base directories
+# Git
 # ============================================================
 
-base:
-  app: 'E:\Deploy\Python'
-  backup: 'E:\Backup\Python'
-  imap: 'E:\digital-twin-studio\imap'
+git_executable: 'git.exe'
 
 
 # ============================================================
-# Source directories
+# Gateway repository
+# 실제 저장소 주소와 브랜치로 변경
 # ============================================================
 
-source:
-  root: '{{ base.imap }}\source\{{ service_name }}'
-  app: '{{ base.imap }}\source\{{ service_name }}\app'
-  packages: '{{ base.imap }}\source\{{ service_name }}\packages'
-  wheelhouse: '{{ base.imap }}\source\{{ service_name }}\wheelhouse'
+gateway_repo_url: 'GATEWAY_GIT_REPOSITORY_URL'
+gateway_repo_branch: 'main'
 
 
 # ============================================================
-# Deployment directories
+# Gateway deployment
 # ============================================================
 
-deploy:
-  root: '{{ base.app }}\{{ service_name }}'
-  app: '{{ base.app }}\{{ service_name }}\app'
-  packages: '{{ base.app }}\{{ service_name }}\packages'
-  temp: '{{ base.app }}\{{ service_name }}\temp'
-  logs: '{{ base.app }}\{{ service_name }}\logs'
-  workplaces: '{{ base.app }}\{{ service_name }}\workplaces'
-  backup: '{{ base.backup }}\{{ service_name }}'
+gateway_home: 'E:\Deploy\Python\gateway'
+gateway_source_dir: 'E:\Deploy\Python\gateway\source'
+gateway_venv_dir: 'E:\Deploy\Python\gateway\.venv'
+gateway_logs_dir: 'E:\Deploy\Python\gateway\logs'
+
+gateway_requirements_file: 'E:\Deploy\Python\gateway\source\requirements.txt'
 
 
 # ============================================================
-# Python
+# Shared wheelhouse
 # ============================================================
 
-python:
-  home: 'C:\Python313'
-  executable: 'C:\Python313\python.exe'
-  venv: '{{ base.app }}\{{ service_name }}\.venv'
-  venv_python: '{{ base.app }}\{{ service_name }}\.venv\Scripts\python.exe'
-  venv_pip: '{{ base.app }}\{{ service_name }}\.venv\Scripts\pip.exe'
+python_wheelhouse_dir: 'E:\Deploy\Python\wheelhouse'
 
 
 # ============================================================
-# Requirements
+# Workspace / Backup
 # ============================================================
 
-requirements:
-  file: '{{ base.imap }}\source\{{ service_name }}\app\requirements.txt'
-  deploy_file: '{{ base.app }}\{{ service_name }}\app\requirements.txt'
-
-
-# ============================================================
-# Gateway packages
-# ============================================================
-
-python_packages:
-  - name: 'imap_shared'
-    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\imap_shared'
-    deploy_path: '{{ base.app }}\{{ service_name }}\packages\imap_shared'
-
-  - name: 'package_two'
-    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_two'
-    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_two'
-
-  - name: 'package_three'
-    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_three'
-    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_three'
-
-  - name: 'package_four'
-    source_path: '{{ base.imap }}\source\{{ service_name }}\packages\package_four'
-    deploy_path: '{{ base.app }}\{{ service_name }}\packages\package_four'
+gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\gateway'
+gateway_backup_dir: 'E:\digital-twin-studio\imap\backup\gateway'
 
 
 # ============================================================
-# Torch
+# Legacy compatibility junction
 # ============================================================
 
-torch:
-  enabled: true
-  wheelhouse: '{{ base.imap }}\source\{{ service_name }}\wheelhouse'
-  package: 'torch'
-
-
-# ============================================================
-# Application
-# ============================================================
-
-application:
-  host: '127.0.0.1'
-  port: 8001
-  module: 'main:app'
-  working_directory: '{{ base.app }}\{{ service_name }}\app'
+gateway_legacy_apps_dir: 'E:\digital-twin-studio\imap\source\apps'
+gateway_junction_path: 'E:\digital-twin-studio\imap\source\apps\gateway'
 
 
 # ============================================================
 # Windows service
+# 실제 서비스명으로 변경
 # ============================================================
 
-windows_service:
-  name: 'GatewayService'
-  display_name: 'IMAP Gateway Service'
-  description: 'IMAP Gateway FastAPI Service'
-  nssm_exe: 'C:\Tools\nssm.exe'
-
-  executable: '{{ base.app }}\{{ service_name }}\.venv\Scripts\python.exe'
-  working_directory: '{{ base.app }}\{{ service_name }}\app'
-
-  arguments: >-
-    -m uvicorn {{ application.module }}
-    --host {{ application.host }}
-    --port {{ application.port }}
-
-  stdout_log: '{{ base.app }}\{{ service_name }}\logs\stdout.log'
-  stderr_log: '{{ base.app }}\{{ service_name }}\logs\stderr.log'
-  start_mode: 'auto'
+gateway_service_name: 'GatewayService'
 
 
 # ============================================================
-# Deployment lock
+# Network
+# 실제 포트와 Health URL로 변경
 # ============================================================
 
-deployment_lock:
-  directory: 'E:\Deploy\.locks'
-  file: 'E:\Deploy\.locks\{{ service_name }}.deploy.lock'
-
-
-# ============================================================
-# Backup
-# ============================================================
-
-backup:
-  enabled: true
-  directory: '{{ base.backup }}\{{ service_name }}'
-  keep_count: 5
-
-
-# ============================================================
-# Health check
-# ============================================================
-
-healthcheck:
-  enabled: true
-  url: 'http://127.0.0.1:{{ application.port }}/health'
-  expected_status: 200
-  retries: 10
-  delay: 5
-
-
-# ============================================================
-# Nginx
-# ============================================================
-
-nginx:
-  enabled: false
-  home: 'C:\nginx'
-  executable: 'C:\nginx\nginx.exe'
-  config_file: 'C:\nginx\conf\nginx.conf'
+gateway_port: 8000
+gateway_healthcheck_url: 'http://127.0.0.1:8000/health'
