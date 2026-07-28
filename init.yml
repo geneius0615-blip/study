@@ -1,75 +1,60 @@
 ---
-- name: Check Python
-  win_shell: python --version
-  register: python_check
-  changed_when: false
-  failed_when: false
+- name: Validate Python init variables
+  assert:
+    that:
+      - python is defined
+      - python.home_executable is defined
+      - python.venv is defined
+      - python.executable is defined
+      - source is defined
+      - source.root is defined
+    fail_msg: "Python 초기화 변수를 확인하세요."
 
-- name: Fail if Python missing
-  fail:
-    msg: |
-      Python이 설치되어 있지 않습니다.
-      권장 버전 : Python 3.13.x
-  when: python_check.rc != 0
-
-# ------------------------------------------------
-
-- name: Check pip
-  win_shell: python -m pip --version
-  register: pip_check
-  changed_when: false
-  failed_when: false
-
-- name: Fail if pip missing
-  fail:
-    msg: pip가 설치되어 있지 않습니다.
-  when: pip_check.rc != 0
-
-# ------------------------------------------------
-
-- name: Check Git
-  win_shell: git --version
-  register: git_check
-  changed_when: false
-  failed_when: false
-
-- name: Fail if Git missing
-  fail:
-    msg: Git이 설치되어 있지 않습니다.
-  when: git_check.rc != 0
-
-# ------------------------------------------------
-
-- name: Check NSSM
+- name: Check system Python executable
   win_stat:
-    path: "{{ tools.nssm_exe }}"
-  register: nssm_check
+    path: "{{ python.home_executable }}"
+  register: system_python_check
 
-- name: Fail if NSSM missing
-  fail:
-    msg: NSSM을 찾을 수 없습니다.
-  when: not nssm_check.stat.exists
+- name: Validate system Python executable
+  assert:
+    that:
+      - system_python_check.stat.exists
+      - not system_python_check.stat.isdir
+    fail_msg: "시스템 Python 실행 파일이 없습니다: {{ python.home_executable }}"
 
-# ------------------------------------------------
-
-- name: Check Nginx
+- name: Check Python virtual environment
   win_stat:
-    path: "{{ nginx.exe }}"
-  register: nginx_check
+    path: "{{ python.executable }}"
+  register: python_venv_check
 
-- name: Fail if Nginx missing
-  fail:
-    msg: Nginx를 찾을 수 없습니다.
-  when: not nginx_check.stat.exists
+- name: Create Python virtual environment
+  win_command: >
+    "{{ python.home_executable }}" -m venv "{{ python.venv }}"
+  args:
+    chdir: "{{ source.root }}"
+  when: not python_venv_check.stat.exists
 
-# ------------------------------------------------
-
-- name: Check venv
+- name: Check virtual environment Python
   win_stat:
-    path: "{{ files.python }}"
-  register: venv_check
+    path: "{{ python.executable }}"
+  register: created_venv_check
 
-- name: Create venv
-  win_shell: |
-    python -m venv "{{ dirs.venv }}"
-  when: not venv_check.stat.exists
+- name: Validate virtual environment Python
+  assert:
+    that:
+      - created_venv_check.stat.exists
+      - not created_venv_check.stat.isdir
+    fail_msg: "Python 가상환경 생성에 실패했습니다: {{ python.venv }}"
+
+- name: Get virtual environment Python version
+  win_command: >
+    "{{ python.executable }}" --version
+  register: python_version_result
+  changed_when: false
+
+- name: Show virtual environment Python version
+  debug:
+    msg:
+      - "VENV={{ python.venv }}"
+      - "PYTHON={{ python.executable }}"
+      - "VERSION={{ python_version_result.stdout }}"
