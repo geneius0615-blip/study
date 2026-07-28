@@ -1,97 +1,213 @@
 ---
 # roles/app/tasks/context.yml
 
-- name: Validate gateway deployment variables
+- name: Validate gateway service context
   assert:
     that:
       - service_name is defined
       - service_name | length > 0
-
-      - base is defined
-      - base.app is defined
-      - base.backup is defined
-      - base.imap is defined
-
-      - source is defined
-      - source.root is defined
-      - source.app is defined
-      - source.packages is defined
-      - source.wheelhouse is defined
-
-      - deploy is defined
-      - deploy.root is defined
-      - deploy.backup is defined
-      - deploy.temp is defined
-      - deploy.logs is defined
-      - deploy.workplaces is defined
-
-      - python is defined
-      - python.executable is defined
-      - python.venv is defined
-      - python.venv_python is defined
-
-      - requirements is defined
-      - requirements.file is defined
-
-      - application is defined
-      - application.host is defined
-      - application.port is defined
-      - application.module is defined
-      - application.working_directory is defined
-
-      - windows_service is defined
-      - windows_service.name is defined
-      - windows_service.nssm_exe is defined
-      - windows_service.executable is defined
-      - windows_service.working_directory is defined
-
-    fail_msg: "gateway deployment context variables are missing."
-    success_msg: "gateway deployment context variables are valid."
+      - service_name == 'gateway'
+    fail_msg: >-
+      Invalid service_name={{ service_name | default('undefined') }}.
+      This Ansible project deploys only the gateway service.
+    success_msg: 'Gateway service context is valid.'
   tags:
-    - always
     - context
 
 
-- name: Validate gateway service name
+- name: Validate base directory context
   assert:
     that:
-      - service_name == "gateway"
-    fail_msg: >-
-      Invalid service_name={{ service_name }}.
-      This Ansible project deploys only the gateway service.
-    success_msg: "Deployment service is gateway."
+      - base is defined
+      - base.app is defined
+      - base.app | length > 0
+      - base.backup is defined
+      - base.backup | length > 0
+      - base.imap is defined
+      - base.imap | length > 0
+    fail_msg: 'Base directory variables are missing.'
+    success_msg: 'Base directory context is valid.'
   tags:
-    - always
+    - context
+
+
+- name: Validate source directory context
+  assert:
+    that:
+      - source is defined
+      - source.root is defined
+      - source.root | length > 0
+      - source.app is defined
+      - source.app | length > 0
+      - source.packages is defined
+      - source.packages | length > 0
+      - source.wheelhouse is defined
+      - source.wheelhouse | length > 0
+    fail_msg: 'Source directory variables are missing.'
+    success_msg: 'Source directory context is valid.'
+  tags:
+    - context
+
+
+- name: Validate deployment directory context
+  assert:
+    that:
+      - deploy is defined
+      - deploy.root is defined
+      - deploy.root | length > 0
+      - deploy.app is defined
+      - deploy.app | length > 0
+      - deploy.packages is defined
+      - deploy.packages | length > 0
+      - deploy.temp is defined
+      - deploy.temp | length > 0
+      - deploy.logs is defined
+      - deploy.logs | length > 0
+      - deploy.workplaces is defined
+      - deploy.workplaces | length > 0
+      - deploy.backup is defined
+      - deploy.backup | length > 0
+    fail_msg: 'Deployment directory variables are missing.'
+    success_msg: 'Deployment directory context is valid.'
+  tags:
+    - context
+
+
+- name: Validate Python context
+  assert:
+    that:
+      - python is defined
+      - python.home is defined
+      - python.home | length > 0
+      - python.executable is defined
+      - python.executable | length > 0
+      - python.venv is defined
+      - python.venv | length > 0
+      - python.venv_python is defined
+      - python.venv_python | length > 0
+      - python.venv_pip is defined
+      - python.venv_pip | length > 0
+    fail_msg: 'Python variables are missing.'
+    success_msg: 'Python context is valid.'
+  tags:
+    - context
+
+
+- name: Validate requirements context
+  assert:
+    that:
+      - requirements is defined
+      - requirements.file is defined
+      - requirements.file | length > 0
+      - requirements.deploy_file is defined
+      - requirements.deploy_file | length > 0
+    fail_msg: 'Requirements variables are missing.'
+    success_msg: 'Requirements context is valid.'
+  tags:
+    - context
+
+
+- name: Validate gateway package list
+  assert:
+    that:
+      - python_packages is defined
+      - python_packages | length > 0
+    fail_msg: 'python_packages must contain at least one package.'
+    success_msg: 'Gateway package list is defined.'
+  tags:
+    - context
+
+
+- name: Validate each gateway package context
+  assert:
+    that:
+      - item.name is defined
+      - item.name | length > 0
+      - item.source_path is defined
+      - item.source_path | length > 0
+      - item.deploy_path is defined
+      - item.deploy_path | length > 0
+    fail_msg: 'Gateway package context is missing or invalid.'
+    success_msg: 'Package {{ item.name }} context is valid.'
+  with_items: '{{ python_packages }}'
+  tags:
+    - context
+
+
+- name: Validate application context
+  assert:
+    that:
+      - application is defined
+      - application.host is defined
+      - application.host | length > 0
+      - application.port is defined
+      - application.module is defined
+      - application.module | length > 0
+      - application.working_directory is defined
+      - application.working_directory | length > 0
+    fail_msg: 'Application variables are missing.'
+    success_msg: 'Application context is valid.'
+  tags:
+    - context
+
+
+- name: Validate Windows service context
+  assert:
+    that:
+      - windows_service is defined
+      - windows_service.name is defined
+      - windows_service.name | length > 0
+      - windows_service.nssm_exe is defined
+      - windows_service.nssm_exe | length > 0
+      - windows_service.executable is defined
+      - windows_service.executable | length > 0
+      - windows_service.working_directory is defined
+      - windows_service.working_directory | length > 0
+    fail_msg: 'Windows service variables are missing.'
+    success_msg: 'Windows service context is valid.'
+  tags:
     - context
 
 
 - name: Show gateway deployment context
   debug:
     msg:
-      - "service_name={{ service_name }}"
-      - "source_root={{ source.root }}"
-      - "source_app={{ source.app }}"
-      - "source_packages={{ source.packages }}"
-      - "source_wheelhouse={{ source.wheelhouse }}"
-      - "deploy_root={{ deploy.root }}"
-      - "backup_dir={{ deploy.backup }}"
-      - "temp_dir={{ deploy.temp }}"
-      - "logs_dir={{ deploy.logs }}"
-      - "workplaces_dir={{ deploy.workplaces }}"
-      - "system_python={{ python.executable }}"
-      - "venv_dir={{ python.venv }}"
-      - "venv_python={{ python.venv_python }}"
-      - "requirements_file={{ requirements.file }}"
-      - "shared_package={{ shared_package.path }}"
-      - "application_host={{ application.host }}"
-      - "application_port={{ application.port }}"
-      - "application_module={{ application.module }}"
-      - "application_working_directory={{ application.working_directory }}"
-      - "windows_service_name={{ windows_service.name }}"
-      - "windows_service_executable={{ windows_service.executable }}"
-      - "windows_service_working_directory={{ windows_service.working_directory }}"
-      - "nssm_exe={{ windows_service.nssm_exe }}"
-      - "healthcheck_url={{ healthcheck.url }}"
+      - 'service_name={{ service_name }}'
+      - 'source_root={{ source.root }}'
+      - 'source_app={{ source.app }}'
+      - 'source_packages={{ source.packages }}'
+      - 'source_wheelhouse={{ source.wheelhouse }}'
+      - 'deploy_root={{ deploy.root }}'
+      - 'deploy_app={{ deploy.app }}'
+      - 'deploy_packages={{ deploy.packages }}'
+      - 'deploy_temp={{ deploy.temp }}'
+      - 'deploy_logs={{ deploy.logs }}'
+      - 'deploy_workplaces={{ deploy.workplaces }}'
+      - 'deploy_backup={{ deploy.backup }}'
+      - 'system_python={{ python.executable }}'
+      - 'venv_dir={{ python.venv }}'
+      - 'venv_python={{ python.venv_python }}'
+      - 'requirements_source={{ requirements.file }}'
+      - 'requirements_deploy={{ requirements.deploy_file }}'
+      - 'torch_wheelhouse={{ torch.wheelhouse }}'
+      - 'application_host={{ application.host }}'
+      - 'application_port={{ application.port }}'
+      - 'application_module={{ application.module }}'
+      - 'application_working_directory={{ application.working_directory }}'
+      - 'windows_service_name={{ windows_service.name }}'
+      - 'windows_service_executable={{ windows_service.executable }}'
+      - 'windows_service_working_directory={{ windows_service.working_directory }}'
+      - 'healthcheck_url={{ healthcheck.url }}'
   tags:
-    - always
+    - context
+
+
+- name: Show gateway package context
+  debug:
+    msg:
+      - 'package_name={{ item.name }}'
+      - 'package_source={{ item.source_path }}'
+      - 'package_deploy={{ item.deploy_path }}'
+  with_items: '{{ python_packages }}'
+  tags:
     - context
