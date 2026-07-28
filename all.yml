@@ -1,24 +1,113 @@
 ---
+# ============================================================
+# Service
+# ============================================================
+
+service_name: "gateway"
+
+
+# ============================================================
+# Base directories
+# ============================================================
+
 base:
-  imap: "E:\\digital-twin-studio\\imap"
+  app: 'E:\Deploy\Python'
+  backup: 'E:\Backup\Python'
+  imap: 'E:\digital-twin-studio\imap'
+
+
+# ============================================================
+# Source directories
+# ============================================================
 
 source:
-  root: "{{ base.imap }}\\source"
-  backup: "{{ base.imap }}\\backup"
-  logs: "{{ base.imap }}\\logs"
-  workplaces: "{{ base.imap }}\\workplaces"
+  root: '{{ base.imap }}\source'
+  app: '{{ base.imap }}\source\apps\{{ service_name }}'
+  packages: '{{ base.imap }}\source\packages'
+  wheelhouse: '{{ base.imap }}\source\wheelhouse'
+
+
+# ============================================================
+# Deployment directories
+# ============================================================
+
+deploy:
+  root: '{{ base.app }}\{{ service_name }}'
+  backup: '{{ base.backup }}\{{ service_name }}'
+  temp: '{{ base.app }}\{{ service_name }}\temp'
+  logs: '{{ base.app }}\{{ service_name }}\logs'
+  workplaces: '{{ base.app }}\{{ service_name }}\workplaces'
+
+
+# ============================================================
+# Python
+# ============================================================
 
 python:
-  venv: "{{ source.root }}\\.venv"
-  executable: "{{ source.root }}\\.venv\\Scripts\\python.exe"
-  pip_executable: "{{ source.root }}\\.venv\\Scripts\\pip.exe"
+  home: 'C:\Python313'
+  executable: 'C:\Python313\python.exe'
+
+  venv: '{{ deploy.root }}\.venv'
+  venv_python: '{{ deploy.root }}\.venv\Scripts\python.exe'
+  venv_pip: '{{ deploy.root }}\.venv\Scripts\pip.exe'
+
+
+# ============================================================
+# Python packages
+# ============================================================
 
 requirements:
-  file: "{{ source.root }}\\requirements.txt"
+  file: '{{ source.app }}\requirements.txt'
 
-packages:
-  wheelhouse: "{{ source.root }}\\wheelhouse"
+shared_package:
+  path: '{{ source.packages }}\imap_shared'
 
-install:
-  script: "{{ source.root }}\\Scripts\\python-install.bat"
-  working_dir: "{{ source.root }}"
+torch:
+  wheelhouse: '{{ source.wheelhouse }}'
+  package: 'torch'
+
+
+# ============================================================
+# Application
+# ============================================================
+
+application:
+  host: '127.0.0.1'
+  port: 8001
+  module: 'main:app'
+  working_directory: '{{ deploy.root }}'
+
+
+# ============================================================
+# Windows service
+# ============================================================
+
+windows_service:
+  name: 'GatewayService'
+  display_name: 'IMAP Gateway Service'
+  description: 'IMAP Gateway FastAPI Service'
+  nssm_exe: 'C:\Tools\nssm.exe'
+  executable: '{{ python.venv_python }}'
+  working_directory: '{{ deploy.root }}'
+  stdout_log: '{{ deploy.logs }}\stdout.log'
+  stderr_log: '{{ deploy.logs }}\stderr.log'
+
+
+# ============================================================
+# Deployment lock
+# ============================================================
+
+deployment_lock:
+  directory: 'E:\Deploy\.locks'
+  file: 'E:\Deploy\.locks\gateway.deploy.lock'
+
+
+# ============================================================
+# Health check
+# ============================================================
+
+healthcheck:
+  url: 'http://127.0.0.1:{{ application.port }}/health'
+  expected_status: 200
+  retries: 10
+  delay: 5
