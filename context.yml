@@ -4,19 +4,32 @@
     that:
       - base is defined
       - base.imap is defined
+      - base.imap | trim | length > 0
+
       - source is defined
       - source.root is defined
+      - source.root | trim | length > 0
       - source.requirements_file is defined
+      - source.requirements_file | trim | length > 0
+
       - packages is defined
       - packages.wheelhouse_dir is defined
+      - packages.wheelhouse_dir | trim | length > 0
       - packages.local_wheel_dir is defined
+      - packages.local_wheel_dir | trim | length > 0
+
       - install is defined
       - install.script_file is defined
+      - install.script_file | trim | length > 0
       - install.working_dir is defined
+      - install.working_dir | trim | length > 0
+
       - git_auth is defined
       - git_auth.host is defined
+      - git_auth.host | trim | length > 0
       - git_auth.test_repositories is defined
-    fail_msg: "all.yml의 Python 배포 변수 설정을 확인하세요."
+      - git_auth.test_repositories | length > 0
+    fail_msg: "group_vars/all.yml의 Python 배포 변수 설정을 확인하세요."
 
 - name: Show Python deployment context
   debug:
@@ -25,5 +38,6 @@
       - "SOURCE={{ source.root }}"
       - "REQUIREMENTS={{ source.requirements_file }}"
       - "WHEELHOUSE={{ packages.wheelhouse_dir }}"
+      - "LOCAL_WHEELHOUSE={{ packages.local_wheel_dir }}"
       - "INSTALL_SCRIPT={{ install.script_file }}"
       - "GIT_HOST={{ git_auth.host }}"
