@@ -1,36 +1,44 @@
 ---
+# =========================================================
+# Base paths
+# =========================================================
 base:
-  deploy: "E:\\Deploy"
-  backup: "E:\\Backup"
-  tools: "E:\\Tools"
   imap: "E:\\digital-twin-studio\\imap"
 
-python:
-  executable: "C:\\Python313\\python.exe"
 
-app:
-  name: "imap-gateway"
+# =========================================================
+# Python source paths
+# =========================================================
+source:
+  root: "{{ base.imap }}\\source"
+  requirements_file: "{{ base.imap }}\\source\\requirements.txt"
 
-  source_dir: "{{ base.imap }}\\source\\apps\\imap-gateway"
 
-  requirements_file: "{{ base.imap }}\\source\\apps\\imap-gateway\\requirements.txt"
+# =========================================================
+# Python package paths
+# =========================================================
+packages:
+  # Windows 배포 대상 서버의 wheel 저장 경로
+  wheelhouse_dir: "{{ base.imap }}\\source\\wheelhouse"
 
-  requirements_link: "{{ base.imap }}\\source\\requirements.txt"
+  # Ansible 제어 서버의 wheel 원본 경로
+  local_wheel_dir: "{{ playbook_dir }}/files/wheelhouse"
 
-  venv_dir: "{{ base.imap }}\\source\\.venv"
 
-  python_executable: "{{ base.imap }}\\source\\.venv\\Scripts\\python.exe"
-
-  log_dir: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
-
-  backup_dir: "{{ base.backup }}\\Python\\imap-gateway"
-
-scripts:
-  home: "{{ base.imap }}\\source\\Scripts"
-
+# =========================================================
+# Python installation
+# =========================================================
 install:
   script_file: "{{ base.imap }}\\source\\Scripts\\python-install.bat"
+  working_dir: "{{ base.imap }}\\source"
 
-junction:
-  link: "{{ base.imap }}\\source\\apps\\imap-gateway\\logs"
-  target: "{{ base.deploy }}\\Python\\logs\\imap-gateway"
+
+# =========================================================
+# Git authentication
+# =========================================================
+git_auth:
+  host: "github.company.com"
+
+  test_repositories:
+    - "https://github.company.com/team/imap-shared.git"
+    - "https://github.company.com/team/another-package.git"
