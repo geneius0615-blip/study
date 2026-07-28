@@ -1,42 +1,22 @@
 ---
-- name: Set base deployment path
-  set_fact:
-    base:
-      imap: "E:\\digital-twin-studio\\imap"
-
-- name: Set source deployment paths
-  set_fact:
-    source:
-      root: "{{ base.imap }}\\source"
-      requirements_file: "{{ base.imap }}\\source\\requirements.txt"
-
-    packages:
-      wheelhouse_dir: "{{ base.imap }}\\source\\wheelhouse"
-      local_wheel_dir: "{{ playbook_dir }}/files/wheelhouse"
-
-    install:
-      script_file: "{{ base.imap }}\\source\\Scripts\\python-install.bat"
-      working_dir: "{{ base.imap }}\\source"
-
-    git_auth:
-      host: "github.company.com"
-      test_repositories:
-        - "https://github.company.com/team/imap-shared.git"
-        - "https://github.company.com/team/another-package.git"
-
-- name: Validate deployment context
+- name: Validate Python deployment variables
   assert:
     that:
+      - base is defined
       - base.imap is defined
+      - source is defined
       - source.root is defined
       - source.requirements_file is defined
+      - packages is defined
       - packages.wheelhouse_dir is defined
       - packages.local_wheel_dir is defined
+      - install is defined
       - install.script_file is defined
       - install.working_dir is defined
+      - git_auth is defined
       - git_auth.host is defined
       - git_auth.test_repositories is defined
-    fail_msg: "Python 배포 경로 또는 Git 설정 변수를 확인하세요."
+    fail_msg: "all.yml의 Python 배포 변수 설정을 확인하세요."
 
 - name: Show Python deployment context
   debug:
@@ -46,3 +26,4 @@
       - "REQUIREMENTS={{ source.requirements_file }}"
       - "WHEELHOUSE={{ packages.wheelhouse_dir }}"
       - "INSTALL_SCRIPT={{ install.script_file }}"
+      - "GIT_HOST={{ git_auth.host }}"
