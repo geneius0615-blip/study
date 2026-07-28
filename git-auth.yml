@@ -8,38 +8,30 @@
       - git_auth.test_repositories is defined
       - git_auth.test_repositories | length > 0
       - git_id is defined
-      - git_id | trim | length > 0
+      - git_id | string | trim | length > 0
       - git_password is defined
-      - git_password | trim | length > 0
+      - git_password | string | trim | length > 0
     fail_msg: "git_auth, git_id, git_password 변수 설정을 확인하세요."
   no_log: true
 
-- name: Create Git authentication file
+- name: Create Windows netrc file
   win_shell: |
     $ErrorActionPreference = "Stop"
-
     $netrcPath = Join-Path $env:USERPROFILE "_netrc"
 
-    $lines = @(
-        "machine {{ git_auth.host }}"
-        "login {{ git_id }}"
-        "password {{ git_password }}"
+    $netrcLines = @(
+      "machine {{ git_auth.host }}",
+      "login {{ git_id }}",
+      "password {{ git_password }}"
     )
 
-    $content = $lines -join [Environment]::NewLine
-
-    [System.IO.File]::WriteAllText(
-        $netrcPath,
-        $content + [Environment]::NewLine,
-        [System.Text.Encoding]::ASCII
-    )
+    $netrcLines | Set-Content -LiteralPath $netrcPath -Encoding ASCII
 
     if (-not (Test-Path -LiteralPath $netrcPath -PathType Leaf)) {
-        throw "_netrc file creation failed: $netrcPath"
+      throw "Failed to create _netrc file: $netrcPath"
     }
 
     Write-Output "RESULT=CREATED"
-    Write-Output "NETRC_PATH=$netrcPath"
   args:
     executable: powershell.exe
   register: git_auth_create
@@ -59,5 +51,6 @@
 - name: Show Git authentication result
   debug:
     msg:
-      - "Git 인증 파일 생성이 완료되었습니다."
+      - "Git 인증 파일 생성 완료"
+      - "Git 저장소 접근 확인 완료"
       - "검증 저장소 수={{ git_auth.test_repositories | length }}"
