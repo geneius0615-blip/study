@@ -1,13 +1,5 @@
-- name: Install torch from local wheelhouse
-  win_command: >
-    "{{ 기존_가상환경_Python_경로 }}"
-    -m pip install
-    --no-index
-    --find-links "{{ 기존_source_경로 }}\wheelhouse"
-    torch
-  register: torch_install
-  changed_when: >
-    'Successfully installed' in
-    (torch_install.stdout | default(''))
-  tags:
-    - install
+source:
+  root: '{{ base.imap }}\source\{{ service_name }}'
+  app: '{{ source.root }}\app'
+  packages: '{{ source.root }}\packages'
+  wheelhouse: '{{ source.root }}\wheelhouse'
