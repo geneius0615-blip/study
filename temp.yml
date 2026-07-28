@@ -1,8 +1,16 @@
-deploy:
-  root: '{{ base.app }}\{{ service_name }}'
-  app: '{{ deploy.root }}\app'
-  packages: '{{ deploy.root }}\packages'
-  backup: '{{ base.backup }}\{{ service_name }}'
-  temp: '{{ deploy.root }}\temp'
-  logs: '{{ deploy.root }}\logs'
-  workplaces: '{{ deploy.root }}\workplaces'
+python_packages:
+  - name: 'imap_shared'
+    source_path: '{{ source.packages }}\imap_shared'
+    deploy_path: '{{ deploy.packages }}\imap_shared'
+
+  - name: 'package_two'
+    source_path: '{{ source.packages }}\package_two'
+    deploy_path: '{{ deploy.packages }}\package_two'
+
+  - name: 'package_three'
+    source_path: '{{ source.packages }}\package_three'
+    deploy_path: '{{ deploy.packages }}\package_three'
+
+  - name: 'package_four'
+    source_path: '{{ source.packages }}\package_four'
+    deploy_path: '{{ deploy.packages }}\package_four'
