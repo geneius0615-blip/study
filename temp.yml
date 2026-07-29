@@ -1,13 +1,4 @@
-- name: Check Git access from Ansible environment
-  win_command: >-
-    git ls-remote
-    https://github.samsungs.net/imap-web/ifcopenshell.git
-  environment:
-    HOME: "{{ install_user_profile.stdout | trim }}"
-    USERPROFILE: "{{ install_user_profile.stdout | trim }}"
-  register: git_access_check
-  changed_when: false
-
-- name: Show Git access result
-  debug:
-    var: git_access_check.stdout_lines
+E:\Deploy\Python\gateway\.venv\Scripts\python.exe -m pip install `
+  -vvv `
+  -r "E:\Deploy\Python\gateway\source\requirements.txt" `
+  --find-links "E:\digital-twin-studio\imap\source\wheelhouse"
