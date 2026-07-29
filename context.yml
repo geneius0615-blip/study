@@ -8,86 +8,69 @@
 # ============================================================
 
 # ------------------------------------------------------------
-# 필수 상위 변수 확인
+# 필수 변수 확인
 # ------------------------------------------------------------
 
-- name: Validate required variable groups
+- name: Validate required variables
   assert:
     that:
-      - deploy is defined
-      - gateway is defined
-      - python is defined
+      - python_executable is defined
+      - python_executable | trim | length > 0
+
+      - python_required_version is defined
+      - python_required_version | trim | length > 0
+
+      - git_executable is defined
+      - git_executable | trim | length > 0
+
+      - gateway_home is defined
+      - gateway_home | trim | length > 0
+
+      - gateway_source_dir is defined
+      - gateway_source_dir | trim | length > 0
+
+      - gateway_venv_dir is defined
+      - gateway_venv_dir | trim | length > 0
+
+      - gateway_logs_dir is defined
+      - gateway_logs_dir | trim | length > 0
+
+      - gateway_requirements_file is defined
+      - gateway_requirements_file | trim | length > 0
+
+      - python_wheelhouse_dir is defined
+      - python_wheelhouse_dir | trim | length > 0
+
+      - gateway_workspace_dir is defined
+      - gateway_workspace_dir | trim | length > 0
+
+      - gateway_backup_dir is defined
+      - gateway_backup_dir | trim | length > 0
+
+      - gateway_legacy_apps_dir is defined
+      - gateway_legacy_apps_dir | trim | length > 0
+
+      - gateway_junction_path is defined
+      - gateway_junction_path | trim | length > 0
+
+      - gateway_service_name is defined
+      - gateway_service_name | trim | length > 0
+
+      - gateway_port is defined
+
+      - gateway_healthcheck_url is defined
+      - gateway_healthcheck_url | trim | length > 0
+
+      - gateway_repo_url is defined
+      - gateway_repo_url | trim | length > 0
+
+      - gateway_repo_branch is defined
+      - gateway_repo_branch | trim | length > 0
     fail_msg: >-
-      필수 변수 그룹이 없습니다.
-      group_vars/all.yml의 deploy, gateway, python 변수를 확인하세요.
-    success_msg: Required variable groups are defined
-
-
-# ------------------------------------------------------------
-# Deploy 변수 확인
-# ------------------------------------------------------------
-
-- name: Validate deploy variables
-  assert:
-    that:
-      - deploy.home is defined
-      - deploy.home | trim | length > 0
-
-      - deploy.workplaces is defined
-      - deploy.workplaces | trim | length > 0
-
-      - deploy.backup is defined
-      - deploy.backup | trim | length > 0
-
-      - deploy.wheelhouse is defined
-      - deploy.wheelhouse | trim | length > 0
-    fail_msg: >-
-      deploy 필수 변수가 없거나 비어 있습니다.
-      deploy.home, deploy.workplaces,
-      deploy.backup, deploy.wheelhouse를 확인하세요.
-    success_msg: Deploy variables are valid
-
-
-# ------------------------------------------------------------
-# Gateway 변수 확인
-# ------------------------------------------------------------
-
-- name: Validate gateway variables
-  assert:
-    that:
-      - gateway.home is defined
-      - gateway.home | trim | length > 0
-
-      - gateway.source is defined
-      - gateway.source | trim | length > 0
-
-      - gateway.logs is defined
-      - gateway.logs | trim | length > 0
-
-      - gateway.venv is defined
-      - gateway.venv | trim | length > 0
-
-      - gateway.backup is defined
-      - gateway.backup | trim | length > 0
-    fail_msg: >-
-      gateway 필수 변수가 없거나 비어 있습니다.
-      gateway.home, gateway.source, gateway.logs,
-      gateway.venv, gateway.backup을 확인하세요.
-    success_msg: Gateway variables are valid
-
-
-# ------------------------------------------------------------
-# Python 변수 확인
-# ------------------------------------------------------------
-
-- name: Validate Python variables
-  assert:
-    that:
-      - python.executable is defined
-      - python.executable | trim | length > 0
-    fail_msg: >-
-      python.executable 변수가 없거나 비어 있습니다.
-    success_msg: Python variables are valid
+      group_vars/all.yml의 필수 변수가 없거나 비어 있습니다.
+      python, Git, Gateway 배포, Workspace, Backup,
+      Service 및 Network 변수를 확인하세요.
+    success_msg: Required variables are valid
 
 
 # ------------------------------------------------------------
@@ -114,7 +97,7 @@
 
 - name: Check system Python executable
   win_stat:
-    path: "{{ python.executable }}"
+    path: "{{ python_executable }}"
   register: context_python_executable
 
 - name: Validate system Python executable
@@ -124,7 +107,7 @@
       - not context_python_executable.stat.isdir
     fail_msg: >-
       Python 실행 파일을 찾을 수 없습니다:
-      {{ python.executable }}
+      {{ python_executable }}
     success_msg: System Python executable exists
 
 
@@ -133,22 +116,26 @@
 # ------------------------------------------------------------
 
 - name: Check Python version
-  win_command: '"{{ python.executable }}" --version'
+  win_command: '"{{ python_executable }}" --version'
   register: context_python_version
   changed_when: false
 
-- name: Validate Python 3.11
+- name: Validate required Python version
   assert:
     that:
       - context_python_version.rc == 0
-      - "'Python 3.11' in
-        ((context_python_version.stdout | default('')) ~
-        (context_python_version.stderr | default('')))"
+      - >-
+        ('Python ' ~ python_required_version) in
+        (
+          (context_python_version.stdout | default('')) ~
+          (context_python_version.stderr | default(''))
+        )
     fail_msg: >-
-      Python 3.11이 아닙니다.
+      필요한 Python 버전이 아닙니다.
+      required={{ python_required_version }}
       stdout={{ context_python_version.stdout | default('') }}
       stderr={{ context_python_version.stderr | default('') }}
-    success_msg: Python 3.11 is available
+    success_msg: Required Python version is available
 
 
 # ------------------------------------------------------------
@@ -156,7 +143,7 @@
 # ------------------------------------------------------------
 
 - name: Check pip
-  win_command: '"{{ python.executable }}" -m pip --version'
+  win_command: '"{{ python_executable }}" -m pip --version'
   register: context_pip_version
   changed_when: false
 
@@ -176,7 +163,9 @@
 # ------------------------------------------------------------
 
 - name: Check venv module
-  win_command: '"{{ python.executable }}" -c "import venv; print('venv OK')"'
+  win_command: >-
+    "{{ python_executable }}"
+    -c "import venv; print('venv OK')"
   register: context_venv_module
   changed_when: false
 
@@ -195,7 +184,7 @@
 # ------------------------------------------------------------
 
 - name: Check Git
-  win_command: git --version
+  win_command: '"{{ git_executable }}" --version'
   register: context_git_version
   changed_when: false
 
@@ -206,6 +195,8 @@
     fail_msg: >-
       Git을 실행할 수 없습니다.
       Git 설치 상태와 PATH 환경변수를 확인하세요.
+      executable={{ git_executable }}
+      stderr={{ context_git_version.stderr | default('') }}
     success_msg: Git is available
 
 
@@ -216,24 +207,30 @@
 - name: Show context result
   debug:
     msg:
-      - 'context=OK'
-      - 'deploy_home={{ deploy.home }}'
-      - 'workplaces={{ deploy.workplaces }}'
-      - 'backup={{ deploy.backup }}'
-      - 'wheelhouse={{ deploy.wheelhouse }}'
-      - 'gateway_home={{ gateway.home }}'
-      - 'gateway_source={{ gateway.source }}'
-      - 'gateway_logs={{ gateway.logs }}'
-      - 'gateway_venv={{ gateway.venv }}'
-      - 'gateway_backup={{ gateway.backup }}'
-      - 'python={{ python.executable }}'
+      - "context=OK"
+      - "gateway_home={{ gateway_home }}"
+      - "gateway_source_dir={{ gateway_source_dir }}"
+      - "gateway_venv_dir={{ gateway_venv_dir }}"
+      - "gateway_logs_dir={{ gateway_logs_dir }}"
+      - "gateway_requirements_file={{ gateway_requirements_file }}"
+      - "python_wheelhouse_dir={{ python_wheelhouse_dir }}"
+      - "gateway_workspace_dir={{ gateway_workspace_dir }}"
+      - "gateway_backup_dir={{ gateway_backup_dir }}"
+      - "gateway_legacy_apps_dir={{ gateway_legacy_apps_dir }}"
+      - "gateway_junction_path={{ gateway_junction_path }}"
+      - "gateway_service_name={{ gateway_service_name }}"
+      - "gateway_port={{ gateway_port }}"
+      - "gateway_healthcheck_url={{ gateway_healthcheck_url }}"
+      - "gateway_repo_branch={{ gateway_repo_branch }}"
+      - "python_executable={{ python_executable }}"
+      - "python_required_version={{ python_required_version }}"
       - >-
         python_version={{
-          (context_python_version.stdout | default('') |
-          trim)
-          if (context_python_version.stdout | default('') | trim | length > 0)
+          (context_python_version.stdout | default('') | trim)
+          if
+          (context_python_version.stdout | default('') | trim | length > 0)
           else
           (context_python_version.stderr | default('') | trim)
         }}
-      - 'pip={{ context_pip_version.stdout | default('') | trim }}'
-      - 'git={{ context_git_version.stdout | default('') | trim }}'
+      - "pip={{ context_pip_version.stdout | default('') | trim }}"
+      - "git={{ context_git_version.stdout | default('') | trim }}"
