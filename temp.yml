@@ -1,12 +1,23 @@
-deploy:
-  home: 'E:\Deploy'
-  workplaces: 'E:\digital-twin-studio\imap\workplaces'
-  backup: 'E:\digital-twin-studio\imap\backup'
-  wheelhouse: 'E:\Deploy\Python\wheelhouse'
+- name: Check pip
+  win_command: '"{{ python_executable }}" -m pip --version'
+  register: configuration_pip_check
+  changed_when: false
+  failed_when: false
 
-gateway:
-  home: 'E:\Deploy\Python\gateway'
-  source: 'E:\Deploy\Python\gateway\source'
-  venv: 'E:\Deploy\Python\gateway\.venv'
-  logs: 'E:\Deploy\Python\gateway\logs'
-  backup: 'E:\digital-twin-studio\imap\backup\gateway'
+- name: Install pip
+  win_command: '"{{ python_executable }}" -m ensurepip'
+  when: configuration_pip_check.rc != 0
+
+- name: Check setuptools
+  win_command: >-
+    "{{ python_executable }}"
+    -c "import setuptools; print(setuptools.__version__)"
+  register: configuration_setuptools_check
+  changed_when: false
+  failed_when: false
+
+- name: Install setuptools
+  win_command: >-
+    "{{ python_executable }}"
+    -m pip install setuptools
+  when: configuration_setuptools_check.rc != 0
