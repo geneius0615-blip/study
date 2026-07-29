@@ -1,4 +1,9 @@
+$env:HOME = "C:\Temp\pip-test-home"
+$env:USERPROFILE = "C:\Temp\pip-test-home"
+
+New-Item -ItemType Directory -Force $env:HOME | Out-Null
+
 E:\Deploy\Python\gateway\.venv\Scripts\python.exe -m pip install `
+  --no-cache-dir `
   -vvv `
-  -r "E:\Deploy\Python\gateway\source\requirements.txt" `
-  --find-links "E:\digital-twin-studio\imap\source\wheelhouse"
+  "git+https://github.samsungds.net/정확한그룹/정확한저장소.git"
