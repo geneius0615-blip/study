@@ -1,213 +1,239 @@
 ---
-# roles/app/tasks/context.yml
+# ============================================================
+# Context - 배포 환경 사전 검증
+#
+# 이 단계에서는:
+# - 변수와 실행 환경만 확인
+# - 디렉터리 및 파일을 생성하거나 변경하지 않음
+# ============================================================
 
-- name: Validate gateway service context
-  assert:
-    that:
-      - service_name is defined
-      - service_name | length > 0
-      - service_name == 'gateway'
-    fail_msg: >-
-      Invalid service_name={{ service_name | default('undefined') }}.
-      This Ansible project deploys only the gateway service.
-    success_msg: 'Gateway service context is valid.'
-  tags:
-    - context
+# ------------------------------------------------------------
+# 필수 상위 변수 확인
+# ------------------------------------------------------------
 
-
-- name: Validate base directory context
-  assert:
-    that:
-      - base is defined
-      - base.app is defined
-      - base.app | length > 0
-      - base.backup is defined
-      - base.backup | length > 0
-      - base.imap is defined
-      - base.imap | length > 0
-    fail_msg: 'Base directory variables are missing.'
-    success_msg: 'Base directory context is valid.'
-  tags:
-    - context
-
-
-- name: Validate source directory context
-  assert:
-    that:
-      - source is defined
-      - source.root is defined
-      - source.root | length > 0
-      - source.app is defined
-      - source.app | length > 0
-      - source.packages is defined
-      - source.packages | length > 0
-      - source.wheelhouse is defined
-      - source.wheelhouse | length > 0
-    fail_msg: 'Source directory variables are missing.'
-    success_msg: 'Source directory context is valid.'
-  tags:
-    - context
-
-
-- name: Validate deployment directory context
+- name: Validate required variable groups
   assert:
     that:
       - deploy is defined
-      - deploy.root is defined
-      - deploy.root | length > 0
-      - deploy.app is defined
-      - deploy.app | length > 0
-      - deploy.packages is defined
-      - deploy.packages | length > 0
-      - deploy.temp is defined
-      - deploy.temp | length > 0
-      - deploy.logs is defined
-      - deploy.logs | length > 0
-      - deploy.workplaces is defined
-      - deploy.workplaces | length > 0
-      - deploy.backup is defined
-      - deploy.backup | length > 0
-    fail_msg: 'Deployment directory variables are missing.'
-    success_msg: 'Deployment directory context is valid.'
-  tags:
-    - context
-
-
-- name: Validate Python context
-  assert:
-    that:
+      - gateway is defined
       - python is defined
-      - python.home is defined
-      - python.home | length > 0
+    fail_msg: >-
+      필수 변수 그룹이 없습니다.
+      group_vars/all.yml의 deploy, gateway, python 변수를 확인하세요.
+    success_msg: Required variable groups are defined
+
+
+# ------------------------------------------------------------
+# Deploy 변수 확인
+# ------------------------------------------------------------
+
+- name: Validate deploy variables
+  assert:
+    that:
+      - deploy.home is defined
+      - deploy.home | trim | length > 0
+
+      - deploy.workplaces is defined
+      - deploy.workplaces | trim | length > 0
+
+      - deploy.backup is defined
+      - deploy.backup | trim | length > 0
+
+      - deploy.wheelhouse is defined
+      - deploy.wheelhouse | trim | length > 0
+    fail_msg: >-
+      deploy 필수 변수가 없거나 비어 있습니다.
+      deploy.home, deploy.workplaces,
+      deploy.backup, deploy.wheelhouse를 확인하세요.
+    success_msg: Deploy variables are valid
+
+
+# ------------------------------------------------------------
+# Gateway 변수 확인
+# ------------------------------------------------------------
+
+- name: Validate gateway variables
+  assert:
+    that:
+      - gateway.home is defined
+      - gateway.home | trim | length > 0
+
+      - gateway.source is defined
+      - gateway.source | trim | length > 0
+
+      - gateway.logs is defined
+      - gateway.logs | trim | length > 0
+
+      - gateway.venv is defined
+      - gateway.venv | trim | length > 0
+
+      - gateway.backup is defined
+      - gateway.backup | trim | length > 0
+    fail_msg: >-
+      gateway 필수 변수가 없거나 비어 있습니다.
+      gateway.home, gateway.source, gateway.logs,
+      gateway.venv, gateway.backup을 확인하세요.
+    success_msg: Gateway variables are valid
+
+
+# ------------------------------------------------------------
+# Python 변수 확인
+# ------------------------------------------------------------
+
+- name: Validate Python variables
+  assert:
+    that:
       - python.executable is defined
-      - python.executable | length > 0
-      - python.venv is defined
-      - python.venv | length > 0
-      - python.venv_python is defined
-      - python.venv_python | length > 0
-      - python.venv_pip is defined
-      - python.venv_pip | length > 0
-    fail_msg: 'Python variables are missing.'
-    success_msg: 'Python context is valid.'
-  tags:
-    - context
+      - python.executable | trim | length > 0
+    fail_msg: >-
+      python.executable 변수가 없거나 비어 있습니다.
+    success_msg: Python variables are valid
 
 
-- name: Validate requirements context
+# ------------------------------------------------------------
+# 배포 드라이브 확인
+# ------------------------------------------------------------
+
+- name: Check deployment drive
+  win_stat:
+    path: 'E:\'
+  register: context_deploy_drive
+
+- name: Validate deployment drive
   assert:
     that:
-      - requirements is defined
-      - requirements.file is defined
-      - requirements.file | length > 0
-      - requirements.deploy_file is defined
-      - requirements.deploy_file | length > 0
-    fail_msg: 'Requirements variables are missing.'
-    success_msg: 'Requirements context is valid.'
-  tags:
-    - context
+      - context_deploy_drive.stat.exists
+      - context_deploy_drive.stat.isdir
+    fail_msg: 'E:\ 드라이브를 찾을 수 없습니다.'
+    success_msg: Deployment drive is available
 
 
-- name: Validate gateway package list
+# ------------------------------------------------------------
+# System Python 확인
+# ------------------------------------------------------------
+
+- name: Check system Python executable
+  win_stat:
+    path: "{{ python.executable }}"
+  register: context_python_executable
+
+- name: Validate system Python executable
   assert:
     that:
-      - python_packages is defined
-      - python_packages | length > 0
-    fail_msg: 'python_packages must contain at least one package.'
-    success_msg: 'Gateway package list is defined.'
-  tags:
-    - context
+      - context_python_executable.stat.exists
+      - not context_python_executable.stat.isdir
+    fail_msg: >-
+      Python 실행 파일을 찾을 수 없습니다:
+      {{ python.executable }}
+    success_msg: System Python executable exists
 
 
-- name: Validate each gateway package context
+# ------------------------------------------------------------
+# Python 버전 확인
+# ------------------------------------------------------------
+
+- name: Check Python version
+  win_command: '"{{ python.executable }}" --version'
+  register: context_python_version
+  changed_when: false
+
+- name: Validate Python 3.11
   assert:
     that:
-      - item.name is defined
-      - item.name | length > 0
-      - item.source_path is defined
-      - item.source_path | length > 0
-      - item.deploy_path is defined
-      - item.deploy_path | length > 0
-    fail_msg: 'Gateway package context is missing or invalid.'
-    success_msg: 'Package {{ item.name }} context is valid.'
-  with_items: '{{ python_packages }}'
-  tags:
-    - context
+      - context_python_version.rc == 0
+      - "'Python 3.11' in
+        ((context_python_version.stdout | default('')) ~
+        (context_python_version.stderr | default('')))"
+    fail_msg: >-
+      Python 3.11이 아닙니다.
+      stdout={{ context_python_version.stdout | default('') }}
+      stderr={{ context_python_version.stderr | default('') }}
+    success_msg: Python 3.11 is available
 
 
-- name: Validate application context
+# ------------------------------------------------------------
+# pip 확인
+# ------------------------------------------------------------
+
+- name: Check pip
+  win_command: '"{{ python.executable }}" -m pip --version'
+  register: context_pip_version
+  changed_when: false
+
+- name: Validate pip
   assert:
     that:
-      - application is defined
-      - application.host is defined
-      - application.host | length > 0
-      - application.port is defined
-      - application.module is defined
-      - application.module | length > 0
-      - application.working_directory is defined
-      - application.working_directory | length > 0
-    fail_msg: 'Application variables are missing.'
-    success_msg: 'Application context is valid.'
-  tags:
-    - context
+      - context_pip_version.rc == 0
+    fail_msg: >-
+      pip를 사용할 수 없습니다.
+      {{ context_pip_version.stderr | default('') }}
+    success_msg: pip is available
 
 
-- name: Validate Windows service context
+# ------------------------------------------------------------
+# venv 모듈 확인
+# 실제 가상환경은 생성하지 않음
+# ------------------------------------------------------------
+
+- name: Check venv module
+  win_command: '"{{ python.executable }}" -c "import venv; print('venv OK')"'
+  register: context_venv_module
+  changed_when: false
+
+- name: Validate venv module
   assert:
     that:
-      - windows_service is defined
-      - windows_service.name is defined
-      - windows_service.name | length > 0
-      - windows_service.nssm_exe is defined
-      - windows_service.nssm_exe | length > 0
-      - windows_service.executable is defined
-      - windows_service.executable | length > 0
-      - windows_service.working_directory is defined
-      - windows_service.working_directory | length > 0
-    fail_msg: 'Windows service variables are missing.'
-    success_msg: 'Windows service context is valid.'
-  tags:
-    - context
+      - context_venv_module.rc == 0
+    fail_msg: >-
+      Python venv 모듈을 사용할 수 없습니다.
+      {{ context_venv_module.stderr | default('') }}
+    success_msg: venv module is available
 
 
-- name: Show gateway deployment context
+# ------------------------------------------------------------
+# Git 확인
+# ------------------------------------------------------------
+
+- name: Check Git
+  win_command: git --version
+  register: context_git_version
+  changed_when: false
+
+- name: Validate Git
+  assert:
+    that:
+      - context_git_version.rc == 0
+    fail_msg: >-
+      Git을 실행할 수 없습니다.
+      Git 설치 상태와 PATH 환경변수를 확인하세요.
+    success_msg: Git is available
+
+
+# ------------------------------------------------------------
+# Context 결과 출력
+# ------------------------------------------------------------
+
+- name: Show context result
   debug:
     msg:
-      - 'service_name={{ service_name }}'
-      - 'source_root={{ source.root }}'
-      - 'source_app={{ source.app }}'
-      - 'source_packages={{ source.packages }}'
-      - 'source_wheelhouse={{ source.wheelhouse }}'
-      - 'deploy_root={{ deploy.root }}'
-      - 'deploy_app={{ deploy.app }}'
-      - 'deploy_packages={{ deploy.packages }}'
-      - 'deploy_temp={{ deploy.temp }}'
-      - 'deploy_logs={{ deploy.logs }}'
-      - 'deploy_workplaces={{ deploy.workplaces }}'
-      - 'deploy_backup={{ deploy.backup }}'
-      - 'system_python={{ python.executable }}'
-      - 'venv_dir={{ python.venv }}'
-      - 'venv_python={{ python.venv_python }}'
-      - 'requirements_source={{ requirements.file }}'
-      - 'requirements_deploy={{ requirements.deploy_file }}'
-      - 'torch_wheelhouse={{ torch.wheelhouse }}'
-      - 'application_host={{ application.host }}'
-      - 'application_port={{ application.port }}'
-      - 'application_module={{ application.module }}'
-      - 'application_working_directory={{ application.working_directory }}'
-      - 'windows_service_name={{ windows_service.name }}'
-      - 'windows_service_executable={{ windows_service.executable }}'
-      - 'windows_service_working_directory={{ windows_service.working_directory }}'
-      - 'healthcheck_url={{ healthcheck.url }}'
-  tags:
-    - context
-
-
-- name: Show gateway package context
-  debug:
-    msg:
-      - 'package_name={{ item.name }}'
-      - 'package_source={{ item.source_path }}'
-      - 'package_deploy={{ item.deploy_path }}'
-  with_items: '{{ python_packages }}'
-  tags:
-    - context
+      - 'context=OK'
+      - 'deploy_home={{ deploy.home }}'
+      - 'workplaces={{ deploy.workplaces }}'
+      - 'backup={{ deploy.backup }}'
+      - 'wheelhouse={{ deploy.wheelhouse }}'
+      - 'gateway_home={{ gateway.home }}'
+      - 'gateway_source={{ gateway.source }}'
+      - 'gateway_logs={{ gateway.logs }}'
+      - 'gateway_venv={{ gateway.venv }}'
+      - 'gateway_backup={{ gateway.backup }}'
+      - 'python={{ python.executable }}'
+      - >-
+        python_version={{
+          (context_python_version.stdout | default('') |
+          trim)
+          if (context_python_version.stdout | default('') | trim | length > 0)
+          else
+          (context_python_version.stderr | default('') | trim)
+        }}
+      - 'pip={{ context_pip_version.stdout | default('') | trim }}'
+      - 'git={{ context_git_version.stdout | default('') | trim }}'
