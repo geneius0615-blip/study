@@ -1,5 +1,12 @@
----
-- name: Load gateway deployment context
-  include_tasks: context.yml
-  tags:
-    - context
+deploy:
+  home: 'E:\Deploy'
+  workplaces: 'E:\digital-twin-studio\imap\workplaces'
+  backup: 'E:\digital-twin-studio\imap\backup'
+  wheelhouse: 'E:\Deploy\Python\wheelhouse'
+
+gateway:
+  home: 'E:\Deploy\Python\gateway'
+  source: 'E:\Deploy\Python\gateway\source'
+  venv: 'E:\Deploy\Python\gateway\.venv'
+  logs: 'E:\Deploy\Python\gateway\logs'
+  backup: 'E:\digital-twin-studio\imap\backup\gateway'
