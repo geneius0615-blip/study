@@ -1,28 +1,69 @@
 ---
-- name: Execute Python install script
-  win_command: >
-    cmd.exe /c call "{{ install.script_file }}"
-  args:
-    chdir: "{{ base.imap }}\\source"
-  environment:
-    GIT_TERMINAL_PROMPT: "0"
-    GCM_INTERACTIVE: "Never"
-  register: python_install_result
+# ============================================================
+# Check installation resources
+# ============================================================
 
-- name: Show Python install result
+- name: Check gateway requirements file
+  win_stat:
+    path: "{{ gateway_requirements_file }}"
+  register: install_requirements_check
+
+
+- name: Fail when gateway requirements file does not exist
+  fail:
+    msg: "Gateway requirements file does not exist: {{ gateway_requirements_file }}"
+  when: not install_requirements_check.stat.exists
+
+
+- name: Check Python wheelhouse directory
+  win_stat:
+    path: "{{ python_wheelhouse_dir }}"
+  register: install_wheelhouse_check
+
+
+- name: Fail when Python wheelhouse directory does not exist
+  fail:
+    msg: "Python wheelhouse directory does not exist: {{ python_wheelhouse_dir }}"
+  when: not install_wheelhouse_check.stat.exists
+
+
+# ============================================================
+# Install Gateway Python packages
+# ============================================================
+
+- name: Install gateway Python packages
+  win_command: >-
+    "{{ gateway_venv_dir }}\Scripts\python.exe"
+    -m pip install
+    --find-links "{{ python_wheelhouse_dir }}"
+    -r "{{ gateway_requirements_file }}"
+  register: install_gateway_packages
+  changed_when: >-
+    'Successfully installed' in install_gateway_packages.stdout
+    or 'Successfully installed' in install_gateway_packages.stderr
+  no_log: true
+
+
+# ============================================================
+# Validate installed packages
+# ============================================================
+
+- name: Check gateway installed Python packages
+  win_command: >-
+    "{{ gateway_venv_dir }}\Scripts\python.exe"
+    -m pip check
+  register: install_pip_check
+  changed_when: false
+
+
+# ============================================================
+# Installation result
+# ============================================================
+
+- name: Show gateway installation result
   debug:
     msg:
-      - "RC={{ python_install_result.rc }}"
-      - "{{ python_install_result.stdout_lines | default([]) }}"
-
-- name: Fail when Python install failed
-  fail:
-    msg: |
-      Python package installation failed.
-
-      STDOUT:
-      {{ python_install_result.stdout }}
-
-      STDERR:
-      {{ python_install_result.stderr }}
-  when: python_install_result.rc != 0
+      - "install=OK"
+      - "requirements={{ gateway_requirements_file }}"
+      - "wheelhouse={{ python_wheelhouse_dir }}"
+      - "pip_check={{ install_pip_check.stdout | trim }}"
