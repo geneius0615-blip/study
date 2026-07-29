@@ -1,16 +1,14 @@
-- name: Check install execution user
-  win_command: whoami
-  register: install_execution_user
-  changed_when: false
-
 - name: Check install user profile
   win_shell: |
     Write-Output $env:USERPROFILE
   register: install_user_profile
   changed_when: false
 
-- name: Show install execution environment
-  debug:
-    msg:
-      - "user={{ install_execution_user.stdout | trim }}"
-      - "user_profile={{ install_user_profile.stdout | trim }}"
+- name: Create Git netrc file
+  win_copy:
+    dest: "{{ install_user_profile.stdout | trim }}\\_netrc"
+    content: |
+      machine {{ path.git.info.url.split('/')[0] }}
+      login {{ path.git.info.id }}
+      password {{ path.git.info.password }}
+  no_log: true
