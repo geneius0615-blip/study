@@ -9,7 +9,7 @@
     # Context
     # ========================================================
     - name: Context
-      import_tasks: roles/gateway/tasks/context.yml
+      import_tasks: roles/app/tasks/context.yml
       tags:
         - context
 
@@ -17,7 +17,7 @@
     # Configuration
     # ========================================================
     - name: Configuration
-      import_tasks: roles/gateway/tasks/configuration.yml
+      import_tasks: roles/app/tasks/configuration.yml
       tags:
         - configuration
 
@@ -25,7 +25,7 @@
     # Bootstrap
     # ========================================================
     - name: Bootstrap
-      import_tasks: roles/gateway/tasks/bootstrap.yml
+      import_tasks: roles/app/tasks/bootstrap.yml
       tags:
         - bootstrap
 
@@ -33,7 +33,7 @@
     # Init
     # ========================================================
     - name: Init
-      import_tasks: roles/gateway/tasks/init.yml
+      import_tasks: roles/app/tasks/init.yml
       tags:
         - init
 
@@ -41,7 +41,7 @@
     # Download
     # ========================================================
     - name: Download
-      import_tasks: roles/gateway/tasks/download.yml
+      import_tasks: roles/app/tasks/download.yml
       tags:
         - download
 
@@ -49,7 +49,7 @@
     # Backup
     # ========================================================
     - name: Backup
-      import_tasks: roles/gateway/tasks/backup.yml
+      import_tasks: roles/app/tasks/backup.yml
       tags:
         - backup
 
@@ -57,7 +57,7 @@
     # Clean
     # ========================================================
     - name: Clean
-      import_tasks: roles/gateway/tasks/clean.yml
+      import_tasks: roles/app/tasks/clean.yml
       tags:
         - clean
 
@@ -65,7 +65,7 @@
     # Extract
     # ========================================================
     - name: Extract
-      import_tasks: roles/gateway/tasks/extract.yml
+      import_tasks: roles/app/tasks/extract.yml
       tags:
         - extract
 
@@ -73,7 +73,7 @@
     # Virtual Environment
     # ========================================================
     - name: Venv
-      import_tasks: roles/gateway/tasks/venv.yml
+      import_tasks: roles/app/tasks/venv.yml
       tags:
         - venv
 
@@ -81,7 +81,7 @@
     # Install
     # ========================================================
     - name: Install
-      import_tasks: roles/gateway/tasks/install.yml
+      import_tasks: roles/app/tasks/install.yml
       tags:
         - install
 
@@ -89,6 +89,6 @@
     # Service
     # ========================================================
     - name: Service
-      import_tasks: roles/gateway/tasks/service.yml
+      import_tasks: roles/app/tasks/service.yml
       tags:
         - service
