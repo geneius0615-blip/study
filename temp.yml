@@ -1,5 +1,1 @@
-E:\Deploy\Python\gateway\.venv\Scripts\python.exe `
-  -m uvicorn main:app `
-  --app-dir E:\Deploy\Python\gateway\source `
-  --host 0.0.0.0 `
-  --port 8000
+ 
