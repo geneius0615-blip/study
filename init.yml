@@ -1,60 +1,152 @@
 ---
-- name: Validate Python init variables
+# ============================================================
+# Init - 현재 Gateway 배포 상태 확인
+#
+# 이 단계에서는:
+# - Bootstrap에서 준비한 필수 디렉터리 확인
+# - 기존 Gateway 배포 상태 확인
+# - 파일이나 디렉터리를 생성, 삭제, 변경하지 않음
+# ============================================================
+
+# ------------------------------------------------------------
+# 필수 디렉터리 확인
+# ------------------------------------------------------------
+
+- name: Check gateway home directory
+  win_stat:
+    path: "{{ gateway_home }}"
+  register: init_gateway_home
+
+- name: Validate gateway home directory
   assert:
     that:
-      - python is defined
-      - python.home_executable is defined
-      - python.venv is defined
-      - python.executable is defined
-      - source is defined
-      - source.root is defined
-    fail_msg: "Python 초기화 변수를 확인하세요."
+      - init_gateway_home.stat.exists
+      - init_gateway_home.stat.isdir
+    fail_msg: >-
+      Gateway 홈 디렉터리가 없습니다:
+      {{ gateway_home }}
+      bootstrap 단계를 먼저 실행하세요.
+    success_msg: Gateway home directory is ready
 
-- name: Check system Python executable
+
+- name: Check gateway workspace directory
   win_stat:
-    path: "{{ python.home_executable }}"
-  register: system_python_check
+    path: "{{ gateway_workspace_dir }}"
+  register: init_gateway_workspace
 
-- name: Validate system Python executable
+- name: Validate gateway workspace directory
   assert:
     that:
-      - system_python_check.stat.exists
-      - not system_python_check.stat.isdir
-    fail_msg: "시스템 Python 실행 파일이 없습니다: {{ python.home_executable }}"
+      - init_gateway_workspace.stat.exists
+      - init_gateway_workspace.stat.isdir
+    fail_msg: >-
+      Gateway 작업 디렉터리가 없습니다:
+      {{ gateway_workspace_dir }}
+      bootstrap 단계를 먼저 실행하세요.
+    success_msg: Gateway workspace directory is ready
 
-- name: Check Python virtual environment
+
+- name: Check gateway backup directory
   win_stat:
-    path: "{{ python.executable }}"
-  register: python_venv_check
+    path: "{{ gateway_backup_dir }}"
+  register: init_gateway_backup
 
-- name: Create Python virtual environment
-  win_command: >
-    "{{ python.home_executable }}" -m venv "{{ python.venv }}"
-  args:
-    chdir: "{{ source.root }}"
-  when: not python_venv_check.stat.exists
-
-- name: Check virtual environment Python
-  win_stat:
-    path: "{{ python.executable }}"
-  register: created_venv_check
-
-- name: Validate virtual environment Python
+- name: Validate gateway backup directory
   assert:
     that:
-      - created_venv_check.stat.exists
-      - not created_venv_check.stat.isdir
-    fail_msg: "Python 가상환경 생성에 실패했습니다: {{ python.venv }}"
+      - init_gateway_backup.stat.exists
+      - init_gateway_backup.stat.isdir
+    fail_msg: >-
+      Gateway 백업 디렉터리가 없습니다:
+      {{ gateway_backup_dir }}
+      bootstrap 단계를 먼저 실행하세요.
+    success_msg: Gateway backup directory is ready
 
-- name: Get virtual environment Python version
-  win_command: >
-    "{{ python.executable }}" --version
-  register: python_version_result
-  changed_when: false
 
-- name: Show virtual environment Python version
+- name: Check gateway logs directory
+  win_stat:
+    path: "{{ gateway_logs_dir }}"
+  register: init_gateway_logs
+
+- name: Validate gateway logs directory
+  assert:
+    that:
+      - init_gateway_logs.stat.exists
+      - init_gateway_logs.stat.isdir
+    fail_msg: >-
+      Gateway 로그 디렉터리가 없습니다:
+      {{ gateway_logs_dir }}
+      bootstrap 단계를 먼저 실행하세요.
+    success_msg: Gateway logs directory is ready
+
+
+- name: Check Python wheelhouse directory
+  win_stat:
+    path: "{{ python_wheelhouse_dir }}"
+  register: init_python_wheelhouse
+
+- name: Validate Python wheelhouse directory
+  assert:
+    that:
+      - init_python_wheelhouse.stat.exists
+      - init_python_wheelhouse.stat.isdir
+    fail_msg: >-
+      Python wheelhouse 디렉터리가 없습니다:
+      {{ python_wheelhouse_dir }}
+      bootstrap 단계를 먼저 실행하세요.
+    success_msg: Python wheelhouse directory is ready
+
+
+# ------------------------------------------------------------
+# 기존 배포 상태 확인
+# 존재하지 않아도 실패하지 않음
+# ------------------------------------------------------------
+
+- name: Check current gateway source directory
+  win_stat:
+    path: "{{ gateway_source_dir }}"
+  register: init_gateway_source
+
+
+- name: Check current gateway virtual environment
+  win_stat:
+    path: "{{ gateway_venv_dir }}"
+  register: init_gateway_venv
+
+
+- name: Check current gateway requirements file
+  win_stat:
+    path: "{{ gateway_requirements_file }}"
+  register: init_gateway_requirements
+
+
+- name: Check current gateway junction path
+  win_stat:
+    path: "{{ gateway_junction_path }}"
+  register: init_gateway_junction
+
+
+- name: Check legacy applications directory
+  win_stat:
+    path: "{{ gateway_legacy_apps_dir }}"
+  register: init_gateway_legacy_apps
+
+
+# ------------------------------------------------------------
+# Init 결과 출력
+# ------------------------------------------------------------
+
+- name: Show init result
   debug:
     msg:
-      - "VENV={{ python.venv }}"
-      - "PYTHON={{ python.executable }}"
-      - "VERSION={{ python_version_result.stdout }}"
+      - "init=OK"
+      - "gateway_home_ready={{ init_gateway_home.stat.exists | default(false) }}"
+      - "gateway_workspace_ready={{ init_gateway_workspace.stat.exists | default(false) }}"
+      - "gateway_backup_ready={{ init_gateway_backup.stat.exists | default(false) }}"
+      - "gateway_logs_ready={{ init_gateway_logs.stat.exists | default(false) }}"
+      - "python_wheelhouse_ready={{ init_python_wheelhouse.stat.exists | default(false) }}"
+      - "gateway_source_exists={{ init_gateway_source.stat.exists | default(false) }}"
+      - "gateway_venv_exists={{ init_gateway_venv.stat.exists | default(false) }}"
+      - "gateway_requirements_exists={{ init_gateway_requirements.stat.exists | default(false) }}"
+      - "gateway_junction_exists={{ init_gateway_junction.stat.exists | default(false) }}"
+      - "gateway_legacy_apps_exists={{ init_gateway_legacy_apps.stat.exists | default(false) }}"
