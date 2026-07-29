@@ -1,26 +1,16 @@
 ---
 # ============================================================
-# Deployment root directories
+# Shared deployment directories
 # ============================================================
 
-- name: Create deployment root directory
+- name: Create gateway workspace directory
   win_file:
-    path: "{{ deploy.home }}"
+    path: "{{ gateway_workspace_dir }}"
     state: directory
 
-- name: Create workplaces directory
+- name: Create Python wheelhouse directory
   win_file:
-    path: "{{ deploy.workplaces }}"
-    state: directory
-
-- name: Create backup directory
-  win_file:
-    path: "{{ deploy.backup }}"
-    state: directory
-
-- name: Create shared wheelhouse directory
-  win_file:
-    path: "{{ deploy.wheelhouse }}"
+    path: "{{ python_wheelhouse_dir }}"
     state: directory
 
 
@@ -30,22 +20,22 @@
 
 - name: Create gateway home directory
   win_file:
-    path: "{{ gateway.home }}"
+    path: "{{ gateway_home }}"
     state: directory
 
 - name: Create gateway source directory
   win_file:
-    path: "{{ gateway.source }}"
+    path: "{{ gateway_source_dir }}"
     state: directory
 
 - name: Create gateway logs directory
   win_file:
-    path: "{{ gateway.logs }}"
+    path: "{{ gateway_logs_dir }}"
     state: directory
 
 - name: Create gateway backup directory
   win_file:
-    path: "{{ gateway.backup }}"
+    path: "{{ gateway_backup_dir }}"
     state: directory
 
 
@@ -56,12 +46,10 @@
 - name: Show bootstrap result
   debug:
     msg:
-      - 'bootstrap=OK'
-      - 'deploy_home={{ deploy.home }}'
-      - 'workplaces={{ deploy.workplaces }}'
-      - 'backup={{ deploy.backup }}'
-      - 'wheelhouse={{ deploy.wheelhouse }}'
-      - 'gateway_home={{ gateway.home }}'
-      - 'gateway_source={{ gateway.source }}'
-      - 'gateway_logs={{ gateway.logs }}'
-      - 'gateway_backup={{ gateway.backup }}'
+      - "bootstrap=OK"
+      - "gateway_workspace_dir={{ gateway_workspace_dir }}"
+      - "python_wheelhouse_dir={{ python_wheelhouse_dir }}"
+      - "gateway_home={{ gateway_home }}"
+      - "gateway_source_dir={{ gateway_source_dir }}"
+      - "gateway_logs_dir={{ gateway_logs_dir }}"
+      - "gateway_backup_dir={{ gateway_backup_dir }}"
