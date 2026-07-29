@@ -1,1 +1,6 @@
- 
+Get-ChildItem `
+  -Path "E:\Deploy\Python\gateway\source" `
+  -Recurse `
+  -Filter "*.py" |
+Select-String -Pattern "app\s*=\s*FastAPI|application\s*=\s*FastAPI" |
+Select-Object Path, LineNumber, Line
