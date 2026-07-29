@@ -1,23 +1,4 @@
-- name: Check pip
-  win_command: '"{{ python_executable }}" -m pip --version'
-  register: configuration_pip_check
-  changed_when: false
-  failed_when: false
-
-- name: Install pip
-  win_command: '"{{ python_executable }}" -m ensurepip'
-  when: configuration_pip_check.rc != 0
-
-- name: Check setuptools
-  win_command: >-
-    "{{ python_executable }}"
-    -c "import setuptools; print(setuptools.__version__)"
-  register: configuration_setuptools_check
-  changed_when: false
-  failed_when: false
-
-- name: Install setuptools
-  win_command: >-
-    "{{ python_executable }}"
-    -m pip install setuptools
-  when: configuration_setuptools_check.rc != 0
+- name: Create gateway workspace directory
+  win_file:
+    path: "{{ gateway_workspace_dir }}"
+    state: directory
