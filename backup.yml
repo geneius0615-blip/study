@@ -1,78 +1,93 @@
 ---
-- name: Ensure Spring backup directory exists
-  win_file:
-    path: "{{ spring.backup_dir }}"
-    state: directory
+# ============================================================
+# Backup current Gateway source
+#
+# Source:
+#   gateway_workspace_dir
+#
+# Destination:
+#   gateway_backup_dir\gateway_yyyyMMdd_HHmmss
+#
+# Excluded:
+#   .git
+#   .venv
+# ============================================================
 
-- name: Check current Spring WAR
+# ------------------------------------------------------------
+# Check current Gateway repository
+# ------------------------------------------------------------
+
+- name: Check current gateway repository
   win_stat:
-    path: "{{ spring.war_file }}"
-  register: spring_war_stat
+    path: "{{ gateway_workspace_dir }}\\.git"
+  register: backup_gateway_repository
 
-- name: Check current Spring exploded directory
-  win_stat:
-    path: "{{ spring.exploded_dir }}"
-  register: spring_exploded_stat
 
-- name: Set Spring deployment existence status
-  set_fact:
-    spring_existing_deployment: "{{ spring_war_stat.stat.exists or spring_exploded_stat.stat.exists }}"
+# ------------------------------------------------------------
+# Create backup timestamp
+# ------------------------------------------------------------
 
-- name: Create Spring deployment backup
+- name: Get gateway backup timestamp
+  win_shell: Get-Date -Format "yyyyMMdd_HHmmss"
+  register: backup_timestamp
+  changed_when: false
+  when: backup_gateway_repository.stat.exists
+
+
+# ------------------------------------------------------------
+# Backup current Gateway source
+# ------------------------------------------------------------
+
+- name: Backup current gateway source
   win_shell: |
-    $backupFile = "{{ spring_backup_file }}"
-    $warFile = "{{ spring.war_file }}"
-    $explodedDir = "{{ spring.exploded_dir }}"
-    $tempDir = "{{ spring.backup_dir }}\temp"
+    $source = "{{ gateway_workspace_dir }}"
+    $destination = "{{ gateway_backup_dir }}\gateway_{{ backup_timestamp.stdout | trim }}"
 
-    if (Test-Path -LiteralPath $tempDir) {
-        Remove-Item -LiteralPath $tempDir -Recurse -Force
+    New-Item `
+      -Path $destination `
+      -ItemType Directory `
+      -Force | Out-Null
+
+    robocopy `
+      $source `
+      $destination `
+      /E `
+      /XD ".git" ".venv" `
+      /R:2 `
+      /W:2 `
+      /NFL `
+      /NDL `
+      /NJH `
+      /NJS `
+      /NP
+
+    $robocopyExitCode = $LASTEXITCODE
+
+    if ($robocopyExitCode -ge 8) {
+      exit $robocopyExitCode
     }
 
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+    exit 0
+  register: backup_gateway_result
+  changed_when: true
+  when: backup_gateway_repository.stat.exists
 
-    if (Test-Path -LiteralPath $warFile -PathType Leaf) {
-        Copy-Item -LiteralPath $warFile -Destination $tempDir -Force
-    }
 
-    if (Test-Path -LiteralPath $explodedDir -PathType Container) {
-        Copy-Item -LiteralPath $explodedDir -Destination $tempDir -Recurse -Force
-    }
+# ------------------------------------------------------------
+# Backup result
+# ------------------------------------------------------------
 
-    if (Test-Path -LiteralPath $backupFile) {
-        Remove-Item -LiteralPath $backupFile -Force
-    }
-
-    Compress-Archive -Path "$tempDir\*" -DestinationPath $backupFile -Force
-
-    if (Test-Path -LiteralPath $tempDir) {
-        Remove-Item -LiteralPath $tempDir -Recurse -Force
-    }
-  register: spring_backup_result
-  when: spring_existing_deployment
-
-- name: Verify Spring backup file
-  win_stat:
-    path: "{{ spring_backup_file }}"
-  register: spring_backup_stat
-  when: spring_existing_deployment
-
-- name: Fail when Spring backup file is invalid
-  fail:
-    msg: "Spring 백업 파일이 생성되지 않았거나 크기가 0입니다: {{ spring_backup_file }}"
-  when:
-    - spring_existing_deployment
-    - not spring_backup_stat.stat.exists or (spring_backup_stat.stat.size | default(0) | int) <= 0
-
-- name: Mark Spring backup success
-  set_fact:
-    spring_backup_success: true
-  when:
-    - spring_existing_deployment
-    - spring_backup_stat.stat.exists
-    - (spring_backup_stat.stat.size | default(0) | int) > 0
-
-- name: Mark backup unnecessary
-  set_fact:
-    spring_backup_success: true
-  when: not spring_existing_deployment
+- name: Show gateway backup result
+  debug:
+    msg:
+      - "backup=OK"
+      - "source={{ gateway_workspace_dir }}"
+      - >-
+        destination={{
+          gateway_backup_dir
+          ~ '\gateway_'
+          ~ (backup_timestamp.stdout | trim)
+          if backup_gateway_repository.stat.exists
+          else 'SKIPPED'
+        }}
+      - "repository_exists={{ backup_gateway_repository.stat.exists | default(false) }}"
