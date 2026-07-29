@@ -27,6 +27,20 @@
   when: not install_wheelhouse_check.stat.exists
 
 
+- name: Check gateway pyproject file
+  win_stat:
+    path: "{{ gateway_workspace_dir }}\\pyproject.toml"
+  register: install_gateway_pyproject_check
+
+
+- name: Fail when gateway pyproject file does not exist
+  fail:
+    msg: >-
+      Gateway pyproject file does not exist:
+      {{ gateway_workspace_dir }}\pyproject.toml
+  when: not install_gateway_pyproject_check.stat.exists
+
+
 # ============================================================
 # Install Gateway Python packages
 # ============================================================
@@ -45,6 +59,23 @@
 
 
 # ============================================================
+# Install IMAP Gateway project
+# ============================================================
+
+- name: Install IMAP Gateway project
+  win_command: >-
+    "{{ gateway_venv_dir }}\Scripts\python.exe"
+    -m pip install
+    --no-deps
+    "{{ gateway_workspace_dir }}"
+  register: install_gateway_project
+  changed_when: >-
+    'Successfully installed' in install_gateway_project.stdout
+    or 'Successfully installed' in install_gateway_project.stderr
+  no_log: true
+
+
+# ============================================================
 # Validate installed packages
 # ============================================================
 
@@ -53,6 +84,14 @@
     "{{ gateway_venv_dir }}\Scripts\python.exe"
     -m pip check
   register: install_pip_check
+  changed_when: false
+
+
+- name: Check installed IMAP Gateway package
+  win_command: >-
+    "{{ gateway_venv_dir }}\Scripts\python.exe"
+    -m pip list
+  register: install_pip_list
   changed_when: false
 
 
@@ -66,4 +105,6 @@
       - "install=OK"
       - "requirements={{ gateway_requirements_file }}"
       - "wheelhouse={{ python_wheelhouse_dir }}"
+      - "gateway_project={{ gateway_workspace_dir }}"
+      - "gateway_project_installed={{ 'gateway' in (install_pip_list.stdout | lower) }}"
       - "pip_check={{ install_pip_check.stdout | trim }}"
