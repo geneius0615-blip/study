@@ -1,40 +1,45 @@
 ---
-- name: Define venv batch files
-  set_fact:
-    venv_batch_files:
-      - name: Server config
-        path: "{{ files.server_config_bat }}"
-        workdir: "{{ dirs.home }}"
+# ============================================================
+# Check Gateway virtual environment
+# ============================================================
 
-      - name: Setup virtual environment
-        path: "{{ files.setup_venv_bat }}"
-        workdir: "{{ dirs.home }}"
-
-      - name: Install editable packages
-        path: "{{ files.install_packages_bat }}"
-        workdir: "{{ dirs.home }}"
-
-- name: Check batch files
+- name: Check gateway virtual environment
   win_stat:
-    path: "{{ item.path }}"
-  loop: "{{ venv_batch_files }}"
-  register: batch_checks
-  loop_control:
-    label: "{{ item.name }}"
+    path: "{{ gateway_venv_dir }}\\Scripts\\python.exe"
+  register: venv_python_check
 
-- name: Fail if batch file is missing
-  fail:
-    msg: "Batch file not found: {{ item.item.path }}"
-  when: not item.stat.exists
-  loop: "{{ batch_checks.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
 
-- name: Run batch files
-  win_shell: |
-    cmd /c call "{{ item.path }}"
-  args:
-    chdir: "{{ item.workdir }}"
-  loop: "{{ venv_batch_files }}"
-  loop_control:
-    label: "{{ item.name }}"
+# ============================================================
+# Create Gateway virtual environment
+# ============================================================
+
+- name: Create gateway virtual environment
+  win_command: >-
+    "{{ python_executable }}"
+    -m venv
+    "{{ gateway_venv_dir }}"
+  when: not venv_python_check.stat.exists
+
+
+# ============================================================
+# Validate Gateway virtual environment
+# ============================================================
+
+- name: Check gateway virtual environment Python
+  win_command: >-
+    "{{ gateway_venv_dir }}\\Scripts\\python.exe"
+    --version
+  register: venv_python_version
+  changed_when: false
+
+
+# ============================================================
+# Venv result
+# ============================================================
+
+- name: Show gateway virtual environment result
+  debug:
+    msg:
+      - "venv=OK"
+      - "venv_dir={{ gateway_venv_dir }}"
+      - "python_version={{ venv_python_version.stdout | trim }}"
