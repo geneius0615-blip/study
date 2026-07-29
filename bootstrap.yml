@@ -1,76 +1,67 @@
 ---
-- name: Validate Python bootstrap variables
-  assert:
-    that:
-      - base is defined
-      - base.imap is defined
-      - base.imap | trim | length > 0
+# ============================================================
+# Deployment root directories
+# ============================================================
 
-      - source is defined
-      - source.root is defined
-      - source.backup is defined
-      - source.logs is defined
-      - source.workplaces is defined
+- name: Create deployment root directory
+  win_file:
+    path: "{{ deploy.home }}"
+    state: directory
 
-      - python is defined
-      - python.venv is defined
-      - python.executable is defined
+- name: Create workplaces directory
+  win_file:
+    path: "{{ deploy.workplaces }}"
+    state: directory
 
-      - packages is defined
-      - packages.wheelhouse is defined
+- name: Create backup directory
+  win_file:
+    path: "{{ deploy.backup }}"
+    state: directory
 
-      - install is defined
-      - install.working_dir is defined
-      - install.script is defined
-    fail_msg: >-
-      Python bootstrap 변수가 누락되었습니다.
-      group_vars/all.yml의 base, source, python, packages, install 설정을 확인하세요.
+- name: Create shared wheelhouse directory
+  win_file:
+    path: "{{ deploy.wheelhouse }}"
+    state: directory
 
-- name: Show Python bootstrap context
+
+# ============================================================
+# Gateway directories
+# ============================================================
+
+- name: Create gateway home directory
+  win_file:
+    path: "{{ gateway.home }}"
+    state: directory
+
+- name: Create gateway source directory
+  win_file:
+    path: "{{ gateway.source }}"
+    state: directory
+
+- name: Create gateway logs directory
+  win_file:
+    path: "{{ gateway.logs }}"
+    state: directory
+
+- name: Create gateway backup directory
+  win_file:
+    path: "{{ gateway.backup }}"
+    state: directory
+
+
+# ============================================================
+# Bootstrap result
+# ============================================================
+
+- name: Show bootstrap result
   debug:
     msg:
-      - "IMAP_ROOT={{ base.imap }}"
-      - "SOURCE_ROOT={{ source.root }}"
-      - "BACKUP_DIR={{ source.backup }}"
-      - "VENV_DIR={{ python.venv }}"
-      - "PYTHON_EXECUTABLE={{ python.executable }}"
-      - "WHEELHOUSE_DIR={{ packages.wheelhouse }}"
-      - "INSTALL_SCRIPT={{ install.script }}"
-
-- name: Create Python deployment directories
-  win_file:
-    path: "{{ item }}"
-    state: directory
-  loop:
-    - "{{ base.imap }}"
-    - "{{ source.root }}"
-    - "{{ source.backup }}"
-    - "{{ source.logs }}"
-    - "{{ source.workplaces }}"
-    - "{{ source.root }}\\Scripts"
-    - "{{ source.root }}\\apps"
-    - "{{ source.root }}\\packages"
-    - "{{ packages.wheelhouse }}"
-
-- name: Check created Python deployment directories
-  win_stat:
-    path: "{{ item }}"
-  loop:
-    - "{{ base.imap }}"
-    - "{{ source.root }}"
-    - "{{ source.backup }}"
-    - "{{ source.logs }}"
-    - "{{ source.workplaces }}"
-    - "{{ source.root }}\\Scripts"
-    - "{{ source.root }}\\apps"
-    - "{{ source.root }}\\packages"
-    - "{{ packages.wheelhouse }}"
-  register: python_bootstrap_directories
-
-- name: Validate created Python deployment directories
-  assert:
-    that:
-      - item.stat.exists
-      - item.stat.isdir
-    fail_msg: "디렉터리 생성에 실패했습니다: {{ item.item }}"
-  loop: "{{ python_bootstrap_directories.results }}"
+      - 'bootstrap=OK'
+      - 'deploy_home={{ deploy.home }}'
+      - 'workplaces={{ deploy.workplaces }}'
+      - 'backup={{ deploy.backup }}'
+      - 'wheelhouse={{ deploy.wheelhouse }}'
+      - 'gateway_home={{ gateway.home }}'
+      - 'gateway_source={{ gateway.source }}'
+      - 'gateway_logs={{ gateway.logs }}'
+      - 'gateway_backup={{ gateway.backup }}'
