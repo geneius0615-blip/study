@@ -1,14 +1,13 @@
-- name: Check install user profile
-  win_shell: |
-    Write-Output $env:USERPROFILE
-  register: install_user_profile
+- name: Check Git access from Ansible environment
+  win_command: >-
+    git ls-remote
+    https://github.samsungs.net/imap-web/ifcopenshell.git
+  environment:
+    HOME: "{{ install_user_profile.stdout | trim }}"
+    USERPROFILE: "{{ install_user_profile.stdout | trim }}"
+  register: git_access_check
   changed_when: false
 
-- name: Create Git netrc file
-  win_copy:
-    dest: "{{ install_user_profile.stdout | trim }}\\_netrc"
-    content: |
-      machine {{ path.git.info.url.split('/')[0] }}
-      login {{ path.git.info.id }}
-      password {{ path.git.info.password }}
-  no_log: true
+- name: Show Git access result
+  debug:
+    var: git_access_check.stdout_lines
