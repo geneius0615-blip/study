@@ -1,236 +1,437 @@
 ---
 # ============================================================
-# Context - 배포 환경 사전 검증
+# Gateway Context Validation
+# Ansible 2.9 / Windows Server
 #
-# 이 단계에서는:
-# - 변수와 실행 환경만 확인
-# - 디렉터리 및 파일을 생성하거나 변경하지 않음
+# Purpose:
+#   - Validate variables and deployment prerequisites only.
+#   - Do not create, install, modify, or delete anything.
+#   - A successful execution must finish with changed=0.
 # ============================================================
 
-# ------------------------------------------------------------
-# 필수 변수 확인
-# ------------------------------------------------------------
+- name: Validate gateway deployment context
+  block:
+    # ========================================================
+    # Validate System Variables
+    # ========================================================
 
-- name: Validate required variables
-  assert:
-    that:
-      - python_executable is defined
-      - python_executable | trim | length > 0
+    - name: Validate system variables
+      assert:
+        that:
+          - python_executable | default('') | trim | length > 0
+          - python_required_version | default('') | string | trim | length > 0
+          - git_executable | default('') | trim | length > 0
+        fail_msg: |
+          [Context]
 
-      - python_required_version is defined
-      - python_required_version | trim | length > 0
+          System variables are not defined correctly.
 
-      - git_executable is defined
-      - git_executable | trim | length > 0
+          Required variables:
+            python_executable
+            python_required_version
+            git_executable
+        success_msg: 'System variables=OK'
+        quiet: yes
 
-      - gateway_home is defined
-      - gateway_home | trim | length > 0
+    # ========================================================
+    # Validate Deploy Variables
+    # ========================================================
 
-      - gateway_source_dir is defined
-      - gateway_source_dir | trim | length > 0
+    - name: Validate deploy variables
+      assert:
+        that:
+          - deploy_home | default('') | trim | length > 0
+          - gateway_home | default('') | trim | length > 0
+          - gateway_source_dir | default('') | trim | length > 0
+          - gateway_logs_dir | default('') | trim | length > 0
+          - gateway_venv_dir | default('') | trim | length > 0
+          - gateway_workspace_dir | default('') | trim | length > 0
+        fail_msg: |
+          [Context]
 
-      - gateway_venv_dir is defined
-      - gateway_venv_dir | trim | length > 0
+          Deploy variables are not defined correctly.
 
-      - gateway_logs_dir is defined
-      - gateway_logs_dir | trim | length > 0
+          Required variables:
+            deploy_home
+            gateway_home
+            gateway_source_dir
+            gateway_logs_dir
+            gateway_venv_dir
+            gateway_workspace_dir
+        success_msg: 'Deploy variables=OK'
+        quiet: yes
 
-      - gateway_requirements_file is defined
-      - gateway_requirements_file | trim | length > 0
+    # ========================================================
+    # Validate Wheel Variables
+    # ========================================================
 
-      - python_wheelhouse_dir is defined
-      - python_wheelhouse_dir | trim | length > 0
+    - name: Validate wheel variables
+      assert:
+        that:
+          - python_wheelhouse_dir | default('') | trim | length > 0
+          - torch_wheel_file | default('') | trim | length > 0
+        fail_msg: |
+          [Context]
 
-      - gateway_workspace_dir is defined
-      - gateway_workspace_dir | trim | length > 0
+          Wheel variables are not defined correctly.
 
-      - gateway_backup_dir is defined
-      - gateway_backup_dir | trim | length > 0
+          Required variables:
+            python_wheelhouse_dir
+            torch_wheel_file
+        success_msg: 'Wheel variables=OK'
+        quiet: yes
 
-      - gateway_legacy_apps_dir is defined
-      - gateway_legacy_apps_dir | trim | length > 0
+    # ========================================================
+    # Validate Editable Repository Variables
+    # ========================================================
 
-      - gateway_junction_path is defined
-      - gateway_junction_path | trim | length > 0
+    - name: Validate editable repository variables
+      assert:
+        that:
+          - editable_repo_url | default('') | trim | length > 0
+          - editable_repo_branch | default('') | trim | length > 0
+          - editable_repo_dir | default('') | trim | length > 0
+          - editable_package_dirs is defined
+          - editable_package_dirs is sequence
+          - editable_package_dirs is not string
+          - editable_package_dirs | length > 0
+        fail_msg: |
+          [Context]
 
-      - gateway_service_name is defined
-      - gateway_service_name | trim | length > 0
+          Editable repository variables are not defined correctly.
 
-      - gateway_port is defined
+          Required variables:
+            editable_repo_url
+            editable_repo_branch
+            editable_repo_dir
+            editable_package_dirs
+        success_msg: 'Editable repository variables=OK'
+        quiet: yes
 
-      - gateway_healthcheck_url is defined
-      - gateway_healthcheck_url | trim | length > 0
+    # ========================================================
+    # Validate Gateway Variables
+    # ========================================================
 
-      - gateway_repo_url is defined
-      - gateway_repo_url | trim | length > 0
+    - name: Validate gateway variables
+      assert:
+        that:
+          - gateway_requirements_file | default('') | trim | length > 0
+          - gateway_host | default('') | trim | length > 0
+          - gateway_port | default(0) | int > 0
+          - gateway_port | default(0) | int <= 65535
+          - gateway_healthcheck_url | default('') | trim | length > 0
+        fail_msg: |
+          [Context]
 
-      - gateway_repo_branch is defined
-      - gateway_repo_branch | trim | length > 0
-    fail_msg: >-
-      group_vars/all.yml의 필수 변수가 없거나 비어 있습니다.
-      python, Git, Gateway 배포, Workspace, Backup,
-      Service 및 Network 변수를 확인하세요.
-    success_msg: Required variables are valid
+          Gateway variables are not defined correctly.
 
+          Required variables:
+            gateway_requirements_file
+            gateway_host
+            gateway_port
+            gateway_healthcheck_url
+        success_msg: 'Gateway variables=OK'
+        quiet: yes
 
-# ------------------------------------------------------------
-# 배포 드라이브 확인
-# ------------------------------------------------------------
+    # ========================================================
+    # Validate Service Variables
+    # ========================================================
 
-- name: Check deployment drive
-  win_stat:
-    path: 'E:\'
-  register: context_deploy_drive
+    - name: Validate service variables
+      assert:
+        that:
+          - gateway_service_name | default('') | trim | length > 0
+          - gateway_service_display_name | default('') | trim | length > 0
+          - gateway_service_description | default('') | trim | length > 0
+          - gateway_service_python | default('') | trim | length > 0
+          - gateway_service_working_dir | default('') | trim | length > 0
+          - gateway_asgi_app | default('') | trim | length > 0
+          - gateway_service_parameters | default('') | trim | length > 0
+          - gateway_service_stdout | default('') | trim | length > 0
+          - gateway_service_stderr | default('') | trim | length > 0
+          - gateway_service_restart_delay | default(-1) | int >= 0
+          - gateway_service_log_rotate_bytes | default(0) | int > 0
+        fail_msg: |
+          [Context]
 
-- name: Validate deployment drive
-  assert:
-    that:
-      - context_deploy_drive.stat.exists
-      - context_deploy_drive.stat.isdir
-    fail_msg: 'E:\ 드라이브를 찾을 수 없습니다.'
-    success_msg: Deployment drive is available
+          Service variables are not defined correctly.
 
+          Required variables:
+            gateway_service_name
+            gateway_service_display_name
+            gateway_service_description
+            gateway_service_python
+            gateway_service_working_dir
+            gateway_asgi_app
+            gateway_service_parameters
+            gateway_service_stdout
+            gateway_service_stderr
+            gateway_service_restart_delay
+            gateway_service_log_rotate_bytes
+        success_msg: 'Service variables=OK'
+        quiet: yes
 
-# ------------------------------------------------------------
-# System Python 확인
-# ------------------------------------------------------------
+    # ========================================================
+    # Validate NSSM Variables
+    # ========================================================
 
-- name: Check system Python executable
-  win_stat:
-    path: "{{ python_executable }}"
-  register: context_python_executable
+    - name: Validate NSSM variables
+      assert:
+        that:
+          - nssm_install_dir | default('') | trim | length > 0
+          - nssm_executable | default('') | trim | length > 0
+        fail_msg: |
+          [Context]
 
-- name: Validate system Python executable
-  assert:
-    that:
-      - context_python_executable.stat.exists
-      - not context_python_executable.stat.isdir
-    fail_msg: >-
-      Python 실행 파일을 찾을 수 없습니다:
-      {{ python_executable }}
-    success_msg: System Python executable exists
+          NSSM variables are not defined correctly.
 
+          Required variables:
+            nssm_install_dir
+            nssm_executable
+        success_msg: 'NSSM variables=OK'
+        quiet: yes
 
-# ------------------------------------------------------------
-# Python 버전 확인
-# ------------------------------------------------------------
+    # ========================================================
+    # Validate Python Executable
+    # ========================================================
 
-- name: Check Python version
-  win_command: '"{{ python_executable }}" --version'
-  register: context_python_version
-  changed_when: false
+    - name: Check Python executable
+      win_stat:
+        path: '{{ python_executable }}'
+        get_checksum: no
+      register: python_executable_check
 
-- name: Validate required Python version
-  assert:
-    that:
-      - context_python_version.rc == 0
-      - >-
-        ('Python ' ~ python_required_version) in
-        (
-          (context_python_version.stdout | default('')) ~
-          (context_python_version.stderr | default(''))
-        )
-    fail_msg: >-
-      필요한 Python 버전이 아닙니다.
-      required={{ python_required_version }}
-      stdout={{ context_python_version.stdout | default('') }}
-      stderr={{ context_python_version.stderr | default('') }}
-    success_msg: Required Python version is available
+    - name: Validate Python executable
+      assert:
+        that:
+          - python_executable_check.stat.exists | default(false)
+          - python_executable_check.stat.isreg | default(false)
+        fail_msg: |
+          [Context]
 
+          Python executable does not exist or is not a file.
 
-# ------------------------------------------------------------
-# pip 확인
-# ------------------------------------------------------------
+          Path:
+            {{ python_executable }}
+        success_msg: 'Python executable=OK'
+        quiet: yes
 
-- name: Check pip
-  win_command: '"{{ python_executable }}" -m pip --version'
-  register: context_pip_version
-  changed_when: false
+    # ========================================================
+    # Validate Python Version
+    # ========================================================
 
-- name: Validate pip
-  assert:
-    that:
-      - context_pip_version.rc == 0
-    fail_msg: >-
-      pip를 사용할 수 없습니다.
-      {{ context_pip_version.stderr | default('') }}
-    success_msg: pip is available
+    - name: Check Python version
+      win_command: '"{{ python_executable }}" --version'
+      register: python_version_result
+      changed_when: false
+      failed_when: false
 
+    - name: Validate Python version
+      assert:
+        that:
+          - python_version_result.rc | default(1) == 0
+          - "('Python ' ~ (python_required_version | string)) in ((python_version_result.stdout | default('')) ~ (python_version_result.stderr | default('')))"
+        fail_msg: |
+          [Context]
 
-# ------------------------------------------------------------
-# venv 모듈 확인
-# 실제 가상환경은 생성하지 않음
-# ------------------------------------------------------------
+          Python version validation failed.
 
-- name: Check venv module
-  win_command: >-
-    "{{ python_executable }}"
-    -c "import venv; print('venv OK')"
-  register: context_venv_module
-  changed_when: false
+          Required version:
+            {{ python_required_version }}
 
-- name: Validate venv module
-  assert:
-    that:
-      - context_venv_module.rc == 0
-    fail_msg: >-
-      Python venv 모듈을 사용할 수 없습니다.
-      {{ context_venv_module.stderr | default('') }}
-    success_msg: venv module is available
+          Command output:
+            {{ ((python_version_result.stdout | default('')) ~
+                (python_version_result.stderr | default(''))) | trim }}
+        success_msg: 'Python version=OK'
+        quiet: yes
 
+    # ========================================================
+    # Validate pip
+    # ========================================================
 
-# ------------------------------------------------------------
-# Git 확인
-# ------------------------------------------------------------
+    - name: Check pip version
+      win_command: '"{{ python_executable }}" -m pip --version'
+      register: pip_version_result
+      changed_when: false
+      failed_when: false
 
-- name: Check Git
-  win_command: '"{{ git_executable }}" --version'
-  register: context_git_version
-  changed_when: false
+    - name: Validate pip
+      assert:
+        that:
+          - pip_version_result.rc | default(1) == 0
+          - "'pip ' in ((pip_version_result.stdout | default('')) ~ (pip_version_result.stderr | default('')))"
+        fail_msg: |
+          [Context]
 
-- name: Validate Git
-  assert:
-    that:
-      - context_git_version.rc == 0
-    fail_msg: >-
-      Git을 실행할 수 없습니다.
-      Git 설치 상태와 PATH 환경변수를 확인하세요.
-      executable={{ git_executable }}
-      stderr={{ context_git_version.stderr | default('') }}
-    success_msg: Git is available
+          pip is not available for the configured Python executable.
 
+          Python:
+            {{ python_executable }}
 
-# ------------------------------------------------------------
-# Context 결과 출력
-# ------------------------------------------------------------
+          Command output:
+            {{ ((pip_version_result.stdout | default('')) ~
+                (pip_version_result.stderr | default(''))) | trim }}
+        success_msg: 'pip=OK'
+        quiet: yes
 
-- name: Show context result
-  debug:
-    msg:
-      - "context=OK"
-      - "gateway_home={{ gateway_home }}"
-      - "gateway_source_dir={{ gateway_source_dir }}"
-      - "gateway_venv_dir={{ gateway_venv_dir }}"
-      - "gateway_logs_dir={{ gateway_logs_dir }}"
-      - "gateway_requirements_file={{ gateway_requirements_file }}"
-      - "python_wheelhouse_dir={{ python_wheelhouse_dir }}"
-      - "gateway_workspace_dir={{ gateway_workspace_dir }}"
-      - "gateway_backup_dir={{ gateway_backup_dir }}"
-      - "gateway_legacy_apps_dir={{ gateway_legacy_apps_dir }}"
-      - "gateway_junction_path={{ gateway_junction_path }}"
-      - "gateway_service_name={{ gateway_service_name }}"
-      - "gateway_port={{ gateway_port }}"
-      - "gateway_healthcheck_url={{ gateway_healthcheck_url }}"
-      - "gateway_repo_branch={{ gateway_repo_branch }}"
-      - "python_executable={{ python_executable }}"
-      - "python_required_version={{ python_required_version }}"
-      - >-
-        python_version={{
-          (context_python_version.stdout | default('') | trim)
-          if
-          (context_python_version.stdout | default('') | trim | length > 0)
-          else
-          (context_python_version.stderr | default('') | trim)
-        }}
-      - "pip={{ context_pip_version.stdout | default('') | trim }}"
-      - "git={{ context_git_version.stdout | default('') | trim }}"
+    # ========================================================
+    # Validate Git
+    # ========================================================
+
+    - name: Check Git version
+      win_command: '{{ git_executable }} --version'
+      register: git_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate Git
+      assert:
+        that:
+          - git_version_result.rc | default(1) == 0
+          - "'git version' in ((git_version_result.stdout | default('')) ~ (git_version_result.stderr | default('')))"
+        fail_msg: |
+          [Context]
+
+          Git is not available.
+
+          Executable:
+            {{ git_executable }}
+
+          Command output:
+            {{ ((git_version_result.stdout | default('')) ~
+                (git_version_result.stderr | default(''))) | trim }}
+        success_msg: 'Git=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Source Root
+    #
+    # python_wheelhouse_dir:
+    #   E:\digital-twin-studio\imap\source\wheelhouse
+    #
+    # source root derived with win_dirname:
+    #   E:\digital-twin-studio\imap\source
+    # ========================================================
+
+    - name: Check source root directory
+      win_stat:
+        path: '{{ python_wheelhouse_dir | win_dirname }}'
+        get_checksum: no
+      register: source_root_check
+
+    - name: Validate source root directory
+      assert:
+        that:
+          - source_root_check.stat.exists | default(false)
+          - source_root_check.stat.isdir | default(false)
+        fail_msg: |
+          [Context]
+
+          Source root directory does not exist.
+
+          Path:
+            {{ python_wheelhouse_dir | win_dirname }}
+        success_msg: 'Source root=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Environment File
+    #
+    # Expected path:
+    #   E:\digital-twin-studio\imap\source\.env.dev
+    # ========================================================
+
+    - name: Check environment file
+      win_stat:
+        path: '{{ python_wheelhouse_dir | win_dirname }}\.env.dev'
+        get_checksum: no
+      register: environment_file_check
+
+    - name: Validate environment file
+      assert:
+        that:
+          - environment_file_check.stat.exists | default(false)
+          - environment_file_check.stat.isreg | default(false)
+        fail_msg: |
+          [Context]
+
+          Gateway environment file does not exist or is not a file.
+
+          Path:
+            {{ python_wheelhouse_dir | win_dirname }}\.env.dev
+        success_msg: 'Environment file=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Wheelhouse
+    # ========================================================
+
+    - name: Check Python wheelhouse directory
+      win_stat:
+        path: '{{ python_wheelhouse_dir }}'
+        get_checksum: no
+      register: wheelhouse_check
+
+    - name: Validate Python wheelhouse directory
+      assert:
+        that:
+          - wheelhouse_check.stat.exists | default(false)
+          - wheelhouse_check.stat.isdir | default(false)
+        fail_msg: |
+          [Context]
+
+          Python wheelhouse directory does not exist.
+
+          Path:
+            {{ python_wheelhouse_dir }}
+        success_msg: 'Wheelhouse=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Torch Wheel
+    # ========================================================
+
+    - name: Check Torch wheel file
+      win_stat:
+        path: '{{ torch_wheel_file }}'
+        get_checksum: no
+      register: torch_wheel_check
+
+    - name: Validate Torch wheel file
+      assert:
+        that:
+          - torch_wheel_check.stat.exists | default(false)
+          - torch_wheel_check.stat.isreg | default(false)
+          - torch_wheel_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Context]
+
+          Torch wheel does not exist, is not a file, or is empty.
+
+          Path:
+            {{ torch_wheel_file }}
+        success_msg: 'Torch wheel=OK'
+        quiet: yes
+
+    # ========================================================
+    # Context Summary
+    # ========================================================
+
+    - name: Display context validation summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'Context Validation=OK'
+          - 'Python={{ ((python_version_result.stdout | default("")) ~ (python_version_result.stderr | default(""))) | trim }}'
+          - 'pip={{ ((pip_version_result.stdout | default("")) ~ (pip_version_result.stderr | default(""))) | trim }}'
+          - 'Git={{ ((git_version_result.stdout | default("")) ~ (git_version_result.stderr | default(""))) | trim }}'
+          - 'Source root={{ python_wheelhouse_dir | win_dirname }}'
+          - 'Environment={{ python_wheelhouse_dir | win_dirname }}\.env.dev'
+          - 'Wheelhouse={{ python_wheelhouse_dir }}'
+          - 'Torch wheel={{ torch_wheel_file }}'
+          - 'Service={{ gateway_service_name }}'
+          - 'Healthcheck={{ gateway_healthcheck_url }}'
+          - '============================================================'
+
+  tags:
+    - context
