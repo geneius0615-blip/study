@@ -79,8 +79,8 @@ gateway_healthcheck_url: 'http://127.0.0.1:8000/health'
 # NSSM
 # ============================================================
 
-nssm_install_dir: 'C:\Tools'
-nssm_executable: 'C:\Tools\nssm.exe'
+nssm_install_dir: 'E:\Tools\nssm'
+nssm_executable: '{{ nssm_install_dir }}\nssm.exe'
 
 # ============================================================
 # Gateway Windows Service
