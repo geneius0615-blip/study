@@ -1,11 +1,15 @@
 ---
 # ============================================================
+# Common Variables
+# Ansible 2.9 / Windows Server / Gateway
+# ============================================================
+
+# ============================================================
 # System Python
 # ============================================================
 
 python_executable: 'C:\Users\appuser\AppData\Local\Programs\Python\Python311\python.exe'
 python_required_version: '3.11'
-
 
 # ============================================================
 # Git
@@ -13,63 +17,103 @@ python_required_version: '3.11'
 
 git_executable: 'git.exe'
 
-
 # ============================================================
-# Gateway repository
-# 실제 저장소 주소와 브랜치로 변경
+# Deploy Roots
 # ============================================================
 
-gateway_repo_url: 'GATEWAY_GIT_REPOSITORY_URL'
-gateway_repo_branch: 'main'
-
+deploy_home: 'E:\Deploy'
 
 # ============================================================
-# Gateway deployment
+# Gateway Deployment
 # ============================================================
 
 gateway_home: 'E:\Deploy\Python\gateway'
 gateway_source_dir: 'E:\Deploy\Python\gateway\source'
 gateway_venv_dir: 'E:\Deploy\Python\gateway\.venv'
 gateway_logs_dir: 'E:\Deploy\Python\gateway\logs'
-
 gateway_requirements_file: 'E:\Deploy\Python\gateway\source\requirements.txt'
 
-
 # ============================================================
-# Shared wheelhouse
-# ============================================================
-
-python_wheelhouse_dir: 'E:\Deploy\Python\wheelhouse'
-
-
-# ============================================================
-# Workspace / Backup
+# Gateway Workspace / Backup
 # ============================================================
 
 gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\gateway'
-gateway_backup_dir: 'E:\digital-twin-studio\imap\backup\gateway'
-
-
-# ============================================================
-# Legacy compatibility junction
-# ============================================================
-
-gateway_legacy_apps_dir: 'E:\digital-twin-studio\imap\source\apps'
-gateway_junction_path: 'E:\digital-twin-studio\imap\source\apps\gateway'
-
+gateway_backup_dir: 'E:\Backup\Python\imap-gateway'
 
 # ============================================================
-# Windows service
-# 실제 서비스명으로 변경
+# Python Wheelhouse
+# ============================================================
+
+python_wheelhouse_dir: 'E:\digital-twin-studio\imap\source\wheelhouse'
+
+# 실제 wheelhouse에 존재하는 Torch WHL 파일명으로 변경한다.
+torch_wheel_file: '{{ python_wheelhouse_dir }}\REPLACE_WITH_ACTUAL_TORCH_WHEEL.whl'
+
+# ============================================================
+# Editable Repository
+# ============================================================
+
+# 승인된 사내 Git 저장소 URL로 변경한다.
+editable_repo_url: 'https://REPLACE_WITH_APPROVED_INTERNAL_GIT_URL.git'
+editable_repo_branch: 'main'
+
+# Editable package 저장소를 Clone할 경로
+editable_repo_dir: '{{ gateway_workspace_dir }}\editable-packages'
+
+# 저장소 내부의 실제 패키지 경로와 다르면 변경한다.
+editable_package_dirs:
+  - 'imap-command'
+  - 'imap-core'
+  - 'imap-plugin'
+  - 'imap-shared'
+
+# ============================================================
+# Gateway Network
+# ============================================================
+
+gateway_host: '127.0.0.1'
+gateway_port: 8000
+gateway_healthcheck_url: 'http://127.0.0.1:8000/health'
+
+# ============================================================
+# NSSM
+# ============================================================
+
+nssm_install_dir: 'C:\Tools'
+nssm_executable: 'C:\Tools\nssm.exe'
+
+# ============================================================
+# Gateway Windows Service
 # ============================================================
 
 gateway_service_name: 'GatewayService'
+gateway_service_display_name: 'Gateway Service'
+gateway_service_description: 'IMAP Gateway Python Service'
 
+# NSSM Application
+gateway_service_python: '{{ gateway_venv_dir }}\Scripts\python.exe'
 
-# ============================================================
-# Network
-# 실제 포트와 Health URL로 변경
-# ============================================================
+# NSSM AppDirectory
+gateway_service_working_dir: '{{ gateway_source_dir }}'
 
-gateway_port: 8000
-gateway_healthcheck_url: 'http://127.0.0.1:8000/health'
+# 실제 Gateway ASGI 모듈 경로로 변경한다.
+# 예:
+# gateway_asgi_app: 'app.main:app'
+# gateway_asgi_app: 'main:app'
+gateway_asgi_app: 'REPLACE_WITH_ASGI_MODULE:app'
+
+# NSSM AppParameters
+gateway_service_parameters: >-
+  -m uvicorn {{ gateway_asgi_app }}
+  --host {{ gateway_host }}
+  --port {{ gateway_port }}
+
+# NSSM stdout / stderr
+gateway_service_stdout: '{{ gateway_logs_dir }}\gateway-service.stdout.log'
+gateway_service_stderr: '{{ gateway_logs_dir }}\gateway-service.stderr.log'
+
+# NSSM 서비스 재시작 지연시간: 밀리초
+gateway_service_restart_delay: 5000
+
+# NSSM 로그 회전 크기: 10 MiB
+gateway_service_log_rotate_bytes: 10485760
