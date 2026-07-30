@@ -1,55 +1,176 @@
 ---
 # ============================================================
-# Shared deployment directories
+# Gateway Bootstrap
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Prepare directories required for gateway deployment.
+#   - Do not clone source repositories.
+#   - Do not create the Python virtual environment.
+#   - Do not install Python packages.
+#   - Do not install or configure the Windows service.
+#
+# Idempotency:
+#   - First execution may report changed.
+#   - Subsequent executions must report changed=0.
 # ============================================================
 
-- name: Create gateway workspace directory
-  win_file:
-    path: "{{ gateway_workspace_dir }}"
-    state: directory
+- name: Prepare gateway deployment directories
+  block:
+    # ========================================================
+    # Validate Bootstrap Variables
+    #
+    # This validation allows bootstrap to fail clearly when
+    # executed independently without the context tag.
+    # ========================================================
 
-- name: Create Python wheelhouse directory
-  win_file:
-    path: "{{ python_wheelhouse_dir }}"
-    state: directory
+    - name: Validate bootstrap variables
+      assert:
+        that:
+          - deploy_home | default('') | trim | length > 0
+          - gateway_home | default('') | trim | length > 0
+          - gateway_source_dir | default('') | trim | length > 0
+          - gateway_logs_dir | default('') | trim | length > 0
+          - gateway_workspace_dir | default('') | trim | length > 0
+          - gateway_backup_dir | default('') | trim | length > 0
+          - nssm_install_dir | default('') | trim | length > 0
+        fail_msg: |
+          [Bootstrap]
 
+          Bootstrap variables are not defined correctly.
 
-# ============================================================
-# Gateway directories
-# ============================================================
+          Required variables:
+            deploy_home
+            gateway_home
+            gateway_source_dir
+            gateway_logs_dir
+            gateway_workspace_dir
+            gateway_backup_dir
+            nssm_install_dir
+        success_msg: 'Bootstrap variables=OK'
+        quiet: yes
 
-- name: Create gateway home directory
-  win_file:
-    path: "{{ gateway_home }}"
-    state: directory
+    # ========================================================
+    # Create Deploy Directories
+    # ========================================================
 
-- name: Create gateway source directory
-  win_file:
-    path: "{{ gateway_source_dir }}"
-    state: directory
+    - name: Create deploy directories
+      win_file:
+        path: '{{ item }}'
+        state: directory
+      loop:
+        - '{{ deploy_home }}'
+        - '{{ gateway_home }}'
+        - '{{ gateway_source_dir }}'
+        - '{{ gateway_logs_dir }}'
+      loop_control:
+        label: '{{ item }}'
+      register: deploy_directory_result
 
-- name: Create gateway logs directory
-  win_file:
-    path: "{{ gateway_logs_dir }}"
-    state: directory
+    # ========================================================
+    # Create Workspace Parent Directory
+    #
+    # Do not create gateway_workspace_dir itself here.
+    #
+    # git-clone will:
+    #   1. Remove an existing gateway workspace.
+    #   2. Perform a fresh clone into gateway_workspace_dir.
+    #
+    # Example:
+    #   gateway_workspace_dir:
+    #     E:\digital-twin-studio\imap\workplaces\gateway
+    #
+    # Directory created here:
+    #     E:\digital-twin-studio\imap\workplaces
+    # ========================================================
 
-- name: Create gateway backup directory
-  win_file:
-    path: "{{ gateway_backup_dir }}"
-    state: directory
+    - name: Create gateway workspace parent directory
+      win_file:
+        path: '{{ gateway_workspace_dir | win_dirname }}'
+        state: directory
+      register: workspace_parent_directory_result
 
+    # ========================================================
+    # Create Backup Directory
+    # ========================================================
 
-# ============================================================
-# Bootstrap result
-# ============================================================
+    - name: Create gateway backup directory
+      win_file:
+        path: '{{ gateway_backup_dir }}'
+        state: directory
+      register: backup_directory_result
 
-- name: Show bootstrap result
-  debug:
-    msg:
-      - "bootstrap=OK"
-      - "gateway_workspace_dir={{ gateway_workspace_dir }}"
-      - "python_wheelhouse_dir={{ python_wheelhouse_dir }}"
-      - "gateway_home={{ gateway_home }}"
-      - "gateway_source_dir={{ gateway_source_dir }}"
-      - "gateway_logs_dir={{ gateway_logs_dir }}"
-      - "gateway_backup_dir={{ gateway_backup_dir }}"
+    # ========================================================
+    # Create NSSM Installation Directory
+    #
+    # This task creates C:\Tools only.
+    # nssm.exe will be copied and validated by nssm.yml.
+    # ========================================================
+
+    - name: Create NSSM installation directory
+      win_file:
+        path: '{{ nssm_install_dir }}'
+        state: directory
+      register: nssm_directory_result
+
+    # ========================================================
+    # Verify Deploy Directories
+    # ========================================================
+
+    - name: Check deploy directories
+      win_stat:
+        path: '{{ item }}'
+        get_checksum: no
+      loop:
+        - '{{ deploy_home }}'
+        - '{{ gateway_home }}'
+        - '{{ gateway_source_dir }}'
+        - '{{ gateway_logs_dir }}'
+        - '{{ gateway_workspace_dir | win_dirname }}'
+        - '{{ gateway_backup_dir }}'
+        - '{{ nssm_install_dir }}'
+      loop_control:
+        label: '{{ item }}'
+      register: bootstrap_directory_check
+
+    - name: Validate deploy directories
+      assert:
+        that:
+          - item.stat.exists | default(false)
+          - item.stat.isdir | default(false)
+        fail_msg: |
+          [Bootstrap]
+
+          Required deployment directory was not created correctly.
+
+          Path:
+            {{ item.item }}
+        success_msg: 'Directory={{ item.item }}=OK'
+        quiet: yes
+      loop: '{{ bootstrap_directory_check.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    # ========================================================
+    # Bootstrap Summary
+    # ========================================================
+
+    - name: Display bootstrap summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'Gateway Bootstrap=OK'
+          - 'Deploy home={{ deploy_home }}'
+          - 'Gateway home={{ gateway_home }}'
+          - 'Gateway source={{ gateway_source_dir }}'
+          - 'Gateway logs={{ gateway_logs_dir }}'
+          - 'Workspace parent={{ gateway_workspace_dir | win_dirname }}'
+          - 'Gateway backup={{ gateway_backup_dir }}'
+          - 'NSSM directory={{ nssm_install_dir }}'
+          - 'Virtual environment=NOT CREATED'
+          - 'Gateway workspace=NOT CREATED'
+          - 'NSSM executable=NOT INSTALLED'
+          - '============================================================'
+
+  tags:
+    - bootstrap
