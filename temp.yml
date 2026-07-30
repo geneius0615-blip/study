@@ -1,4 +1,30 @@
-$env:DOTENV_PATH = "E:\digital-twin-studio\imap\workplaces\gateway\.env"
+@echo off
+setlocal
 
-& "E:\Deploy\Python\gateway\.venv\Scripts\python.exe" `
-  "E:\digital-twin-studio\imap\workplaces\gateway\run.py"
+set "GATEWAY_WORKSPACE=E:\digital-twin-studio\IMAP\workplaces\gateway"
+set "GATEWAY_PYTHON=E:\Deploy\Python\gateway\.venv\Scripts\python.exe"
+
+cd /d "%GATEWAY_WORKSPACE%"
+
+if errorlevel 1 (
+    echo [ERROR] Cannot access workspace: %GATEWAY_WORKSPACE%
+    exit /b 1
+)
+
+if not exist "%GATEWAY_PYTHON%" (
+    echo [ERROR] Python does not exist: %GATEWAY_PYTHON%
+    exit /b 1
+)
+
+if not exist "%GATEWAY_WORKSPACE%\run.py" (
+    echo [ERROR] run.py does not exist: %GATEWAY_WORKSPACE%\run.py
+    exit /b 1
+)
+
+echo [INFO] Current directory: %CD%
+echo [INFO] Python: %GATEWAY_PYTHON%
+echo [INFO] Entrypoint: %GATEWAY_WORKSPACE%\run.py
+
+"%GATEWAY_PYTHON%" "%GATEWAY_WORKSPACE%\run.py"
+
+exit /b %ERRORLEVEL%
