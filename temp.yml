@@ -1,30 +1,12 @@
-@echo off
-setlocal
+imap_packages_root: E:\Deploy\Python\packages
+imap_workplaces_root: E:\digital-twin-studio\IMAP\workplaces
 
-set "GATEWAY_WORKSPACE=E:\digital-twin-studio\IMAP\workplaces\gateway"
-set "GATEWAY_PYTHON=E:\Deploy\Python\gateway\.venv\Scripts\python.exe"
+imap_command_repo_url: <imap-command Git URL>
+imap_core_repo_url: <imap-core Git URL>
+imap_plugin_repo_url: <imap-plugin Git URL>
+imap_shared_repo_url: <imap-shared Git URL>
 
-cd /d "%GATEWAY_WORKSPACE%"
-
-if errorlevel 1 (
-    echo [ERROR] Cannot access workspace: %GATEWAY_WORKSPACE%
-    exit /b 1
-)
-
-if not exist "%GATEWAY_PYTHON%" (
-    echo [ERROR] Python does not exist: %GATEWAY_PYTHON%
-    exit /b 1
-)
-
-if not exist "%GATEWAY_WORKSPACE%\run.py" (
-    echo [ERROR] run.py does not exist: %GATEWAY_WORKSPACE%\run.py
-    exit /b 1
-)
-
-echo [INFO] Current directory: %CD%
-echo [INFO] Python: %GATEWAY_PYTHON%
-echo [INFO] Entrypoint: %GATEWAY_WORKSPACE%\run.py
-
-"%GATEWAY_PYTHON%" "%GATEWAY_WORKSPACE%\run.py"
-
-exit /b %ERRORLEVEL%
+imap_command_repo_branch: main
+imap_core_repo_branch: main
+imap_plugin_repo_branch: main
+imap_shared_repo_branch: main
