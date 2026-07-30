@@ -1,6 +1,4 @@
-Get-ChildItem `
-  -Path "E:\Deploy\Python\gateway\source" `
-  -Recurse `
-  -Filter "*.py" |
-Select-String -Pattern "app\s*=\s*FastAPI|application\s*=\s*FastAPI" |
-Select-Object Path, LineNumber, Line
+$env:DOTENV_PATH = "E:\digital-twin-studio\imap\workplaces\gateway\.env"
+
+& "E:\Deploy\Python\gateway\.venv\Scripts\python.exe" `
+  "E:\digital-twin-studio\imap\workplaces\gateway\run.py"
