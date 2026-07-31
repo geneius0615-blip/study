@@ -1,3 +1,6 @@
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+
 $env:PYTHONPATH = "$GatewaySource\src"
 
-& $GatewayPython -c "import os, sys; print('PYTHONPATH=' + str(os.environ.get('PYTHONPATH'))); print(*sys.path, sep='`n'); import imap_gateway; print('module=' + str(imap_gateway.__file__))"
+& $GatewayPython -c "import os, sys; print('PYTHONPATH=' + str(os.environ.get('PYTHONPATH'))); print(chr(10).join(sys.path)); import imap_gateway; print('module=' + str(imap_gateway.__file__))"
