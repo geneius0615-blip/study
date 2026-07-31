@@ -6,3 +6,14 @@ Get-Content -LiteralPath $GatewayRunBat
 
 
 
+
+Set-Location 'E:\Deploy\Python\imap-gateway\source'
+
+& 'C:\Windows\System32\cmd.exe' `
+    /d `
+    /s `
+    /c `
+    'call "E:\Deploy\Python\imap-gateway\source\Run.bat"'
+
+
+
