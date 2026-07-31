@@ -1,1 +1,84 @@
- 
+ # ============================================================
+# Release Gateway Source Directory Locks
+# ============================================================
+
+- name: Stop IMAP Gateway service before source cleanup
+  win_service:
+    name: '{{ gateway_service_name }}'
+    state: stopped
+  register: gateway_clean_service_stop_result
+  failed_when: false
+
+- name: Terminate remaining IMAP Gateway processes
+  win_shell: |
+    $ErrorActionPreference = 'Stop'
+
+    $sourcePath = $env:GATEWAY_SOURCE.TrimEnd('\')
+    $venvPath = $env:GATEWAY_VENV.TrimEnd('\') + '\'
+    $currentProcessId = $PID
+
+    $gatewayProcesses = @(
+      Get-CimInstance Win32_Process |
+      Where-Object {
+        $processId = [int]$_.ProcessId
+        $commandLine = [string]$_.CommandLine
+        $executablePath = [string]$_.ExecutablePath
+
+        $usesSource = (
+          -not [string]::IsNullOrWhiteSpace($commandLine) -and
+          $commandLine.IndexOf(
+            $sourcePath,
+            [System.StringComparison]::OrdinalIgnoreCase
+          ) -ge 0
+        )
+
+        $usesGatewayVenv = (
+          -not [string]::IsNullOrWhiteSpace($executablePath) -and
+          $executablePath.StartsWith(
+            $venvPath,
+            [System.StringComparison]::OrdinalIgnoreCase
+          )
+        )
+
+        $processId -ne $currentProcessId -and
+        (
+          $usesSource -or
+          $usesGatewayVenv
+        )
+      }
+    )
+
+    $killedCount = 0
+
+    foreach ($process in $gatewayProcesses) {
+      Write-Output (
+        "Stopping PID={0} Name={1} CommandLine={2}" -f
+        $process.ProcessId,
+        $process.Name,
+        $process.CommandLine
+      )
+
+      & taskkill.exe `
+        /PID $process.ProcessId `
+        /T `
+        /F |
+      Out-Null
+
+      if ($LASTEXITCODE -eq 0) {
+        $killedCount++
+      }
+    }
+
+    Start-Sleep -Seconds 2
+
+    Write-Output "KilledProcessCount=$killedCount"
+  args:
+    executable: powershell.exe
+  environment:
+    GATEWAY_SOURCE: '{{ gateway_source_dir }}'
+    GATEWAY_VENV: '{{ gateway_venv_dir }}'
+  register: gateway_clean_process_result
+  changed_when: >-
+    'KilledProcessCount=0'
+    not in
+    (gateway_clean_process_result.stdout | default(''))
