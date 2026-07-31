@@ -1,29 +1,13 @@
-# ============================================================
-# Gateway Windows Service
-# ============================================================
+- gateway_service_application is defined
+- gateway_service_batch is defined
+- gateway_service_python is defined
+- gateway_service_pythonpath is defined
+- gateway_service_venv_scripts is defined
+- gateway_service_working_dir is defined
+- gateway_service_parameters is defined
 
-gateway_service_name: 'GatewayService'
-gateway_service_display_name: 'IMAP Gateway Service'
-gateway_service_description: 'IMAP Gateway Python Service'
-gateway_service_account: 'LocalSystem'
-
-# Run.bat에서 python 명령을 실행하므로 존재 검증에 사용한다.
-gateway_service_python: '{{ gateway_venv_dir }}\Scripts\python.exe'
-
-# NSSM은 cmd.exe를 실행하고 cmd.exe가 Run.bat을 호출한다.
-gateway_service_application: 'C:\Windows\System32\cmd.exe'
-gateway_service_working_dir: '{{ gateway_source_dir }}'
-gateway_service_batch: '{{ gateway_source_dir }}\Run.bat'
-
-gateway_service_parameters: >-
-  /d /s /c call "{{ gateway_service_batch }}"
-
-# NSSM 서비스 전용 실행 환경
-gateway_service_pythonpath: '{{ gateway_source_dir }}\src'
-gateway_service_venv_scripts: '{{ gateway_venv_dir }}\Scripts'
-
-gateway_service_stdout: '{{ gateway_logs_dir }}\imap-gateway.stdout.log'
-gateway_service_stderr: '{{ gateway_logs_dir }}\imap-gateway.stderr.log'
-
-gateway_service_restart_delay: 5000
-gateway_service_log_rotate_bytes: 10485760
+- gateway_service_application | trim | length > 0
+- gateway_service_batch | trim | length > 0
+- gateway_service_python | trim | length > 0
+- gateway_service_pythonpath | trim | length > 0
+- gateway_service_venv_scripts | trim | length > 0
