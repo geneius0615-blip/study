@@ -23,3 +23,6 @@ Get-ChildItem `
     -Recurse |
 Where-Object Name -eq 'imap_shared' |
 Select-Object FullName
+
+
+& $GatewayPython -c "import imap_shared; print('shared_file=' + str(imap_shared.__file__)); print('shared_path=' + str(list(imap_shared.__path__))); import imap_shared.config as c; print('config=' + str(c.__file__))"
