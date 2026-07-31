@@ -8,3 +8,6 @@ $ConfiguredEnvironment |
 ForEach-Object {
     Write-Host "[$_]"
 }
+
+
+$ConfiguredEnvironment.GetType().FullName
