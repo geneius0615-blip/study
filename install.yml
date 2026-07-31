@@ -1,110 +1,727 @@
 ---
 # ============================================================
-# Check installation resources
+# IMAP Gateway Python Package Installation
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Install requirements.txt into the Gateway virtual
+#     environment.
+#   - Install internal packages in editable mode.
+#   - Install Torch from the approved local wheelhouse.
+#   - Validate all installed package dependencies.
+#
+# Installation order:
+#   1. requirements.txt
+#   2. Editable internal packages
+#   3. Local Torch wheel
+#   4. pip check
+#
+# This stage does not:
+#   - Create the virtual environment.
+#   - Modify the deployed source.
+#   - Configure or start the Windows service.
 # ============================================================
 
-- name: Check gateway requirements file
-  win_stat:
-    path: "{{ gateway_requirements_file }}"
-  register: install_requirements_check
+- name: Install IMAP Gateway Python packages
+  block:
 
+    # ========================================================
+    # Validate Variables
+    # ========================================================
 
-- name: Fail when gateway requirements file does not exist
-  fail:
-    msg: "Gateway requirements file does not exist: {{ gateway_requirements_file }}"
-  when: not install_requirements_check.stat.exists
+    - name: Validate package installation variables
+      assert:
+        that:
+          - gateway_source_dir is defined
+          - gateway_venv_dir is defined
+          - gateway_requirements_file is defined
+          - python_wheelhouse_dir is defined
+          - torch_wheel_file is defined
+          - editable_repo_dir is defined
+          - editable_package_dirs is defined
+          - install_user_profile is defined
 
+          - gateway_source_dir | trim | length > 0
+          - gateway_venv_dir | trim | length > 0
+          - gateway_requirements_file | trim | length > 0
+          - python_wheelhouse_dir | trim | length > 0
+          - torch_wheel_file | trim | length > 0
+          - editable_repo_dir | trim | length > 0
+          - editable_package_dirs | length > 0
+          - install_user_profile | trim | length > 0
+        fail_msg: |
+          [Install]
 
-- name: Check Python wheelhouse directory
-  win_stat:
-    path: "{{ python_wheelhouse_dir }}"
-  register: install_wheelhouse_check
+          Required package installation variables are missing
+          or empty.
 
+          Required variables:
+            gateway_source_dir
+            gateway_venv_dir
+            gateway_requirements_file
+            python_wheelhouse_dir
+            torch_wheel_file
+            editable_repo_dir
+            editable_package_dirs
+            install_user_profile
+        success_msg: 'Package installation variables=OK'
 
-- name: Fail when Python wheelhouse directory does not exist
-  fail:
-    msg: "Python wheelhouse directory does not exist: {{ python_wheelhouse_dir }}"
-  when: not install_wheelhouse_check.stat.exists
+    # ========================================================
+    # Display Effective Installation Paths
+    # ========================================================
 
+    - name: Display package installation paths
+      debug:
+        msg:
+          - 'Gateway source={{ gateway_source_dir }}'
+          - 'Virtual environment={{ gateway_venv_dir }}'
+          - 'Requirements={{ gateway_requirements_file }}'
+          - 'Editable repository={{ editable_repo_dir }}'
+          - 'Editable packages={{ editable_package_dirs | join(", ") }}'
+          - 'Wheelhouse={{ python_wheelhouse_dir }}'
+          - 'Torch wheel={{ torch_wheel_file }}'
+          - 'Install user profile={{ install_user_profile }}'
 
-- name: Check gateway pyproject file
-  win_stat:
-    path: "{{ gateway_workspace_dir }}\\pyproject.toml"
-  register: install_gateway_pyproject_check
+    # ========================================================
+    # Validate Virtual Environment
+    # ========================================================
 
+    - name: Check virtual environment Python executable
+      win_stat:
+        path: '{{ gateway_venv_dir }}\Scripts\python.exe'
+        get_checksum: no
+      register: gateway_venv_python_check
 
-- name: Fail when gateway pyproject file does not exist
-  fail:
-    msg: >-
-      Gateway pyproject file does not exist:
-      {{ gateway_workspace_dir }}\pyproject.toml
-  when: not install_gateway_pyproject_check.stat.exists
+    - name: Validate virtual environment Python executable
+      assert:
+        that:
+          - gateway_venv_python_check.stat.exists | default(false)
+          - gateway_venv_python_check.stat.isreg | default(false)
+        fail_msg: |
+          [Install]
 
+          IMAP Gateway virtual environment Python does not exist.
 
-# ============================================================
-# Install Gateway Python packages
-# ============================================================
+          Expected path:
+            {{ gateway_venv_dir }}\Scripts\python.exe
 
-- name: Install gateway Python packages
-  win_command: >-
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -m pip install
-    --find-links "{{ python_wheelhouse_dir }}"
-    -r "{{ gateway_requirements_file }}"
-  register: install_gateway_packages
-  changed_when: >-
-    'Successfully installed' in install_gateway_packages.stdout
-    or 'Successfully installed' in install_gateway_packages.stderr
-  no_log: true
+          Run the venv tag before install.
+        success_msg: 'Virtual environment Python=OK'
 
+    - name: Check virtual environment pip
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip
+        --version
+      register: gateway_venv_pip_result
+      changed_when: false
+      failed_when: false
 
-# ============================================================
-# Install IMAP Gateway project
-# ============================================================
+    - name: Validate virtual environment pip
+      assert:
+        that:
+          - gateway_venv_pip_result.rc | int == 0
+          - >-
+            'pip '
+            in
+            (
+              (gateway_venv_pip_result.stdout | default(''))
+              ~
+              (gateway_venv_pip_result.stderr | default(''))
+            )
+        fail_msg: |
+          [Install]
 
-- name: Install IMAP Gateway project
-  win_command: >-
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -m pip install
-    --no-deps
-    "{{ gateway_workspace_dir }}"
-  register: install_gateway_project
-  changed_when: >-
-    'Successfully installed' in install_gateway_project.stdout
-    or 'Successfully installed' in install_gateway_project.stderr
-  no_log: true
+          pip is not available inside the IMAP Gateway
+          virtual environment.
 
+          Command output:
+            {{
+              (
+                (gateway_venv_pip_result.stdout | default(''))
+                ~
+                (gateway_venv_pip_result.stderr | default(''))
+              ) | trim
+            }}
+        success_msg: 'Virtual environment pip=OK'
 
-# ============================================================
-# Validate installed packages
-# ============================================================
+    # ========================================================
+    # Validate Install User Profile
+    # ========================================================
 
-- name: Check gateway installed Python packages
-  win_command: >-
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -m pip check
-  register: install_pip_check
-  changed_when: false
+    - name: Check install user profile
+      win_stat:
+        path: '{{ install_user_profile }}'
+        get_checksum: no
+      register: install_user_profile_check
 
+    - name: Validate install user profile
+      assert:
+        that:
+          - install_user_profile_check.stat.exists | default(false)
+          - install_user_profile_check.stat.isdir | default(false)
+        fail_msg: |
+          [Install]
 
-- name: Check installed IMAP Gateway package
-  win_command: >-
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -m pip list
-  register: install_pip_list
-  changed_when: false
+          Install user profile does not exist.
 
+          Expected path:
+            {{ install_user_profile }}
+        success_msg: 'Install user profile=OK'
 
-# ============================================================
-# Installation result
-# ============================================================
+    # ========================================================
+    # Validate Git Authentication File
+    #
+    # requirements.txt may contain private git+https entries.
+    # ========================================================
 
-- name: Show gateway installation result
-  debug:
-    msg:
-      - "install=OK"
-      - "requirements={{ gateway_requirements_file }}"
-      - "wheelhouse={{ python_wheelhouse_dir }}"
-      - "gateway_project={{ gateway_workspace_dir }}"
-      - "gateway_project_installed={{ 'gateway' in (install_pip_list.stdout | lower) }}"
-      - "pip_check={{ install_pip_check.stdout | trim }}"
+    - name: Check Git authentication file
+      win_stat:
+        path: '{{ install_user_profile }}\_netrc'
+        get_checksum: no
+      register: install_netrc_check
+
+    - name: Validate Git authentication file
+      assert:
+        that:
+          - install_netrc_check.stat.exists | default(false)
+          - install_netrc_check.stat.isreg | default(false)
+          - install_netrc_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Install]
+
+          Git authentication file does not exist, is not a file,
+          or is empty.
+
+          Expected path:
+            {{ install_user_profile }}\_netrc
+
+          This file is required when requirements.txt contains
+          private git+https repositories.
+        success_msg: 'Git authentication file=OK'
+
+    # ========================================================
+    # Validate Deployment Source
+    # ========================================================
+
+    - name: Check IMAP Gateway source directory
+      win_stat:
+        path: '{{ gateway_source_dir }}'
+        get_checksum: no
+      register: gateway_source_install_check
+
+    - name: Validate IMAP Gateway source directory
+      assert:
+        that:
+          - gateway_source_install_check.stat.exists | default(false)
+          - gateway_source_install_check.stat.isdir | default(false)
+        fail_msg: |
+          [Install]
+
+          IMAP Gateway deployment source does not exist.
+
+          Expected path:
+            {{ gateway_source_dir }}
+
+          Run deploy-source before install.
+        success_msg: 'IMAP Gateway deployment source=OK'
+
+    # ========================================================
+    # Validate Requirements File
+    # ========================================================
+
+    - name: Check IMAP Gateway requirements file
+      win_stat:
+        path: '{{ gateway_requirements_file }}'
+        get_checksum: no
+      register: gateway_requirements_install_check
+
+    - name: Validate IMAP Gateway requirements file
+      assert:
+        that:
+          - gateway_requirements_install_check.stat.exists | default(false)
+          - gateway_requirements_install_check.stat.isreg | default(false)
+          - gateway_requirements_install_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Install]
+
+          IMAP Gateway requirements file does not exist,
+          is not a file, or is empty.
+
+          Expected path:
+            {{ gateway_requirements_file }}
+        success_msg: 'IMAP Gateway requirements file=OK'
+
+    # ========================================================
+    # Validate Torch Is Disabled in requirements.txt
+    #
+    # Torch must be installed from the approved local wheel.
+    # An active torch entry could cause pip to download it
+    # from an external package index.
+    # ========================================================
+
+    - name: Check active Torch entries in requirements file
+      win_shell: |
+        $activeTorchEntries = @()
+
+        foreach (
+          $requirementLine in
+          Get-Content -LiteralPath $env:REQUIREMENTS_FILE
+        ) {
+          $trimmedLine = $requirementLine.Trim()
+
+          if ($trimmedLine.Length -eq 0) {
+            continue
+          }
+
+          if ($trimmedLine.StartsWith('#')) {
+            continue
+          }
+
+          if ($trimmedLine -match '^torch([<>=!~ ].*)?$') {
+            $activeTorchEntries += $trimmedLine
+          }
+        }
+
+        if ($activeTorchEntries.Count -gt 0) {
+          Write-Output 'Active Torch requirement detected:'
+
+          foreach ($activeEntry in $activeTorchEntries) {
+            Write-Output $activeEntry
+          }
+
+          exit 1
+        }
+
+        Write-Output 'Requirements Torch entry=DISABLED'
+        exit 0
+      args:
+        executable: powershell.exe
+      environment:
+        REQUIREMENTS_FILE: '{{ gateway_requirements_file }}'
+      register: requirements_torch_check_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate Torch requirement policy
+      assert:
+        that:
+          - requirements_torch_check_result.rc | int == 0
+          - >-
+            'Requirements Torch entry=DISABLED'
+            in
+            (requirements_torch_check_result.stdout | default(''))
+        fail_msg: |
+          [Install]
+
+          An active Torch entry was found in requirements.txt.
+
+          Requirements file:
+            {{ gateway_requirements_file }}
+
+          Validation output:
+            {{ requirements_torch_check_result.stdout | default('') | trim }}
+
+          Comment or remove the Torch line because Torch must
+          be installed from the approved local wheelhouse.
+        success_msg: 'Requirements Torch policy=OK'
+
+    # ========================================================
+    # Validate Editable Repository
+    # ========================================================
+
+    - name: Check editable repository directory
+      win_stat:
+        path: '{{ editable_repo_dir }}'
+        get_checksum: no
+      register: editable_repo_check
+
+    - name: Validate editable repository directory
+      assert:
+        that:
+          - editable_repo_check.stat.exists | default(false)
+          - editable_repo_check.stat.isdir | default(false)
+        fail_msg: |
+          [Install]
+
+          Editable repository directory does not exist.
+
+          Expected path:
+            {{ editable_repo_dir }}
+
+          Verify editable_repo_dir and the Git repository
+          structure.
+        success_msg: 'Editable repository directory=OK'
+
+    # ========================================================
+    # Validate Editable Package Directories
+    # ========================================================
+
+    - name: Check editable package directories
+      win_stat:
+        path: '{{ editable_repo_dir }}\{{ item }}'
+        get_checksum: no
+      loop: '{{ editable_package_dirs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: editable_package_directory_check
+
+    - name: Validate editable package directories
+      assert:
+        that:
+          - item.stat.exists | default(false)
+          - item.stat.isdir | default(false)
+        fail_msg: |
+          [Install]
+
+          Editable package directory does not exist.
+
+          Package:
+            {{ item.item }}
+
+          Expected path:
+            {{ editable_repo_dir }}\{{ item.item }}
+        success_msg: 'Editable package={{ item.item }}=OK'
+      loop: '{{ editable_package_directory_check.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    # ========================================================
+    # Validate Wheelhouse
+    # ========================================================
+
+    - name: Check Python wheelhouse directory
+      win_stat:
+        path: '{{ python_wheelhouse_dir }}'
+        get_checksum: no
+      register: install_wheelhouse_check
+
+    - name: Validate Python wheelhouse directory
+      assert:
+        that:
+          - install_wheelhouse_check.stat.exists | default(false)
+          - install_wheelhouse_check.stat.isdir | default(false)
+        fail_msg: |
+          [Install]
+
+          Python wheelhouse directory does not exist.
+
+          Expected path:
+            {{ python_wheelhouse_dir }}
+        success_msg: 'Python wheelhouse=OK'
+
+    # ========================================================
+    # Validate Torch Wheel
+    # ========================================================
+
+    - name: Check local Torch wheel
+      win_stat:
+        path: '{{ torch_wheel_file }}'
+        get_checksum: no
+      register: install_torch_wheel_check
+
+    - name: Validate local Torch wheel
+      assert:
+        that:
+          - install_torch_wheel_check.stat.exists | default(false)
+          - install_torch_wheel_check.stat.isreg | default(false)
+          - install_torch_wheel_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Install]
+
+          Local Torch wheel does not exist, is not a file,
+          or is empty.
+
+          Expected path:
+            {{ torch_wheel_file }}
+        success_msg: 'Local Torch wheel=OK'
+
+    # ========================================================
+    # Install requirements.txt
+    # ========================================================
+
+    - name: Install IMAP Gateway requirements
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip install
+        --disable-pip-version-check
+        --no-input
+        --no-cache-dir
+        -r "{{ gateway_requirements_file }}"
+      args:
+        chdir: '{{ gateway_source_dir }}'
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+        PIP_DISABLE_PIP_VERSION_CHECK: '1'
+        PIP_NO_INPUT: '1'
+        PYTHONUTF8: '1'
+      register: gateway_requirements_install_result
+      failed_when: false
+
+    - name: Validate IMAP Gateway requirements installation
+      assert:
+        that:
+          - gateway_requirements_install_result.rc | int == 0
+        fail_msg: |
+          [Install]
+
+          IMAP Gateway requirements installation failed.
+
+          Requirements file:
+            {{ gateway_requirements_file }}
+
+          Return code:
+            {{ gateway_requirements_install_result.rc }}
+
+          Standard output:
+            {{
+              gateway_requirements_install_result.stdout
+              | default('')
+              | trim
+            }}
+
+          Standard error:
+            {{
+              gateway_requirements_install_result.stderr
+              | default('')
+              | trim
+            }}
+        success_msg: 'IMAP Gateway requirements installation=OK'
+
+    # ========================================================
+    # Install Editable Internal Packages
+    #
+    # --no-deps is used because dependencies were installed
+    # from requirements.txt in the previous task.
+    # ========================================================
+
+    - name: Install editable internal packages
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip install
+        --disable-pip-version-check
+        --no-input
+        --no-cache-dir
+        --no-deps
+        --editable "{{ editable_repo_dir }}\{{ item }}"
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+        PIP_DISABLE_PIP_VERSION_CHECK: '1'
+        PIP_NO_INPUT: '1'
+        PYTHONUTF8: '1'
+      loop: '{{ editable_package_dirs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: editable_package_install_result
+      failed_when: false
+
+    - name: Validate editable internal package installation
+      assert:
+        that:
+          - item.rc | int == 0
+        fail_msg: |
+          [Install]
+
+          Editable internal package installation failed.
+
+          Package:
+            {{ item.item }}
+
+          Package path:
+            {{ editable_repo_dir }}\{{ item.item }}
+
+          Return code:
+            {{ item.rc }}
+
+          Standard output:
+            {{ item.stdout | default('') | trim }}
+
+          Standard error:
+            {{ item.stderr | default('') | trim }}
+        success_msg: 'Editable package={{ item.item }}=INSTALLED'
+      loop: '{{ editable_package_install_result.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    # ========================================================
+    # Install Torch from Local Wheelhouse
+    #
+    # --no-index prevents external package-index access.
+    # --find-links allows dependencies to be resolved from the
+    # approved local wheelhouse when required.
+    # ========================================================
+
+    - name: Install Torch from local wheelhouse
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip install
+        --disable-pip-version-check
+        --no-input
+        --no-cache-dir
+        --no-index
+        --find-links "{{ python_wheelhouse_dir }}"
+        "{{ torch_wheel_file }}"
+      environment:
+        PIP_DISABLE_PIP_VERSION_CHECK: '1'
+        PIP_NO_INPUT: '1'
+        PYTHONUTF8: '1'
+      register: torch_install_result
+      failed_when: false
+
+    - name: Validate local Torch installation
+      assert:
+        that:
+          - torch_install_result.rc | int == 0
+        fail_msg: |
+          [Install]
+
+          Local Torch wheel installation failed.
+
+          Torch wheel:
+            {{ torch_wheel_file }}
+
+          Wheelhouse:
+            {{ python_wheelhouse_dir }}
+
+          Return code:
+            {{ torch_install_result.rc }}
+
+          Standard output:
+            {{ torch_install_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ torch_install_result.stderr | default('') | trim }}
+        success_msg: 'Local Torch installation=OK'
+
+    # ========================================================
+    # Validate Editable Packages with pip show
+    # ========================================================
+
+    - name: Check installed editable packages
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip show
+        "{{ item }}"
+      loop: '{{ editable_package_dirs }}'
+      loop_control:
+        label: '{{ item }}'
+      register: editable_package_show_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate installed editable packages
+      assert:
+        that:
+          - item.rc | int == 0
+          - "'Name:' in (item.stdout | default(''))"
+        fail_msg: |
+          [Install]
+
+          Installed editable package could not be verified.
+
+          Package:
+            {{ item.item }}
+
+          Standard output:
+            {{ item.stdout | default('') | trim }}
+
+          Standard error:
+            {{ item.stderr | default('') | trim }}
+        success_msg: 'Installed package={{ item.item }}=VERIFIED'
+      loop: '{{ editable_package_show_result.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    # ========================================================
+    # Validate Torch Import
+    # ========================================================
+
+    - name: Check installed Torch version
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -c "import torch; print(torch.__version__)"
+      register: torch_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate Torch import
+      assert:
+        that:
+          - torch_version_result.rc | int == 0
+          - torch_version_result.stdout | default('') | trim | length > 0
+        fail_msg: |
+          [Install]
+
+          Torch was installed but could not be imported.
+
+          Standard output:
+            {{ torch_version_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ torch_version_result.stderr | default('') | trim }}
+        success_msg: 'Torch import=OK'
+
+    # ========================================================
+    # Validate Installed Dependencies
+    # ========================================================
+
+    - name: Run pip dependency check
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip check
+      register: pip_check_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate pip dependency check
+      assert:
+        that:
+          - pip_check_result.rc | int == 0
+          - >-
+            'No broken requirements found'
+            in
+            (
+              (pip_check_result.stdout | default(''))
+              ~
+              (pip_check_result.stderr | default(''))
+            )
+        fail_msg: |
+          [Install]
+
+          pip dependency validation failed.
+
+          Return code:
+            {{ pip_check_result.rc }}
+
+          Standard output:
+            {{ pip_check_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ pip_check_result.stderr | default('') | trim }}
+        success_msg: 'pip dependency check=OK'
+
+    # ========================================================
+    # Installation Summary
+    # ========================================================
+
+    - name: Display package installation summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'IMAP Gateway Package Installation=OK'
+          - 'Virtual environment={{ gateway_venv_dir }}'
+          - 'Requirements={{ gateway_requirements_file }}'
+          - 'Editable packages={{ editable_package_dirs | join(", ") }}'
+          - 'Torch wheel={{ torch_wheel_file }}'
+          - 'Torch version={{ torch_version_result.stdout | trim }}'
+          - 'pip check=OK'
+          - 'Windows service configuration=NOT PERFORMED'
+          - 'Windows service start=NOT PERFORMED'
+          - '============================================================'
+
+  tags:
+    - install
