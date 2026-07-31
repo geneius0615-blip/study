@@ -1,22 +1,16 @@
 # ============================================================
-# Git
+# Gateway Deployment
 # ============================================================
 
-git_executable: 'git.exe'
-
-# Git 명령을 실행할 Windows 사용자 프로필
-# _netrc 예상 경로:
-#   C:\Users\appuser\_netrc
-install_user_profile: 'C:\Users\appuser'
+gateway_home: 'E:\Deploy\Python\imap-gateway'
+gateway_source_dir: '{{ gateway_home }}\source'
+gateway_venv_dir: '{{ gateway_home }}\.venv'
+gateway_logs_dir: '{{ gateway_home }}\logs'
+gateway_requirements_file: '{{ gateway_source_dir }}\requirements.txt'
 
 # ============================================================
-# Gateway Repository
+# Gateway Workspace / Backup
 # ============================================================
 
-# 실제 Gateway 저장소 URL로 설정
-gateway_repo_url: 'https://실제-사내-Git-주소/gateway.git'
-
-gateway_repo_branch: 'main'
-
-# 매번 삭제 후 새로 Clone하는 Workspace
-gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\gateway'
+gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\imap-gateway'
+gateway_backup_dir: 'E:\Backup\Python\imap-gateway'
