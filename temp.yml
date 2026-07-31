@@ -8,6 +8,25 @@ Select-String `
 
 
 
+$Command = @'
+set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
+set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
+cd /d "E:\Deploy\Python\imap-gateway\source"
+
+where python
+python -c "import sys, site; print('executable=' + sys.executable); print('site-packages=' + site.getsitepackages()[0]); import imap_shared.config as c; print('config=' + c.__file__)"
+
+call "E:\Deploy\Python\imap-gateway\source\Run.bat"
+'@
+
+& 'C:\Windows\System32\cmd.exe' /d /c $Command
+
+
+
+
+
+
+
 $GatewayHome = 'E:\Deploy\Python\imap-gateway'
 $GatewaySource = "$GatewayHome\source"
 
