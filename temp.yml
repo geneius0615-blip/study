@@ -29,3 +29,9 @@ Start-Sleep -Seconds 8
 
 Get-Service -Name $ServiceName
 & $Nssm status $ServiceName
+
+
+Get-NetTCPConnection `
+    -LocalPort 8000 `
+    -State Listen `
+    -ErrorAction SilentlyContinue
