@@ -74,3 +74,26 @@ Get-ChildItem `
 Select-String -Pattern `
 'replace_with_asgi_module|REPLACE_WITH_ASGI_MODULE'
 
+
+$ServiceName = 'GatewayService'
+$Nssm = 'E:\Tools\nssm\nssm.exe'
+
+Write-Host '===== Windows Service ====='
+
+Get-Service -Name $ServiceName |
+Format-List Name, Status
+
+Write-Host '===== SC Status ====='
+
+sc.exe queryex $ServiceName
+
+Write-Host '===== NSSM Status ====='
+
+& $Nssm status $ServiceName
+
+Write-Host '===== Port 8000 ====='
+
+Get-NetTCPConnection `
+    -LocalPort 8000 `
+    -State Listen `
+    -ErrorAction SilentlyContinue
