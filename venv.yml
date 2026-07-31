@@ -1,45 +1,463 @@
 ---
 # ============================================================
-# Check Gateway virtual environment
+# IMAP Gateway Virtual Environment
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Create the IMAP Gateway Python virtual environment.
+#   - Validate the virtual environment Python executable.
+#   - Validate Python and pip inside the virtual environment.
+#
+# Expected path:
+#   E:\Deploy\Python\imap-gateway\.venv
+#
+# This stage does not:
+#   - Install requirements.txt.
+#   - Install editable packages.
+#   - Install Torch.
+#   - Configure the Windows service.
+#
+# Idempotency:
+#   - First execution: changed=1
+#   - Subsequent execution: changed=0
 # ============================================================
 
-- name: Check gateway virtual environment
-  win_stat:
-    path: "{{ gateway_venv_dir }}\\Scripts\\python.exe"
-  register: venv_python_check
+- name: Create IMAP Gateway virtual environment
+  block:
 
+    # ========================================================
+    # Validate Variables
+    # ========================================================
 
-# ============================================================
-# Create Gateway virtual environment
-# ============================================================
+    - name: Validate virtual environment variables
+      assert:
+        that:
+          - python_executable is defined
+          - python_required_version is defined
+          - gateway_home is defined
+          - gateway_source_dir is defined
+          - gateway_venv_dir is defined
+          - gateway_requirements_file is defined
+          - python_executable | trim | length > 0
+          - python_required_version | string | trim | length > 0
+          - gateway_home | trim | length > 0
+          - gateway_source_dir | trim | length > 0
+          - gateway_venv_dir | trim | length > 0
+          - gateway_requirements_file | trim | length > 0
+        fail_msg: |
+          [Venv]
 
-- name: Create gateway virtual environment
-  win_command: >-
-    "{{ python_executable }}"
-    -m venv
-    "{{ gateway_venv_dir }}"
-  when: not venv_python_check.stat.exists
+          Required virtual environment variables are missing or empty.
 
+          Required variables:
+            python_executable
+            python_required_version
+            gateway_home
+            gateway_source_dir
+            gateway_venv_dir
+            gateway_requirements_file
+        success_msg: 'Virtual environment variables=OK'
 
-# ============================================================
-# Validate Gateway virtual environment
-# ============================================================
+    # ========================================================
+    # Display Effective Paths
+    # ========================================================
 
-- name: Check gateway virtual environment Python
-  win_command: >-
-    "{{ gateway_venv_dir }}\\Scripts\\python.exe"
-    --version
-  register: venv_python_version
-  changed_when: false
+    - name: Display virtual environment paths
+      debug:
+        msg:
+          - 'python_executable={{ python_executable }}'
+          - 'gateway_home={{ gateway_home }}'
+          - 'gateway_source_dir={{ gateway_source_dir }}'
+          - 'gateway_venv_dir={{ gateway_venv_dir }}'
+          - 'gateway_requirements_file={{ gateway_requirements_file }}'
 
+    # ========================================================
+    # Validate Path Safety
+    #
+    # Required structure:
+    #
+    #   gateway_home
+    #     ├─ source
+    #     ├─ logs
+    #     └─ .venv
+    # ========================================================
 
-# ============================================================
-# Venv result
-# ============================================================
+    - name: Validate virtual environment path safety
+      assert:
+        that:
+          - gateway_home | lower == 'e:\deploy\python\imap-gateway'
+          - gateway_venv_dir | lower == 'e:\deploy\python\imap-gateway\.venv'
+          - gateway_source_dir | lower == 'e:\deploy\python\imap-gateway\source'
+          - gateway_venv_dir | lower != gateway_home | lower
+          - gateway_venv_dir | lower != gateway_source_dir | lower
+        fail_msg: |
+          [Venv]
 
-- name: Show gateway virtual environment result
-  debug:
-    msg:
-      - "venv=OK"
-      - "venv_dir={{ gateway_venv_dir }}"
-      - "python_version={{ venv_python_version.stdout | trim }}"
+          Invalid or unsafe virtual environment paths were detected.
+
+          gateway_home:
+            {{ gateway_home }}
+
+          gateway_source_dir:
+            {{ gateway_source_dir }}
+
+          gateway_venv_dir:
+            {{ gateway_venv_dir }}
+
+          Required paths:
+            E:\Deploy\Python\imap-gateway
+            E:\Deploy\Python\imap-gateway\source
+            E:\Deploy\Python\imap-gateway\.venv
+        success_msg: 'Virtual environment path safety=OK'
+
+    # ========================================================
+    # Validate System Python
+    # ========================================================
+
+    - name: Check system Python executable
+      win_stat:
+        path: '{{ python_executable }}'
+        get_checksum: no
+      register: system_python_check
+
+    - name: Validate system Python executable
+      assert:
+        that:
+          - system_python_check.stat.exists | default(false)
+          - system_python_check.stat.isreg | default(false)
+        fail_msg: |
+          [Venv]
+
+          System Python executable does not exist or is not a file.
+
+          Path:
+            {{ python_executable }}
+        success_msg: 'System Python executable=OK'
+
+    - name: Check system Python version
+      win_command: '"{{ python_executable }}" --version'
+      register: system_python_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate system Python version
+      assert:
+        that:
+          - system_python_version_result.rc | int == 0
+          - >-
+            ('Python ' ~ (python_required_version | string))
+            in
+            (
+              (system_python_version_result.stdout | default(''))
+              ~
+              (system_python_version_result.stderr | default(''))
+            )
+        fail_msg: |
+          [Venv]
+
+          The configured system Python version is incorrect.
+
+          Required version:
+            {{ python_required_version }}
+
+          Command output:
+            {{
+              (
+                (system_python_version_result.stdout | default(''))
+                ~
+                (system_python_version_result.stderr | default(''))
+              ) | trim
+            }}
+        success_msg: 'System Python version=OK'
+
+    # ========================================================
+    # Validate Deployment Source
+    #
+    # deploy-source must run before venv.
+    # ========================================================
+
+    - name: Check IMAP Gateway source directory
+      win_stat:
+        path: '{{ gateway_source_dir }}'
+        get_checksum: no
+      register: gateway_source_check
+
+    - name: Validate IMAP Gateway source directory
+      assert:
+        that:
+          - gateway_source_check.stat.exists | default(false)
+          - gateway_source_check.stat.isdir | default(false)
+        fail_msg: |
+          [Venv]
+
+          IMAP Gateway source directory does not exist.
+
+          Expected path:
+            {{ gateway_source_dir }}
+
+          Run the deploy-source tag before venv.
+        success_msg: 'IMAP Gateway source directory=OK'
+
+    - name: Check IMAP Gateway requirements file
+      win_stat:
+        path: '{{ gateway_requirements_file }}'
+        get_checksum: no
+      register: gateway_requirements_check
+
+    - name: Validate IMAP Gateway requirements file
+      assert:
+        that:
+          - gateway_requirements_check.stat.exists | default(false)
+          - gateway_requirements_check.stat.isreg | default(false)
+          - gateway_requirements_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Venv]
+
+          IMAP Gateway requirements file does not exist,
+          is not a file, or is empty.
+
+          Expected path:
+            {{ gateway_requirements_file }}
+
+          Run the deploy-source tag before venv.
+        success_msg: 'IMAP Gateway requirements file=OK'
+
+    # ========================================================
+    # Validate Gateway Home
+    # ========================================================
+
+    - name: Check IMAP Gateway home directory
+      win_stat:
+        path: '{{ gateway_home }}'
+        get_checksum: no
+      register: gateway_home_check
+
+    - name: Validate IMAP Gateway home directory
+      assert:
+        that:
+          - gateway_home_check.stat.exists | default(false)
+          - gateway_home_check.stat.isdir | default(false)
+        fail_msg: |
+          [Venv]
+
+          IMAP Gateway home directory does not exist.
+
+          Expected path:
+            {{ gateway_home }}
+
+          Run the bootstrap tag before venv.
+        success_msg: 'IMAP Gateway home directory=OK'
+
+    # ========================================================
+    # Check Existing Virtual Environment
+    # ========================================================
+
+    - name: Check existing IMAP Gateway virtual environment
+      win_stat:
+        path: '{{ gateway_venv_dir }}\Scripts\python.exe'
+        get_checksum: no
+      register: gateway_venv_before_check
+
+    - name: Display virtual environment status before creation
+      debug:
+        msg:
+          - >-
+            Virtual environment before creation={{
+              'EXISTS'
+              if
+              (gateway_venv_before_check.stat.exists | default(false))
+              else
+              'ABSENT'
+            }}
+          - 'Virtual environment={{ gateway_venv_dir }}'
+
+    # ========================================================
+    # Create Virtual Environment
+    #
+    # creates prevents repeated execution when the virtual
+    # environment Python executable already exists.
+    # ========================================================
+
+    - name: Create IMAP Gateway virtual environment
+      win_command: >-
+        "{{ python_executable }}"
+        -m venv
+        "{{ gateway_venv_dir }}"
+      args:
+        creates: '{{ gateway_venv_dir }}\Scripts\python.exe'
+      register: gateway_venv_create_result
+
+    # ========================================================
+    # Validate Virtual Environment Files
+    # ========================================================
+
+    - name: Check virtual environment directory
+      win_stat:
+        path: '{{ gateway_venv_dir }}'
+        get_checksum: no
+      register: gateway_venv_directory_check
+
+    - name: Check virtual environment Python executable
+      win_stat:
+        path: '{{ gateway_venv_dir }}\Scripts\python.exe'
+        get_checksum: no
+      register: gateway_venv_python_check
+
+    - name: Check virtual environment pip executable
+      win_stat:
+        path: '{{ gateway_venv_dir }}\Scripts\pip.exe'
+        get_checksum: no
+      register: gateway_venv_pip_check
+
+    - name: Validate virtual environment files
+      assert:
+        that:
+          - gateway_venv_directory_check.stat.exists | default(false)
+          - gateway_venv_directory_check.stat.isdir | default(false)
+          - gateway_venv_python_check.stat.exists | default(false)
+          - gateway_venv_python_check.stat.isreg | default(false)
+          - gateway_venv_pip_check.stat.exists | default(false)
+          - gateway_venv_pip_check.stat.isreg | default(false)
+        fail_msg: |
+          [Venv]
+
+          IMAP Gateway virtual environment was not created correctly.
+
+          Virtual environment:
+            {{ gateway_venv_dir }}
+
+          Expected Python:
+            {{ gateway_venv_dir }}\Scripts\python.exe
+
+          Expected pip:
+            {{ gateway_venv_dir }}\Scripts\pip.exe
+        success_msg: 'Virtual environment files=OK'
+
+    # ========================================================
+    # Validate Virtual Environment Python
+    # ========================================================
+
+    - name: Check virtual environment Python version
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        --version
+      register: gateway_venv_python_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate virtual environment Python version
+      assert:
+        that:
+          - gateway_venv_python_version_result.rc | int == 0
+          - >-
+            ('Python ' ~ (python_required_version | string))
+            in
+            (
+              (gateway_venv_python_version_result.stdout | default(''))
+              ~
+              (gateway_venv_python_version_result.stderr | default(''))
+            )
+        fail_msg: |
+          [Venv]
+
+          Virtual environment Python version is incorrect.
+
+          Required version:
+            {{ python_required_version }}
+
+          Command output:
+            {{
+              (
+                (gateway_venv_python_version_result.stdout | default(''))
+                ~
+                (gateway_venv_python_version_result.stderr | default(''))
+              ) | trim
+            }}
+        success_msg: 'Virtual environment Python version=OK'
+
+    # ========================================================
+    # Validate Virtual Environment pip
+    # ========================================================
+
+    - name: Check virtual environment pip
+      win_command: >-
+        "{{ gateway_venv_dir }}\Scripts\python.exe"
+        -m pip
+        --version
+      register: gateway_venv_pip_version_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate virtual environment pip
+      assert:
+        that:
+          - gateway_venv_pip_version_result.rc | int == 0
+          - >-
+            'pip '
+            in
+            (
+              (gateway_venv_pip_version_result.stdout | default(''))
+              ~
+              (gateway_venv_pip_version_result.stderr | default(''))
+            )
+        fail_msg: |
+          [Venv]
+
+          pip is not available inside the IMAP Gateway
+          virtual environment.
+
+          Virtual environment:
+            {{ gateway_venv_dir }}
+
+          Command output:
+            {{
+              (
+                (gateway_venv_pip_version_result.stdout | default(''))
+                ~
+                (gateway_venv_pip_version_result.stderr | default(''))
+              ) | trim
+            }}
+        success_msg: 'Virtual environment pip=OK'
+
+    # ========================================================
+    # Virtual Environment Summary
+    # ========================================================
+
+    - name: Display virtual environment summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'IMAP Gateway Virtual Environment=OK'
+          - 'Virtual environment={{ gateway_venv_dir }}'
+          - >-
+            Python={{
+              (
+                (gateway_venv_python_version_result.stdout | default(''))
+                ~
+                (gateway_venv_python_version_result.stderr | default(''))
+              ) | trim
+            }}
+          - >-
+            pip={{
+              (
+                (gateway_venv_pip_version_result.stdout | default(''))
+                ~
+                (gateway_venv_pip_version_result.stderr | default(''))
+              ) | trim
+            }}
+          - >-
+            Creation={{
+              'NOT REQUIRED'
+              if
+              (gateway_venv_before_check.stat.exists | default(false))
+              else
+              'PERFORMED'
+            }}
+          - 'requirements.txt installation=NOT PERFORMED'
+          - 'Editable package installation=NOT PERFORMED'
+          - 'Torch installation=NOT PERFORMED'
+          - 'Windows service configuration=NOT PERFORMED'
+          - '============================================================'
+
+  tags:
+    - venv
