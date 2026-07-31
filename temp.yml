@@ -1,14 +1,84 @@
+$Nssm = 'E:\Tools\nssm\nssm.exe'
 $ServiceName = 'GatewayService'
 
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+$GatewaySrc = "$GatewaySource\src"
+$GatewayRunBat = "$GatewaySource\Run.bat"
+$VenvScripts = "$GatewayHome\.venv\Scripts"
+
+$StdoutLog = "$GatewayHome\logs\imap-gateway.stdout.log"
+$StderrLog = "$GatewayHome\logs\imap-gateway.stderr.log"
+
 Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+
+Remove-Item $StdoutLog -Force -ErrorAction SilentlyContinue
+Remove-Item $StderrLog -Force -ErrorAction SilentlyContinue
+
+
+
+
+
+& $Nssm set $ServiceName Application 'C:\Windows\System32\cmd.exe'
+
+& $Nssm set $ServiceName AppDirectory $GatewaySource
+
+& $Nssm set `
+    $ServiceName `
+    AppParameters `
+    "/d /s /c call `"$GatewayRunBat`""
+
+& $Nssm set $ServiceName AppStdout $StdoutLog
+& $Nssm set $ServiceName AppStderr $StderrLog
+
+
+
+
+
+
+$MachinePath = [Environment]::GetEnvironmentVariable(
+    'Path',
+    'Machine'
+)
+
+$ServicePath = "$VenvScripts;$MachinePath"
+
+& $Nssm set `
+    $ServiceName `
+    AppEnvironmentExtra `
+    "PYTHONPATH=$GatewaySrc" `
+    "PATH=$ServicePath"
+
+
+
+
+
+
+Write-Host '===== Application ====='
+& $Nssm get $ServiceName Application
+
+Write-Host '===== AppDirectory ====='
+& $Nssm get $ServiceName AppDirectory
+
+Write-Host '===== AppParameters ====='
+& $Nssm get $ServiceName AppParameters
+
+Write-Host '===== Environment ====='
+& $Nssm get $ServiceName AppEnvironmentExtra
+
+Write-Host '===== Stdout ====='
+& $Nssm get $ServiceName AppStdout
+
+Write-Host '===== Stderr ====='
+& $Nssm get $ServiceName AppStderr
+
+
+
+
 Start-Service -Name $ServiceName
 
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 8
 
 Get-Service -Name $ServiceName
 
-
-Get-NetTCPConnection `
-    -LocalPort 8000 `
-    -State Listen `
-    -ErrorAction SilentlyContinue
+& $Nssm status $ServiceName
