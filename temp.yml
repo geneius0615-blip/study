@@ -1,148 +1,19 @@
-    # ========================================================
-    # Validate Clean Path Safety
-    #
-    # PowerShell performs Windows path normalization.
-    # This avoids controller-side path filter differences.
-    # ========================================================
+$oldPaths = @(
+    'E:\Deploy\gateway',
+    'E:\Deploy\Python\gateway',
+    'E:\digital-twin-studio\imap\workplaces\gateway'
+)
 
-    - name: Check clean path safety
-      win_shell: |
-        $gatewayHome = [System.IO.Path]::GetFullPath(
-          '{{ gateway_home }}'
-        ).TrimEnd('\')
+foreach ($oldPath in $oldPaths) {
+    if (Test-Path -LiteralPath $oldPath) {
+        Remove-Item `
+          -LiteralPath $oldPath `
+          -Recurse `
+          -Force
 
-        $gatewaySource = [System.IO.Path]::GetFullPath(
-          '{{ gateway_source_dir }}'
-        ).TrimEnd('\')
-
-        $gatewayVenv = [System.IO.Path]::GetFullPath(
-          '{{ gateway_venv_dir }}'
-        ).TrimEnd('\')
-
-        $gatewayLogs = [System.IO.Path]::GetFullPath(
-          '{{ gateway_logs_dir }}'
-        ).TrimEnd('\')
-
-        $gatewayBackup = [System.IO.Path]::GetFullPath(
-          '{{ gateway_backup_dir }}'
-        ).TrimEnd('\')
-
-        $gatewayWorkspace = [System.IO.Path]::GetFullPath(
-          '{{ gateway_workspace_dir }}'
-        ).TrimEnd('\')
-
-        $errors = New-Object System.Collections.Generic.List[string]
-
-        if ((Split-Path -Leaf $gatewayHome) -ine 'imap-gateway') {
-          $errors.Add(
-            "gateway_home folder name must be imap-gateway: $gatewayHome"
-          )
-        }
-
-        if ((Split-Path -Parent $gatewaySource) -ine $gatewayHome) {
-          $errors.Add(
-            "gateway_source_dir must be a direct child of gateway_home: $gatewaySource"
-          )
-        }
-
-        if ((Split-Path -Leaf $gatewaySource) -ine 'source') {
-          $errors.Add(
-            "gateway_source_dir folder name must be source: $gatewaySource"
-          )
-        }
-
-        if ((Split-Path -Parent $gatewayVenv) -ine $gatewayHome) {
-          $errors.Add(
-            "gateway_venv_dir must be a direct child of gateway_home: $gatewayVenv"
-          )
-        }
-
-        if ((Split-Path -Leaf $gatewayVenv) -ine '.venv') {
-          $errors.Add(
-            "gateway_venv_dir folder name must be .venv: $gatewayVenv"
-          )
-        }
-
-        if ($gatewaySource -ieq $gatewayHome) {
-          $errors.Add('gateway_source_dir must not equal gateway_home')
-        }
-
-        if ($gatewayVenv -ieq $gatewayHome) {
-          $errors.Add('gateway_venv_dir must not equal gateway_home')
-        }
-
-        $protectedPaths = @(
-          $gatewayLogs,
-          $gatewayBackup,
-          $gatewayWorkspace
-        )
-
-        foreach ($protectedPath in $protectedPaths) {
-          if ($gatewaySource -ieq $protectedPath) {
-            $errors.Add(
-              "gateway_source_dir matches a protected path: $protectedPath"
-            )
-          }
-
-          if ($gatewayVenv -ieq $protectedPath) {
-            $errors.Add(
-              "gateway_venv_dir matches a protected path: $protectedPath"
-            )
-          }
-        }
-
-        if ($errors.Count -gt 0) {
-          $errors | ForEach-Object {
-            Write-Output $_
-          }
-
-          exit 1
-        }
-
-        Write-Output 'Clean path safety=OK'
-        Write-Output "Gateway home=$gatewayHome"
-        Write-Output "Gateway source=$gatewaySource"
-        Write-Output "Gateway venv=$gatewayVenv"
-      args:
-        executable: powershell.exe
-      register: clean_path_safety_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate clean path safety
-      assert:
-        that:
-          - clean_path_safety_result.rc | default(1) == 0
-          - >-
-            'Clean path safety=OK'
-            in
-            (clean_path_safety_result.stdout | default(''))
-        fail_msg: |
-          [Clean]
-
-          Unsafe or invalid Gateway cleanup paths were detected.
-
-          Gateway home:
-            {{ gateway_home }}
-
-          Gateway source:
-            {{ gateway_source_dir }}
-
-          Gateway venv:
-            {{ gateway_venv_dir }}
-
-          Validation output:
-            {{
-              (
-                clean_path_safety_result.stdout | default('')
-              )
-              ~
-              (
-                clean_path_safety_result.stderr | default('')
-              )
-            | trim
-            }}
-
-          Cleanup was stopped before deleting any directory.
-        success_msg: 'Clean path safety=OK'
-        quiet: yes
+        Write-Host "Removed: $oldPath"
+    }
+    else {
+        Write-Host "Already absent: $oldPath"
+    }
+}
