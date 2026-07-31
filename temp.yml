@@ -1,19 +1,22 @@
-$oldPaths = @(
-    'E:\Deploy\gateway',
-    'E:\Deploy\Python\gateway',
-    'E:\digital-twin-studio\imap\workplaces\gateway'
-)
+# ============================================================
+# Deploy Roots
+# ============================================================
 
-foreach ($oldPath in $oldPaths) {
-    if (Test-Path -LiteralPath $oldPath) {
-        Remove-Item `
-          -LiteralPath $oldPath `
-          -Recurse `
-          -Force
+deploy_home: 'E:\Deploy'
 
-        Write-Host "Removed: $oldPath"
-    }
-    else {
-        Write-Host "Already absent: $oldPath"
-    }
-}
+# ============================================================
+# IMAP Gateway Deployment
+# ============================================================
+
+gateway_home: '{{ deploy_home }}\Python\imap-gateway'
+gateway_source_dir: '{{ gateway_home }}\source'
+gateway_venv_dir: '{{ gateway_home }}\.venv'
+gateway_logs_dir: '{{ gateway_home }}\logs'
+gateway_requirements_file: '{{ gateway_source_dir }}\requirements.txt'
+
+# ============================================================
+# IMAP Gateway Workspace / Backup
+# ============================================================
+
+gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\imap-gateway'
+gateway_backup_dir: 'E:\Backup\Python\imap-gateway'
