@@ -1,41 +1,232 @@
 ---
-- name: Check Tomcat service
-  win_shell: |
-    $service = Get-Service `
-        -Name "{{ tomcat.service_name }}" `
-        -ErrorAction SilentlyContinue
+# ============================================================
+# Gateway Service Stop
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Check whether the Gateway Windows service exists.
+#   - Stop the service only when it is currently running or
+#     in another active state.
+#   - Do not install, remove, or reconfigure the service.
+#
+# Idempotency:
+#   - Service absent: changed=0
+#   - Service already stopped: changed=0
+#   - Service running: changed=1
+# ============================================================
 
-    if ($null -eq $service) {
-        Write-Error "Tomcat service '{{ tomcat.service_name }}' was not found."
-        exit 1
-    }
+- name: Stop gateway Windows service
+  block:
+    # ========================================================
+    # Validate Service Variables
+    # ========================================================
 
-    exit 0
-  changed_when: false
+    - name: Validate service-stop variables
+      assert:
+        that:
+          - gateway_service_name | default('') | trim | length > 0
+        fail_msg: |
+          [Service Stop]
 
-- name: Stop Tomcat service
-  win_service:
-    name: "{{ tomcat.service_name }}"
-    state: stopped
+          Gateway service name is not defined correctly.
 
-- name: Wait until Tomcat port is released
-  win_shell: |
-    $connection = Get-NetTCPConnection `
-        -LocalPort {{ tomcat.port }} `
-        -State Listen `
-        -ErrorAction SilentlyContinue
+          Required variable:
+            gateway_service_name
+        success_msg: 'Service-stop variables=OK'
+        quiet: yes
 
-    if ($null -eq $connection) {
-        exit 0
-    }
+    # ========================================================
+    # Check Service Status Before Stop
+    #
+    # Possible results:
+    #   Absent
+    #   Stopped
+    #   Running
+    #   Paused
+    #   StartPending
+    #   StopPending
+    #   ContinuePending
+    #   PausePending
+    # ========================================================
 
-    exit 1
-  register: tomcat_stop_check
-  retries: 30
-  delay: 2
-  until: tomcat_stop_check.rc == 0
-  changed_when: false
+    - name: Check gateway service status before stop
+      win_shell: |
+        $serviceName = '{{ gateway_service_name }}'
 
-- name: Show Tomcat stop result
-  debug:
-    msg: "Tomcat service stopped. Port {{ tomcat.port }} is not listening."
+        $service = Get-Service `
+          -Name $serviceName `
+          -ErrorAction SilentlyContinue
+
+        if ($null -eq $service) {
+          Write-Output 'Absent'
+          exit 0
+        }
+
+        Write-Output $service.Status.ToString()
+      args:
+        executable: powershell.exe
+      register: gateway_service_status_before_result
+      changed_when: false
+
+    - name: Validate gateway service status result
+      assert:
+        that:
+          - gateway_service_status_before_result.rc | default(1) == 0
+          - gateway_service_status_before_result.stdout | default('') | trim | length > 0
+          - >-
+            gateway_service_status_before_result.stdout | trim
+            in
+            [
+              'Absent',
+              'Stopped',
+              'Running',
+              'Paused',
+              'StartPending',
+              'StopPending',
+              'ContinuePending',
+              'PausePending'
+            ]
+        fail_msg: |
+          [Service Stop]
+
+          Gateway service status could not be determined.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Return code:
+            {{ gateway_service_status_before_result.rc | default('unknown') }}
+
+          Standard output:
+            {{ gateway_service_status_before_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ gateway_service_status_before_result.stderr | default('') | trim }}
+        success_msg: 'Gateway service status check=OK'
+        quiet: yes
+
+    # ========================================================
+    # Display Current Service Status
+    # ========================================================
+
+    - name: Display gateway service status before stop
+      debug:
+        msg:
+          - 'Gateway service={{ gateway_service_name }}'
+          - >-
+            Gateway service status={{
+              gateway_service_status_before_result.stdout | trim
+            }}
+
+    # ========================================================
+    # Stop Gateway Service
+    #
+    # The task is skipped when:
+    #   - The service does not exist.
+    #   - The service is already stopped.
+    #
+    # win_service waits until the requested state is reached.
+    # ========================================================
+
+    - name: Stop gateway service
+      win_service:
+        name: '{{ gateway_service_name }}'
+        state: stopped
+      register: gateway_service_stop_result
+      when:
+        - gateway_service_status_before_result.stdout | trim != 'Absent'
+        - gateway_service_status_before_result.stdout | trim != 'Stopped'
+
+    # ========================================================
+    # Check Service Status After Stop
+    # ========================================================
+
+    - name: Check gateway service status after stop
+      win_shell: |
+        $serviceName = '{{ gateway_service_name }}'
+
+        $service = Get-Service `
+          -Name $serviceName `
+          -ErrorAction SilentlyContinue
+
+        if ($null -eq $service) {
+          Write-Output 'Absent'
+          exit 0
+        }
+
+        Write-Output $service.Status.ToString()
+      args:
+        executable: powershell.exe
+      register: gateway_service_status_after_result
+      changed_when: false
+
+    # ========================================================
+    # Validate Final Service Status
+    # ========================================================
+
+    - name: Validate gateway service stopped
+      assert:
+        that:
+          - gateway_service_status_after_result.rc | default(1) == 0
+          - >-
+            gateway_service_status_after_result.stdout | trim
+            in
+            [
+              'Absent',
+              'Stopped'
+            ]
+        fail_msg: |
+          [Service Stop]
+
+          Gateway service was not stopped successfully.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Status before:
+            {{ gateway_service_status_before_result.stdout | trim }}
+
+          Status after:
+            {{ gateway_service_status_after_result.stdout | trim }}
+
+          Standard error:
+            {{ gateway_service_status_after_result.stderr | default('') | trim }}
+        success_msg: 'Gateway service stopped=OK'
+        quiet: yes
+
+    # ========================================================
+    # Service Stop Summary
+    # ========================================================
+
+    - name: Display service-stop summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'Gateway Service Stop=OK'
+          - 'Service name={{ gateway_service_name }}'
+          - >-
+            Status before={{
+              gateway_service_status_before_result.stdout | trim
+            }}
+          - >-
+            Status after={{
+              gateway_service_status_after_result.stdout | trim
+            }}
+          - >-
+            Stop action={{
+              'PERFORMED'
+              if
+              (
+                gateway_service_status_before_result.stdout | trim
+                not in ['Absent', 'Stopped']
+              )
+              else
+              'NOT REQUIRED'
+            }}
+          - 'Service installation=NOT PERFORMED'
+          - 'Service removal=NOT PERFORMED'
+          - 'Service configuration=NOT MODIFIED'
+          - '============================================================'
+
+  tags:
+    - service-stop
