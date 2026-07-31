@@ -1,85 +1,9 @@
-    # ========================================================
-    # Verify Installed Windows Service
-    #
-    # Get-Service and the service registry are used instead of
-    # a Win32_Service WQL query.
-    # ========================================================
+$ServiceName = 'GatewayService'
 
-    - name: Read installed IMAP Gateway service
-      win_shell: |
-        $ErrorActionPreference = 'Stop'
+$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
-        $serviceName = $env:SERVICE_NAME
-        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+if ($null -ne $service -and $service.Status -ne 'Stopped') {
+    Stop-Service -Name $ServiceName -Force
+}
 
-        if ($null -eq $service) {
-          Write-Output 'ServiceExists=False'
-          exit 1
-        }
-
-        $serviceRegistryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
-
-        if (-not (Test-Path -LiteralPath $serviceRegistryPath)) {
-          Write-Output 'ServiceRegistryExists=False'
-          exit 1
-        }
-
-        $serviceProperties = Get-ItemProperty -LiteralPath $serviceRegistryPath
-
-        $startMode = switch ([int]$serviceProperties.Start) {
-          0 { 'Boot' }
-          1 { 'System' }
-          2 { 'Auto' }
-          3 { 'Manual' }
-          4 { 'Disabled' }
-          default { 'Unknown' }
-        }
-
-        Write-Output 'ServiceExists=True'
-        Write-Output 'ServiceRegistryExists=True'
-        Write-Output "ServiceName=$($service.Name)"
-        Write-Output "ServiceDisplayName=$($service.DisplayName)"
-        Write-Output "ServiceState=$($service.Status.ToString())"
-        Write-Output "ServiceStartMode=$startMode"
-        Write-Output "ServiceAccount=$($serviceProperties.ObjectName)"
-        Write-Output "ServicePath=$($serviceProperties.ImagePath)"
-        exit 0
-      args:
-        executable: powershell.exe
-      environment:
-        SERVICE_NAME: '{{ gateway_service_name }}'
-      register: gateway_service_verify_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate installed Windows service
-      assert:
-        that:
-          - gateway_service_verify_result.rc | int == 0
-          - "'ServiceExists=True' in gateway_service_verify_result.stdout"
-          - "'ServiceRegistryExists=True' in gateway_service_verify_result.stdout"
-          - "'ServiceState=Stopped' in gateway_service_verify_result.stdout"
-          - "'ServiceStartMode=Auto' in gateway_service_verify_result.stdout"
-          - "'ServiceAccount=LocalSystem' in gateway_service_verify_result.stdout"
-          - >-
-            (nssm_executable | lower)
-            in
-            (gateway_service_verify_result.stdout | lower)
-        fail_msg: |
-          [Service Install]
-
-          Installed Windows service validation failed.
-
-          Service:
-            {{ gateway_service_name }}
-
-          Expected NSSM:
-            {{ nssm_executable }}
-
-          Validation output:
-            {{ gateway_service_verify_result.stdout | default('') | trim }}
-
-          Validation error:
-            {{ gateway_service_verify_result.stderr | default('') | trim }}
-        success_msg: 'Installed Windows service=OK'
-        quiet: yes
+Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
