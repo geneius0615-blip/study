@@ -26,3 +26,12 @@ Get-ChildItem `
     -LiteralPath $ConfigRoot `
     -Force |
 Select-Object Name, Mode, FullName
+
+
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+
+Set-Location $GatewaySource
+
+& $GatewayPython -c "import imap_gateway; print(imap_gateway.__file__)"
+
