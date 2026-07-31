@@ -73,3 +73,14 @@ Set-Location $GatewaySource
 
 
 curl.exe -i http://127.0.0.1:8000/health
+
+
+
+
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+
+Set-Location $GatewaySource
+
+Get-ChildItem -Path . -Recurse -File -Filter '*.py' |
+Select-String -Pattern 'FastAPI\s*\(' |
+Select-Object Path, LineNumber, Line
