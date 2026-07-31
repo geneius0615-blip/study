@@ -1,73 +1,60 @@
+$Nssm = 'E:\Tools\nssm\nssm.exe'
 $ServiceName = 'GatewayService'
+
+& $Nssm get $ServiceName Application
+& $Nssm get $ServiceName AppParameters
+& $Nssm get $ServiceName AppDirectory
+
+
+
+$Nssm = 'E:\Tools\nssm\nssm.exe'
+$ServiceName = 'GatewayService'
+
 $GatewayHome = 'E:\Deploy\Python\imap-gateway'
 $GatewaySource = "$GatewayHome\source"
-$GatewayVenv = "$GatewayHome\.venv"
+$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
+$GatewayRunPy = "$GatewaySource\run.py"
 
-# 현재 PowerShell 위치가 source 안이면 먼저 이동
-Set-Location 'E:\'
-
-# 서비스 중지
 Stop-Service `
     -Name $ServiceName `
     -Force `
     -ErrorAction SilentlyContinue
 
-Start-Sleep -Seconds 3
+& $Nssm set `
+    $ServiceName `
+    Application `
+    $GatewayPython
+
+& $Nssm set `
+    $ServiceName `
+    AppDirectory `
+    $GatewaySource
+
+& $Nssm set `
+    $ServiceName `
+    AppParameters `
+    "`"$GatewayRunPy`""
 
 
 
-Get-CimInstance Win32_Process |
-Where-Object {
-    (
-        $_.CommandLine -and
-        $_.CommandLine.IndexOf(
-            $GatewaySource,
-            [System.StringComparison]::OrdinalIgnoreCase
-        ) -ge 0
-    ) -or
-    (
-        $_.ExecutablePath -and
-        $_.ExecutablePath.StartsWith(
-            $GatewayVenv,
-            [System.StringComparison]::OrdinalIgnoreCase
-        )
-    )
-} |
-Select-Object ProcessId, Name, ExecutablePath, CommandLine
+
+& $Nssm get $ServiceName AppEnvironmentExtra
 
 
 
-$GatewayProcesses = Get-CimInstance Win32_Process |
-Where-Object {
-    (
-        $_.CommandLine -and
-        $_.CommandLine.IndexOf(
-            $GatewaySource,
-            [System.StringComparison]::OrdinalIgnoreCase
-        ) -ge 0
-    ) -or
-    (
-        $_.ExecutablePath -and
-        $_.ExecutablePath.StartsWith(
-            $GatewayVenv,
-            [System.StringComparison]::OrdinalIgnoreCase
-        )
-    )
-}
 
-foreach ($Process in $GatewayProcesses) {
-    Write-Host "Stopping PID=$($Process.ProcessId) Name=$($Process.Name)"
+$StdoutLog = "$GatewayHome\logs\imap-gateway.stdout.log"
+$StderrLog = "$GatewayHome\logs\imap-gateway.stderr.log"
 
-    taskkill.exe `
-        /PID $Process.ProcessId `
-        /T `
-        /F
-}
+Remove-Item $StdoutLog -Force -ErrorAction SilentlyContinue
+Remove-Item $StderrLog -Force -ErrorAction SilentlyContinue
 
-Start-Sleep -Seconds 2
+Start-Service -Name $ServiceName
+
+Start-Sleep -Seconds 8
+
+Get-Service -Name $ServiceName
+& $Nssm status $ServiceName
 
 
-Remove-Item `
-    -LiteralPath $GatewaySource `
-    -Recurse `
-    -Force
+
