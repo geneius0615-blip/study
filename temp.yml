@@ -7,3 +7,11 @@ if ($null -ne $service -and $service.Status -ne 'Stopped') {
 }
 
 Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+
+
+
+
+Get-NetTCPConnection `
+    -LocalPort 8000 `
+    -State Listen `
+    -ErrorAction SilentlyContinue
