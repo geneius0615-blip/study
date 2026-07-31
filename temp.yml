@@ -11,3 +11,21 @@ ForEach-Object {
 
 
 $ConfiguredEnvironment.GetType().FullName
+
+
+& $Nssm get $ServiceName AppEnvironmentExtra PYTHONPATH
+& $Nssm get $ServiceName AppEnvironmentExtra PATH
+
+
+& $Nssm get $ServiceName Application
+& $Nssm get $ServiceName AppDirectory
+& $Nssm get $ServiceName AppParameters
+
+
+
+Start-Service -Name $ServiceName
+
+Start-Sleep -Seconds 8
+
+Get-Service -Name $ServiceName
+& $Nssm status $ServiceName
