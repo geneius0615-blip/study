@@ -23,3 +23,13 @@ Where-Object {
     $_.FullName -notmatch '\\__pycache__\\'
 } |
 Select-Object FullName
+
+
+
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+$GatewayRunFile = Join-Path $GatewaySource 'run.py'
+
+Test-Path $GatewayPython
+Test-Path $GatewayRunFile
+
