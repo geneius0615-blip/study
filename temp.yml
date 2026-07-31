@@ -17,3 +17,12 @@ Set-Location 'E:\Deploy\Python\imap-gateway\source'
 
 
 
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+$ConfigRoot = "$GatewaySource\src\imap_gateway"
+
+Test-Path -LiteralPath $ConfigRoot
+
+Get-ChildItem `
+    -LiteralPath $ConfigRoot `
+    -Force |
+Select-Object Name, Mode, FullName
