@@ -12,3 +12,14 @@ Where-Object {
 } |
 Select-String -Pattern 'FastAPI\s*\(' |
 Select-Object Path, LineNumber, Line
+
+
+Get-ChildItem `
+    -Path 'E:\Deploy\Python\imap-gateway\source' `
+    -Recurse `
+    -File |
+Where-Object {
+    $_.FullName -notmatch '\\\.venv\\' -and
+    $_.FullName -notmatch '\\__pycache__\\'
+} |
+Select-Object FullName
