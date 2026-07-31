@@ -1,12 +1,22 @@
-imap_packages_root: E:\Deploy\Python\packages
-imap_workplaces_root: E:\digital-twin-studio\IMAP\workplaces
+# ============================================================
+# Git
+# ============================================================
 
-imap_command_repo_url: <imap-command Git URL>
-imap_core_repo_url: <imap-core Git URL>
-imap_plugin_repo_url: <imap-plugin Git URL>
-imap_shared_repo_url: <imap-shared Git URL>
+git_executable: 'git.exe'
 
-imap_command_repo_branch: main
-imap_core_repo_branch: main
-imap_plugin_repo_branch: main
-imap_shared_repo_branch: main
+# Git 명령을 실행할 Windows 사용자 프로필
+# _netrc 예상 경로:
+#   C:\Users\appuser\_netrc
+install_user_profile: 'C:\Users\appuser'
+
+# ============================================================
+# Gateway Repository
+# ============================================================
+
+# 실제 Gateway 저장소 URL로 설정
+gateway_repo_url: 'https://실제-사내-Git-주소/gateway.git'
+
+gateway_repo_branch: 'main'
+
+# 매번 삭제 후 새로 Clone하는 Workspace
+gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\gateway'
