@@ -1,38 +1,25 @@
-Get-Content 'E:\Deploy\Python\imap-gateway\source\Run.bat'
+$TestCmd = 'E:\Deploy\Python\imap-gateway\gateway-run-test.cmd'
 
-Select-String `
-  -Path 'E:\Deploy\Python\imap-gateway\source\Run.bat' `
-  -Pattern 'python|activate|PYTHONPATH|PATH=|set |cd |pushd|-E|-I'
+@'
+@echo on
 
-
-
-
-
-$Command = @'
 set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
 set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
+
 cd /d "E:\Deploy\Python\imap-gateway\source"
 
+echo ===== CURRENT DIRECTORY =====
+cd
+
+echo ===== PYTHON PATH =====
 where python
+
+echo ===== PYTHON ENVIRONMENT =====
 python -c "import sys, site; print('executable=' + sys.executable); print('site-packages=' + site.getsitepackages()[0]); import imap_shared.config as c; print('config=' + c.__file__)"
 
+echo ===== RUN.BAT START =====
 call "E:\Deploy\Python\imap-gateway\source\Run.bat"
-'@
 
-& 'C:\Windows\System32\cmd.exe' /d /c $Command
-
-
-
-
-
-
-
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
-
-$env:PYTHONPATH = "$GatewaySource\src"
-$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
-
-Set-Location $GatewaySource
-
-python -c "import sys, site; print('executable=' + sys.executable); print('site-packages=' + site.getsitepackages()[0]); import imap_shared.config as c; print('config=' + c.__file__)"
+echo ===== RUN.BAT EXIT CODE =====
+echo %ERRORLEVEL%
+'@ | Set-Content -LiteralPath $TestCmd -Encoding ASCII
