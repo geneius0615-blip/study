@@ -1,42 +1,421 @@
 ---
-- name: Check Tomcat service
-  win_shell: |
-    $service = Get-Service `
-        -Name "{{ tomcat.service_name }}" `
-        -ErrorAction SilentlyContinue
+# ============================================================
+# Start IMAP Gateway Windows Service
+# Ansible 2.9 / Windows Server
+#
+# Responsibilities:
+#   1. Validate required variables and NSSM
+#   2. Validate GatewayService installation
+#   3. Configure automatic startup
+#   4. Start GatewayService
+#   5. Wait and verify that the service remains running
+#   6. Verify NSSM status
+#   7. Display logs when startup fails
+#
+# Port and HTTP checks are handled by healthcheck.yml.
+# ============================================================
 
-    if ($null -eq $service) {
-        Write-Error "Tomcat service '{{ tomcat.service_name }}' was not found."
-        exit 1
-    }
+- name: Start and validate IMAP Gateway service
+  block:
 
-    exit 0
-  changed_when: false
+    # ========================================================
+    # Validate Variables
+    # ========================================================
 
-- name: Start Tomcat service
-  win_service:
-    name: "{{ tomcat.service_name }}"
-    state: started
-    start_mode: auto
+    - name: Validate IMAP Gateway service start variables
+      assert:
+        that:
+          - gateway_service_name is defined
+          - nssm_executable is defined
+          - gateway_service_stdout is defined
+          - gateway_service_stderr is defined
+          - gateway_service_start_wait_seconds is defined
 
-- name: Wait until Tomcat port is listening
-  win_shell: |
-    $connection = Get-NetTCPConnection `
-        -LocalPort {{ tomcat.port }} `
-        -State Listen `
-        -ErrorAction SilentlyContinue
+          - gateway_service_name | trim | length > 0
+          - nssm_executable | trim | length > 0
+          - gateway_service_stdout | trim | length > 0
+          - gateway_service_stderr | trim | length > 0
 
-    if ($null -ne $connection) {
-        exit 0
-    }
+          - gateway_service_start_wait_seconds | int > 0
 
-    exit 1
-  register: tomcat_start_check
-  retries: 30
-  delay: 2
-  until: tomcat_start_check.rc == 0
-  changed_when: false
+        fail_msg: |
+          [Service Start]
 
-- name: Show Tomcat start result
-  debug:
-    msg: "Tomcat service started. Port {{ tomcat.port }} is listening."
+          One or more required variables are missing or invalid.
+
+          gateway_service_name:
+            {{ gateway_service_name | default('UNDEFINED') }}
+
+          nssm_executable:
+            {{ nssm_executable | default('UNDEFINED') }}
+
+          gateway_service_stdout:
+            {{ gateway_service_stdout | default('UNDEFINED') }}
+
+          gateway_service_stderr:
+            {{ gateway_service_stderr | default('UNDEFINED') }}
+
+          gateway_service_start_wait_seconds:
+            {{ gateway_service_start_wait_seconds | default('UNDEFINED') }}
+
+        success_msg: 'IMAP Gateway service start variables=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate NSSM
+    # ========================================================
+
+    - name: Check NSSM executable
+      win_stat:
+        path: '{{ nssm_executable }}'
+        get_checksum: no
+      register: gateway_service_start_nssm_check
+
+    - name: Validate NSSM executable
+      assert:
+        that:
+          - gateway_service_start_nssm_check.stat.exists | default(false)
+          - gateway_service_start_nssm_check.stat.isreg | default(false)
+          - gateway_service_start_nssm_check.stat.size | default(0) | int > 0
+
+        fail_msg: |
+          [Service Start]
+
+          NSSM executable does not exist or is empty.
+
+          Expected:
+            {{ nssm_executable }}
+
+        success_msg: 'NSSM executable=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Installed Service
+    # ========================================================
+
+    - name: Query IMAP Gateway service before start
+      win_service:
+        name: '{{ gateway_service_name }}'
+      register: gateway_service_before_start
+
+    - name: Validate installed IMAP Gateway service
+      assert:
+        that:
+          - gateway_service_before_start.exists | default(false)
+
+        fail_msg: |
+          [Service Start]
+
+          Windows service is not installed.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Run the service-install tag before service-start.
+
+        success_msg: 'IMAP Gateway Windows service exists=OK'
+        quiet: yes
+
+    - name: Display IMAP Gateway service state before start
+      debug:
+        msg:
+          - 'Service={{ gateway_service_name }}'
+          - >-
+            State before={{
+              gateway_service_before_start.state
+              | default('UNKNOWN')
+            }}
+          - >-
+            Start mode before={{
+              gateway_service_before_start.start_mode
+              | default('UNKNOWN')
+            }}
+
+    # ========================================================
+    # Start Service
+    # ========================================================
+
+    - name: Start IMAP Gateway Windows service
+      win_service:
+        name: '{{ gateway_service_name }}'
+        start_mode: auto
+        state: started
+      register: gateway_service_start_result
+
+    # 서비스가 잠깐 Running 상태가 된 후 run.py 오류로
+    # 종료되는 경우를 확인하기 위해 대기한다.
+    - name: Wait for IMAP Gateway startup stabilization
+      win_shell: |
+        Start-Sleep -Seconds $env:WAIT_SECONDS
+      args:
+        executable: powershell.exe
+      environment:
+        WAIT_SECONDS: '{{ gateway_service_start_wait_seconds | int }}'
+      changed_when: false
+
+    # ========================================================
+    # Verify Windows Service
+    # ========================================================
+
+    - name: Query IMAP Gateway service after start
+      win_service:
+        name: '{{ gateway_service_name }}'
+      register: gateway_service_after_start
+
+    # ========================================================
+    # Verify NSSM Status
+    # ========================================================
+
+    - name: Query IMAP Gateway NSSM status
+      win_shell: |
+        $ErrorActionPreference = 'Stop'
+
+        & $env:NSSM_EXECUTABLE status $env:SERVICE_NAME
+
+        exit $LASTEXITCODE
+      args:
+        executable: powershell.exe
+      environment:
+        NSSM_EXECUTABLE: '{{ nssm_executable }}'
+        SERVICE_NAME: '{{ gateway_service_name }}'
+      register: gateway_service_nssm_status
+      changed_when: false
+      failed_when: false
+
+    # ========================================================
+    # Validate Final Status
+    # ========================================================
+
+    - name: Validate IMAP Gateway service start result
+      assert:
+        that:
+          - gateway_service_after_start.exists | default(false)
+
+          - >-
+            (
+              gateway_service_after_start.state
+              | default('')
+              | lower
+            ) == 'running'
+
+          - >-
+            (
+              gateway_service_after_start.start_mode
+              | default('')
+              | lower
+            ) == 'auto'
+
+          - gateway_service_nssm_status.rc | int == 0
+
+          - >-
+            'SERVICE_RUNNING'
+            in
+            (
+              gateway_service_nssm_status.stdout
+              | default('')
+            )
+
+        fail_msg: |
+          [Service Start]
+
+          IMAP Gateway service did not remain running.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Windows service exists:
+            {{ gateway_service_after_start.exists | default(false) }}
+
+          Windows service state:
+            {{ gateway_service_after_start.state | default('UNKNOWN') }}
+
+          Windows service start mode:
+            {{ gateway_service_after_start.start_mode | default('UNKNOWN') }}
+
+          NSSM return code:
+            {{ gateway_service_nssm_status.rc | default('UNKNOWN') }}
+
+          NSSM status:
+            {{
+              gateway_service_nssm_status.stdout
+              | default('')
+              | trim
+            }}
+
+        success_msg: 'IMAP Gateway Service Start=OK'
+        quiet: yes
+
+    # ========================================================
+    # Success Summary
+    # ========================================================
+
+    - name: Display IMAP Gateway service start summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'IMAP Gateway Service Start=OK'
+          - 'Service={{ gateway_service_name }}'
+          - >-
+            State before={{
+              gateway_service_before_start.state
+              | default('UNKNOWN')
+            }}
+          - >-
+            State after={{
+              gateway_service_after_start.state
+              | default('UNKNOWN')
+            }}
+          - >-
+            Start mode={{
+              gateway_service_after_start.start_mode
+              | default('UNKNOWN')
+            }}
+          - >-
+            NSSM status={{
+              gateway_service_nssm_status.stdout
+              | default('')
+              | trim
+            }}
+          - '============================================================'
+
+  # ==========================================================
+  # Startup Failure Diagnostics
+  # ==========================================================
+
+  rescue:
+
+    - name: Query failed IMAP Gateway service state
+      win_service:
+        name: '{{ gateway_service_name }}'
+      register: gateway_service_failed_state
+      changed_when: false
+      failed_when: false
+
+    - name: Query failed IMAP Gateway NSSM status
+      win_shell: |
+        & $env:NSSM_EXECUTABLE status $env:SERVICE_NAME
+
+        exit $LASTEXITCODE
+      args:
+        executable: powershell.exe
+      environment:
+        NSSM_EXECUTABLE: '{{ nssm_executable }}'
+        SERVICE_NAME: '{{ gateway_service_name }}'
+      register: gateway_service_failed_nssm_status
+      changed_when: false
+      failed_when: false
+
+    - name: Read IMAP Gateway stderr log
+      win_shell: |
+        $logPath = $env:LOG_PATH
+
+        if (Test-Path -LiteralPath $logPath) {
+          Write-Output "LogPath=$logPath"
+
+          Get-Content `
+            -LiteralPath $logPath `
+            -Tail 100
+        }
+        else {
+          Write-Output "Log file does not exist: $logPath"
+        }
+      args:
+        executable: powershell.exe
+      environment:
+        LOG_PATH: '{{ gateway_service_stderr }}'
+      register: gateway_service_failed_stderr
+      changed_when: false
+      failed_when: false
+
+    - name: Read IMAP Gateway stdout log
+      win_shell: |
+        $logPath = $env:LOG_PATH
+
+        if (Test-Path -LiteralPath $logPath) {
+          Write-Output "LogPath=$logPath"
+
+          Get-Content `
+            -LiteralPath $logPath `
+            -Tail 100
+        }
+        else {
+          Write-Output "Log file does not exist: $logPath"
+        }
+      args:
+        executable: powershell.exe
+      environment:
+        LOG_PATH: '{{ gateway_service_stdout }}'
+      register: gateway_service_failed_stdout
+      changed_when: false
+      failed_when: false
+
+    - name: Display IMAP Gateway startup failure diagnostics
+      debug:
+        msg:
+          - '============================================================'
+          - 'IMAP Gateway Service Start=FAILED'
+          - 'Service={{ gateway_service_name }}'
+          - >-
+            Windows service exists={{
+              gateway_service_failed_state.exists
+              | default(false)
+            }}
+          - >-
+            Windows service state={{
+              gateway_service_failed_state.state
+              | default('UNKNOWN')
+            }}
+          - >-
+            Windows service start mode={{
+              gateway_service_failed_state.start_mode
+              | default('UNKNOWN')
+            }}
+          - >-
+            NSSM status={{
+              gateway_service_failed_nssm_status.stdout
+              | default('')
+              | trim
+            }}
+          - '---------------- STDERR ----------------'
+          - >-
+            {{
+              gateway_service_failed_stderr.stdout
+              | default('No stderr output')
+              | trim
+            }}
+          - '---------------- STDOUT ----------------'
+          - >-
+            {{
+              gateway_service_failed_stdout.stdout
+              | default('No stdout output')
+              | trim
+            }}
+          - '============================================================'
+
+    - name: Fail IMAP Gateway service start
+      fail:
+        msg: |
+          [Service Start]
+
+          IMAP Gateway service startup failed.
+
+          Service:
+            {{ gateway_service_name }}
+
+          State:
+            {{
+              gateway_service_failed_state.state
+              | default('UNKNOWN')
+            }}
+
+          NSSM status:
+            {{
+              gateway_service_failed_nssm_status.stdout
+              | default('UNKNOWN')
+              | trim
+            }}
+
+          Review the stderr and stdout output displayed above.
+
+  tags:
+    - service-start
