@@ -1,41 +1,10 @@
-$ServiceName = 'GatewayService'
-$Nssm = 'E:\Tools\nssm\nssm.exe'
+$ConfiguredEnvironment = (
+    Get-ItemProperty `
+        -LiteralPath $ParametersKey `
+        -Name 'AppEnvironmentExtra'
+).AppEnvironmentExtra
 
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
-$GatewaySrc = "$GatewaySource\src"
-$VenvScripts = "$GatewayHome\.venv\Scripts"
-
-$ParametersKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
-
-$MachinePath = [Environment]::GetEnvironmentVariable(
-    'Path',
-    'Machine'
-)
-
-$EnvironmentValues = [string[]]@(
-    "PYTHONPATH=$GatewaySrc",
-    "PATH=$VenvScripts;$MachinePath"
-)
-
-Stop-Service `
-    -Name $ServiceName `
-    -Force `
-    -ErrorAction SilentlyContinue
-
-if (-not (Test-Path -LiteralPath $ParametersKey)) {
-    throw "NSSM Parameters 레지스트리 경로가 없습니다: $ParametersKey"
+$ConfiguredEnvironment |
+ForEach-Object {
+    Write-Host "[$_]"
 }
-
-Remove-ItemProperty `
-    -LiteralPath $ParametersKey `
-    -Name 'AppEnvironmentExtra' `
-    -ErrorAction SilentlyContinue
-
-New-ItemProperty `
-    -LiteralPath $ParametersKey `
-    -Name 'AppEnvironmentExtra' `
-    -PropertyType MultiString `
-    -Value $EnvironmentValues `
-    -Force |
-Out-Null
