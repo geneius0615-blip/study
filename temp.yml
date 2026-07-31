@@ -3,3 +3,6 @@ $GatewayRunBat = Join-Path $GatewaySource 'Run.bat'
 
 Test-Path -LiteralPath $GatewayRunBat
 Get-Content -LiteralPath $GatewayRunBat
+
+
+
