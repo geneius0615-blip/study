@@ -1,1 +1,330 @@
- 
+---
+# ============================================================
+# IMAP Gateway Source Deployment
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Copy the freshly cloned Git workspace to the deployment
+#     source directory.
+#   - Exclude Git metadata from the deployed source.
+#   - Verify requirements.txt after the copy.
+#
+# Expected paths:
+#   Workspace:
+#     E:\digital-twin-studio\imap\workplaces\imap-gateway
+#
+#   Deployment source:
+#     E:\Deploy\Python\imap-gateway\source
+# ============================================================
+
+- name: Deploy IMAP Gateway source
+  block:
+
+    # ========================================================
+    # Validate Variables
+    # ========================================================
+
+    - name: Validate source deployment variables
+      assert:
+        that:
+          - gateway_home is defined
+          - gateway_source_dir is defined
+          - gateway_workspace_dir is defined
+          - gateway_requirements_file is defined
+          - gateway_home | trim | length > 0
+          - gateway_source_dir | trim | length > 0
+          - gateway_workspace_dir | trim | length > 0
+          - gateway_requirements_file | trim | length > 0
+        fail_msg: |
+          [Deploy Source]
+
+          Required source deployment variables are missing or empty.
+
+          Required variables:
+            gateway_home
+            gateway_source_dir
+            gateway_workspace_dir
+            gateway_requirements_file
+        success_msg: 'Source deployment variables=OK'
+
+    # ========================================================
+    # Display Effective Paths
+    # ========================================================
+
+    - name: Display effective source deployment paths
+      debug:
+        msg:
+          - 'gateway_home={{ gateway_home }}'
+          - 'gateway_workspace_dir={{ gateway_workspace_dir }}'
+          - 'gateway_source_dir={{ gateway_source_dir }}'
+          - 'gateway_requirements_file={{ gateway_requirements_file }}'
+
+    # ========================================================
+    # Validate Source Path Safety
+    #
+    # Validation is performed on the Windows target.
+    # No source files are copied when validation fails.
+    # ========================================================
+
+    - name: Check source deployment path safety
+      win_shell: |
+        $ErrorActionPreference = 'Stop'
+
+        $gatewayHome = [System.IO.Path]::GetFullPath(
+          $env:GATEWAY_HOME_PATH
+        ).TrimEnd([char]92)
+
+        $gatewaySource = [System.IO.Path]::GetFullPath(
+          $env:GATEWAY_SOURCE_PATH
+        ).TrimEnd([char]92)
+
+        $gatewayWorkspace = [System.IO.Path]::GetFullPath(
+          $env:GATEWAY_WORKSPACE_PATH
+        ).TrimEnd([char]92)
+
+        $expectedSource = Join-Path -Path $gatewayHome -ChildPath 'source'
+        $errors = @()
+
+        if ((Split-Path -Leaf $gatewayHome) -ine 'imap-gateway') {
+          $errors += 'gateway_home must end with imap-gateway'
+        }
+
+        if ($gatewaySource -ine $expectedSource) {
+          $errors += "Invalid gateway_source_dir=$gatewaySource"
+          $errors += "Expected gateway_source_dir=$expectedSource"
+        }
+
+        if ((Split-Path -Leaf $gatewayWorkspace) -ine 'imap-gateway') {
+          $errors += 'gateway_workspace_dir must end with imap-gateway'
+        }
+
+        if ($gatewaySource -ieq $gatewayWorkspace) {
+          $errors += 'gateway_source_dir must not equal gateway_workspace_dir'
+        }
+
+        if ($errors.Count -gt 0) {
+          $errors | ForEach-Object {
+            Write-Output $_
+          }
+
+          exit 1
+        }
+
+        Write-Output 'Source deployment path safety=OK'
+        exit 0
+      args:
+        executable: powershell.exe
+      environment:
+        GATEWAY_HOME_PATH: '{{ gateway_home }}'
+        GATEWAY_SOURCE_PATH: '{{ gateway_source_dir }}'
+        GATEWAY_WORKSPACE_PATH: '{{ gateway_workspace_dir }}'
+      register: source_path_safety_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate source deployment path safety
+      assert:
+        that:
+          - source_path_safety_result.rc | int == 0
+          - "'Source deployment path safety=OK' in source_path_safety_result.stdout"
+        fail_msg: |
+          [Deploy Source]
+
+          Invalid or unsafe source deployment paths were detected.
+
+          gateway_home:
+            {{ gateway_home }}
+
+          gateway_source_dir:
+            {{ gateway_source_dir }}
+
+          gateway_workspace_dir:
+            {{ gateway_workspace_dir }}
+
+          Validation output:
+            {{ source_path_safety_result.stdout | default('') | trim }}
+
+          Validation error:
+            {{ source_path_safety_result.stderr | default('') | trim }}
+
+          No source files were copied.
+        success_msg: 'Source deployment path safety=OK'
+
+    # ========================================================
+    # Validate Git Workspace
+    # ========================================================
+
+    - name: Check IMAP Gateway workspace
+      win_stat:
+        path: '{{ gateway_workspace_dir }}'
+        get_checksum: no
+      register: gateway_workspace_check
+
+    - name: Check IMAP Gateway Git metadata
+      win_stat:
+        path: '{{ gateway_workspace_dir }}\.git'
+        get_checksum: no
+      register: gateway_workspace_git_check
+
+    - name: Validate IMAP Gateway workspace
+      assert:
+        that:
+          - gateway_workspace_check.stat.exists | default(false)
+          - gateway_workspace_check.stat.isdir | default(false)
+          - gateway_workspace_git_check.stat.exists | default(false)
+          - gateway_workspace_git_check.stat.isdir | default(false)
+        fail_msg: |
+          [Deploy Source]
+
+          The freshly cloned IMAP Gateway workspace is missing
+          or is not a Git repository.
+
+          Workspace:
+            {{ gateway_workspace_dir }}
+
+          Run the git-clone tag before deploy-source.
+        success_msg: 'IMAP Gateway workspace=OK'
+
+    # ========================================================
+    # Validate Workspace Requirements File
+    #
+    # The repository must contain requirements.txt at its root.
+    # ========================================================
+
+    - name: Check workspace requirements file
+      win_stat:
+        path: '{{ gateway_workspace_dir }}\requirements.txt'
+        get_checksum: no
+      register: workspace_requirements_check
+
+    - name: Validate workspace requirements file
+      assert:
+        that:
+          - workspace_requirements_check.stat.exists | default(false)
+          - workspace_requirements_check.stat.isreg | default(false)
+          - workspace_requirements_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Deploy Source]
+
+          requirements.txt does not exist at the root of the
+          cloned IMAP Gateway repository.
+
+          Expected path:
+            {{ gateway_workspace_dir }}\requirements.txt
+
+          Verify the repository structure before deployment.
+        success_msg: 'Workspace requirements file=OK'
+
+    # ========================================================
+    # Create Deployment Source Directory
+    # ========================================================
+
+    - name: Create IMAP Gateway source directory
+      win_file:
+        path: '{{ gateway_source_dir }}'
+        state: directory
+      register: gateway_source_create_result
+
+    # ========================================================
+    # Copy Workspace to Deployment Source
+    #
+    # Excluded:
+    #   .git
+    #   __pycache__
+    #   *.pyc
+    #
+    # Robocopy return codes:
+    #   0-7 = success
+    #   8+  = failure
+    # ========================================================
+
+    - name: Copy IMAP Gateway workspace to deployment source
+      win_command: >-
+        robocopy
+        "{{ gateway_workspace_dir }}"
+        "{{ gateway_source_dir }}"
+        /E
+        /COPY:DAT
+        /DCOPY:T
+        /R:2
+        /W:2
+        /XD
+        ".git"
+        "__pycache__"
+        /XF
+        "*.pyc"
+        /NFL
+        /NDL
+        /NJH
+        /NJS
+        /NP
+      register: gateway_source_copy_result
+      changed_when: gateway_source_copy_result.rc | int > 0
+      failed_when: gateway_source_copy_result.rc | int >= 8
+
+    # ========================================================
+    # Validate Deployment Source
+    # ========================================================
+
+    - name: Check deployed IMAP Gateway source
+      win_stat:
+        path: '{{ gateway_source_dir }}'
+        get_checksum: no
+      register: gateway_source_check
+
+    - name: Check deployed requirements file
+      win_stat:
+        path: '{{ gateway_requirements_file }}'
+        get_checksum: no
+      register: gateway_requirements_check
+
+    - name: Check deployed Git metadata exclusion
+      win_stat:
+        path: '{{ gateway_source_dir }}\.git'
+        get_checksum: no
+      register: deployed_git_metadata_check
+
+    - name: Validate deployed IMAP Gateway source
+      assert:
+        that:
+          - gateway_source_check.stat.exists | default(false)
+          - gateway_source_check.stat.isdir | default(false)
+          - gateway_requirements_check.stat.exists | default(false)
+          - gateway_requirements_check.stat.isreg | default(false)
+          - gateway_requirements_check.stat.size | default(0) | int > 0
+          - not (deployed_git_metadata_check.stat.exists | default(false))
+        fail_msg: |
+          [Deploy Source]
+
+          IMAP Gateway source deployment validation failed.
+
+          Deployment source:
+            {{ gateway_source_dir }}
+
+          Requirements file:
+            {{ gateway_requirements_file }}
+
+          Git metadata path:
+            {{ gateway_source_dir }}\.git
+        success_msg: 'Deployed IMAP Gateway source=OK'
+
+    # ========================================================
+    # Summary
+    # ========================================================
+
+    - name: Display source deployment summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'IMAP Gateway Source Deployment=OK'
+          - 'Workspace={{ gateway_workspace_dir }}'
+          - 'Deployment source={{ gateway_source_dir }}'
+          - 'Requirements={{ gateway_requirements_file }}'
+          - 'Git metadata=EXCLUDED'
+          - 'Robocopy return code={{ gateway_source_copy_result.rc }}'
+          - 'Virtual environment=NOT CREATED'
+          - 'Python packages=NOT INSTALLED'
+          - '============================================================'
+
+  tags:
+    - deploy-source
