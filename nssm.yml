@@ -1,1 +1,209 @@
- 
+---
+# ============================================================
+# NSSM Validation
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Validate the existing NSSM executable.
+#   - Do not copy or install NSSM.
+#   - Do not create, update, start, or stop a service.
+#
+# Expected path:
+#   E:\Tools\nssm\nssm.exe
+#
+# Idempotency:
+#   - A successful execution must finish with changed=0.
+# ============================================================
+
+- name: Validate NSSM runtime
+  block:
+    # ========================================================
+    # Validate NSSM Variables
+    # ========================================================
+
+    - name: Validate NSSM variables
+      assert:
+        that:
+          - nssm_install_dir | default('') | trim | length > 0
+          - nssm_executable | default('') | trim | length > 0
+        fail_msg: |
+          [NSSM]
+
+          NSSM variables are not defined correctly.
+
+          Required variables:
+            nssm_install_dir
+            nssm_executable
+        success_msg: 'NSSM variables=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate NSSM Directory
+    # ========================================================
+
+    - name: Check NSSM installation directory
+      win_stat:
+        path: '{{ nssm_install_dir }}'
+        get_checksum: no
+      register: nssm_directory_check
+
+    - name: Validate NSSM installation directory
+      assert:
+        that:
+          - nssm_directory_check.stat.exists | default(false)
+          - nssm_directory_check.stat.isdir | default(false)
+        fail_msg: |
+          [NSSM]
+
+          NSSM installation directory does not exist or is not
+          a directory.
+
+          Path:
+            {{ nssm_install_dir }}
+        success_msg: 'NSSM directory=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate NSSM Executable
+    # ========================================================
+
+    - name: Check NSSM executable file
+      win_stat:
+        path: '{{ nssm_executable }}'
+        get_checksum: no
+      register: nssm_executable_check
+
+    - name: Validate NSSM executable file
+      assert:
+        that:
+          - nssm_executable_check.stat.exists | default(false)
+          - nssm_executable_check.stat.isreg | default(false)
+          - nssm_executable_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [NSSM]
+
+          NSSM executable does not exist, is not a file,
+          or is empty.
+
+          Path:
+            {{ nssm_executable }}
+        success_msg: 'NSSM executable file=OK'
+        quiet: yes
+
+    # ========================================================
+    # Read NSSM File Information
+    # ========================================================
+
+    - name: Read NSSM file version
+      win_shell: |
+        $nssmFile = Get-Item -LiteralPath '{{ nssm_executable }}'
+        $fileVersion = $nssmFile.VersionInfo.FileVersion
+
+        if ([string]::IsNullOrWhiteSpace($fileVersion)) {
+          Write-Output 'Unknown'
+        }
+        else {
+          Write-Output $fileVersion
+        }
+      args:
+        executable: powershell.exe
+      register: nssm_version_result
+      changed_when: false
+      failed_when: false
+
+    # ========================================================
+    # Validate NSSM Execution
+    #
+    # Running NSSM without service arguments prints its usage
+    # information and may return a non-zero exit code.
+    #
+    # Therefore:
+    #   - failed_when is disabled for the command.
+    #   - Output is validated separately.
+    # ========================================================
+
+    - name: Execute NSSM validation command
+      win_command: '"{{ nssm_executable }}"'
+      register: nssm_execution_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate NSSM execution result
+      assert:
+        that:
+          - nssm_execution_output | length > 0
+          - "'nssm' in (nssm_execution_output | lower)"
+        fail_msg: |
+          [NSSM]
+
+          NSSM executable could not be executed correctly.
+
+          Path:
+            {{ nssm_executable }}
+
+          Return code:
+            {{ nssm_execution_result.rc | default('unknown') }}
+
+          Command output:
+            {{ nssm_execution_output | default('No output') }}
+        success_msg: 'NSSM execution=OK'
+        quiet: yes
+      vars:
+        nssm_execution_output: >-
+          {{
+            (
+              (nssm_execution_result.stdout | default(''))
+              ~ ' '
+              ~
+              (nssm_execution_result.stderr | default(''))
+            ) | trim
+          }}
+
+    # ========================================================
+    # Validate NSSM File Version Result
+    # ========================================================
+
+    - name: Validate NSSM file version result
+      assert:
+        that:
+          - nssm_version_result.rc | default(1) == 0
+          - nssm_version_result.stdout | default('') | trim | length > 0
+        fail_msg: |
+          [NSSM]
+
+          NSSM file information could not be read.
+
+          Path:
+            {{ nssm_executable }}
+
+          Command output:
+            {{
+              (
+                (nssm_version_result.stdout | default(''))
+                ~
+                (nssm_version_result.stderr | default(''))
+              ) | trim
+            }}
+        success_msg: 'NSSM file information=OK'
+        quiet: yes
+
+    # ========================================================
+    # NSSM Summary
+    # ========================================================
+
+    - name: Display NSSM validation summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'NSSM Validation=OK'
+          - 'NSSM directory={{ nssm_install_dir }}'
+          - 'NSSM executable={{ nssm_executable }}'
+          - 'NSSM file size={{ nssm_executable_check.stat.size }} bytes'
+          - 'NSSM version={{ nssm_version_result.stdout | trim }}'
+          - 'NSSM executable response=OK'
+          - 'Service installation=NOT PERFORMED'
+          - 'Service configuration=NOT PERFORMED'
+          - '============================================================'
+
+  tags:
+    - nssm
