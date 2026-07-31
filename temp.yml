@@ -1,23 +1,5 @@
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
+Get-Content 'E:\Deploy\Python\imap-gateway\source\Run.bat'
 
-$Command = @'
-set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
-set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
-where python
-python -c "import sys; print('python=' + sys.executable); import imap_shared; print('shared=' + str(imap_shared.__file__)); import imap_shared.config as c; print('config=' + str(c.__file__))"
-'@
-
-& 'C:\Windows\System32\cmd.exe' /d /c $Command
-
-
-$Command = @'
-set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
-set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
-cd /d "E:\Deploy\Python\imap-gateway\source"
-where python
-python -c "import sys; print(sys.executable); import imap_shared.config as c; print(c.__file__)"
-call "E:\Deploy\Python\imap-gateway\source\Run.bat"
-'@
-
-& 'C:\Windows\System32\cmd.exe' /d /c $Command
+Select-String `
+  -Path 'E:\Deploy\Python\imap-gateway\source\Run.bat' `
+  -Pattern 'python|activate|PYTHONPATH|PATH=|set |cd |pushd|-E|-I'
