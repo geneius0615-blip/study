@@ -14,3 +14,12 @@ $GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
 $env:PYTHONPATH = "$GatewaySource\src"
 
 & $GatewayPython -c "import imap_shared; print('file=' + str(imap_shared.__file__)); print('path=' + str(list(imap_shared.__path__)))"
+
+
+
+Get-ChildItem `
+    -Path "$GatewaySource\src" `
+    -Directory `
+    -Recurse |
+Where-Object Name -eq 'imap_shared' |
+Select-Object FullName
