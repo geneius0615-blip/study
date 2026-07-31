@@ -1,83 +1,11 @@
-$LinkPath = 'E:\Deploy\Python\imap-gateway\source\src\imap-gateway\satic\imap-client\dist'
-$TargetPath = 'E:\Deploy\Vue\imap-client\dist'
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
 
-Test-Path -LiteralPath $TargetPath
+Get-ChildItem -LiteralPath "$GatewaySource\src" -Directory |
+Select-Object Name, FullName
 
-
-
-
-Test-Path -LiteralPath "$TargetPath\index.html"
-
-Get-ChildItem -LiteralPath $TargetPath |
-Select-Object -First 10 Name, Length
-
-
-
-Get-Item -LiteralPath $LinkPath -Force -ErrorAction SilentlyContinue |
-Format-List FullName, Attributes, LinkType, Target
-
-
-
-
-if (Test-Path -LiteralPath $LinkPath) {
-    $item = Get-Item -LiteralPath $LinkPath -Force
-
-    $isReparsePoint = (
-        $item.Attributes -band [System.IO.FileAttributes]::ReparsePoint
-    ) -ne 0
-
-    if (-not $isReparsePoint) {
-        $backupPath = "$LinkPath.backup-$(Get-Date -Format 'yyyyMMddHHmmss')"
-
-        Move-Item `
-            -LiteralPath $LinkPath `
-            -Destination $backupPath
-
-        Write-Host "기존 디렉터리 백업: $backupPath"
-    }
-}
-
-
-
-if (Test-Path -LiteralPath $LinkPath) {
-    $item = Get-Item -LiteralPath $LinkPath -Force
-
-    $isReparsePoint = (
-        $item.Attributes -band [System.IO.FileAttributes]::ReparsePoint
-    ) -ne 0
-
-    if ($isReparsePoint) {
-        & $env:ComSpec /d /c "rmdir `"$LinkPath`""
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "기존 정션 제거 실패: $LinkPath"
-        }
-    }
-}
-
-
-
-$LinkParent = Split-Path -Parent $LinkPath
-
-New-Item `
-    -ItemType Directory `
-    -Path $LinkParent `
-    -Force |
-Out-Null
-
-New-Item `
-    -ItemType Junction `
-    -Path $LinkPath `
-    -Target $TargetPath |
-Out-Null
-
-
-
-Get-Item -LiteralPath $LinkPath -Force |
-Format-List FullName, Attributes, LinkType, Target
-
-
-
-Set-Location 'E:\Deploy\Python\imap-gateway\source'
-
-& 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe' '.\run.py'
+Get-ChildItem `
+    -LiteralPath "$GatewaySource\src" `
+    -Recurse `
+    -File `
+    -Filter 'main.py' |
+Select-Object FullName
