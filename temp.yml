@@ -1,121 +1,3 @@
-$ServiceName = 'GatewayService'
-
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-
-if ($null -ne $service -and $service.Status -ne 'Stopped') {
-    Stop-Service -Name $ServiceName -Force
-}
-
-Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-
-
-
-
-Get-NetTCPConnection `
-    -LocalPort 8000 `
-    -State Listen `
-    -ErrorAction SilentlyContinue
-
-
-
-
-
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
-$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
-
-Test-Path $GatewayHome
-Test-Path $GatewaySource
-Test-Path $GatewayPython
-Test-Path "$GatewaySource\requirements.txt"
-
-
-
-
-
-
-& $GatewayPython --version
-& $GatewayPython -m pip --version
-& $GatewayPython -m pip check
-
-
-
-
-
-& $GatewayPython -c "import uvicorn; print('uvicorn=' + uvicorn.__version__)"
-& $GatewayPython -c "import torch; print('torch=' + torch.__version__)"
-
-
-
-
-$AsgiApp = 'app.main:app'
-
-
-
-$AsgiModule = $AsgiApp.Split(':')[0]
-$AsgiObject = $AsgiApp.Split(':')[1]
-
-Set-Location $GatewaySource
-
-& $GatewayPython -c "import importlib; m=importlib.import_module('$AsgiModule'); print(getattr(m, '$AsgiObject'))"
-
-
-
-
-Set-Location $GatewaySource
-
-& $GatewayPython `
-    -m uvicorn `
-    $AsgiApp `
-    --host 127.0.0.1 `
-    --port 8000
-
-
-
-curl.exe -i http://127.0.0.1:8000/health
-
-
-
-
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-
-Set-Location $GatewaySource
-
-Get-ChildItem -Path . -Recurse -File -Filter '*.py' |
-Select-String -Pattern 'FastAPI\s*\(' |
-Select-Object Path, LineNumber, Line
-
-
-
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-
-Get-ChildItem -Path $GatewaySource -Recurse -File -Filter '*.py' |
-Select-String -Pattern '^\s*(app|application|api)\s*=\s*FastAPI\s*\(' |
-Select-Object Path, LineNumber, Line
-
-
-
-
-
-Get-ChildItem -Path $GatewaySource -Recurse -File -Filter '*.py' |
-Select-String -Pattern 'FastAPI\s*\(' |
-Select-Object Path, LineNumber, Line
-
-
-
-File   : api\main.py
-Module : api.main
-Object : app
-AppDir : E:\Deploy\Python\imap-gateway\source
-ASGI   : api.main:app
-
-File   : tests\test_app.py
-Module : tests.test_app
-Object : app
-AppDir : E:\Deploy\Python\imap-gateway\source
-ASGI   : tests.test_app:app
-
-
 $GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
 
 $fastApiHits = Get-ChildItem `
@@ -125,12 +7,15 @@ $fastApiHits = Get-ChildItem `
     -Filter '*.py' |
 Select-String -Pattern '^\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*FastAPI\s*\('
 
-foreach ($hit in $fastApiHits) {
+$results = foreach ($hit in $fastApiHits) {
     $relativePath = $hit.Path.Substring(
         $GatewaySource.Length
     ).TrimStart('\')
 
-    if ($hit.Line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*FastAPI\s*\(') {
+    if (
+        $hit.Line -match
+        '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*FastAPI\s*\('
+    ) {
         $objectName = $Matches[1]
     }
     else {
@@ -152,10 +37,12 @@ foreach ($hit in $fastApiHits) {
     ).Replace('\', '.')
 
     [PSCustomObject]@{
-        File       = $relativePath
-        Module     = $moduleName
-        Object     = $objectName
-        AppDir     = $appDir
-        ASGI       = "${moduleName}:${objectName}"
+        File   = $relativePath
+        Module = $moduleName
+        Object = $objectName
+        AppDir = $appDir
+        ASGI   = "${moduleName}:${objectName}"
     }
-} | Format-List
+}
+
+$results | Format-List
