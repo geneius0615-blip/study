@@ -1,28 +1,23 @@
-Get-Content `
-    'E:\Deploy\Python\imap-gateway\logs\imap-gateway.stderr.log' `
-    -Tail 100
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
 
-Get-Content `
-    'E:\Deploy\Python\imap-gateway\logs\imap-gateway.stdout.log' `
-    -Tail 100
+$Command = @'
+set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
+set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
+where python
+python -c "import sys; print('python=' + sys.executable); import imap_shared; print('shared=' + str(imap_shared.__file__)); import imap_shared.config as c; print('config=' + str(c.__file__))"
+'@
 
-
-
-$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-
-$env:PYTHONPATH = "$GatewaySource\src"
-
-& $GatewayPython -c "import imap_shared; print('file=' + str(imap_shared.__file__)); print('path=' + str(list(imap_shared.__path__)))"
+& 'C:\Windows\System32\cmd.exe' /d /c $Command
 
 
+$Command = @'
+set "PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src"
+set "PATH=E:\Deploy\Python\imap-gateway\.venv\Scripts;%PATH%"
+cd /d "E:\Deploy\Python\imap-gateway\source"
+where python
+python -c "import sys; print(sys.executable); import imap_shared.config as c; print(c.__file__)"
+call "E:\Deploy\Python\imap-gateway\source\Run.bat"
+'@
 
-Get-ChildItem `
-    -Path "$GatewaySource\src" `
-    -Directory `
-    -Recurse |
-Where-Object Name -eq 'imap_shared' |
-Select-Object FullName
-
-
-& $GatewayPython -c "import imap_shared; print('shared_file=' + str(imap_shared.__file__)); print('shared_path=' + str(list(imap_shared.__path__))); import imap_shared.config as c; print('config=' + str(c.__file__))"
+& 'C:\Windows\System32\cmd.exe' /d /c $Command
