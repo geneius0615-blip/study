@@ -1,17 +1,20 @@
+$Nssm = 'E:\Tools\nssm\nssm.exe'
+$ServiceName = 'GatewayService'
+
 $GatewayHome = 'E:\Deploy\Python\imap-gateway'
 $GatewaySource = "$GatewayHome\source"
-$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
+$GatewaySrc = "$GatewaySource\src"
 $GatewayRunBat = "$GatewaySource\Run.bat"
+$VenvScripts = "$GatewayHome\.venv\Scripts"
 
-Stop-Service -Name 'GatewayService' -Force -ErrorAction SilentlyContinue
+$MachinePath = [Environment]::GetEnvironmentVariable(
+    'Path',
+    'Machine'
+)
 
-$env:PYTHONPATH = "$GatewaySource\src"
-$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
+$ServicePath = "$VenvScripts;$MachinePath"
 
-Set-Location $GatewaySource
-
-Write-Host "PYTHONPATH=$env:PYTHONPATH"
-where.exe python
-python -c "import sys; print(sys.executable); import imap_gateway.config as config; print(config.__file__)"
-
-& $env:ComSpec /d /c "call `"$GatewayRunBat`""
+Stop-Service `
+    -Name $ServiceName `
+    -Force `
+    -ErrorAction SilentlyContinue
