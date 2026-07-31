@@ -1,1 +1,539 @@
- 
+---
+# ============================================================
+# Gateway Git Clone
+# Ansible 2.9 / Windows Server
+#
+# Purpose:
+#   - Validate access to the Gateway Git repository.
+#   - Remove the existing Gateway workspace.
+#   - Perform a fresh clone into gateway_workspace_dir.
+#   - Verify the cloned repository and checked-out branch.
+#
+# Policy:
+#   - Always perform a fresh clone.
+#   - Never reuse an existing workspace.
+#   - Verify remote access before deleting the existing workspace.
+#   - Do not modify gateway_source_dir in this stage.
+#
+# Expected target:
+#   E:\digital-twin-studio\imap\workplaces\gateway
+#
+# Change behavior:
+#   - First execution:
+#       Clone task reports changed.
+#   - Subsequent executions:
+#       Workspace removal and Clone report changed.
+# ============================================================
+
+- name: Clone gateway repository
+  block:
+    # ========================================================
+    # Validate Git Clone Variables
+    # ========================================================
+
+    - name: Validate Git Clone variables
+      assert:
+        that:
+          - git_executable | default('') | trim | length > 0
+          - install_user_profile | default('') | trim | length > 0
+          - gateway_repo_url | default('') | trim | length > 0
+          - gateway_repo_branch | default('') | trim | length > 0
+          - gateway_workspace_dir | default('') | trim | length > 0
+        fail_msg: |
+          [Git Clone]
+
+          Git Clone variables are not defined correctly.
+
+          Required variables:
+            git_executable
+            install_user_profile
+            gateway_repo_url
+            gateway_repo_branch
+            gateway_workspace_dir
+        success_msg: 'Git Clone variables=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Installation User Profile
+    # ========================================================
+
+    - name: Check installation user profile
+      win_stat:
+        path: '{{ install_user_profile }}'
+        get_checksum: no
+      register: install_user_profile_check
+
+    - name: Validate installation user profile
+      assert:
+        that:
+          - install_user_profile_check.stat.exists | default(false)
+          - install_user_profile_check.stat.isdir | default(false)
+        fail_msg: |
+          [Git Clone]
+
+          Installation user profile does not exist or is not
+          a directory.
+
+          Path:
+            {{ install_user_profile }}
+        success_msg: 'Installation user profile=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Git Authentication File
+    #
+    # Private HTTPS repository authentication uses:
+    #   C:\Users\appuser\_netrc
+    #
+    # This stage validates only that the file exists.
+    # Credentials are never displayed.
+    # ========================================================
+
+    - name: Check Git authentication file
+      win_stat:
+        path: '{{ install_user_profile }}\_netrc'
+        get_checksum: no
+      register: git_authentication_file_check
+
+    - name: Validate Git authentication file
+      assert:
+        that:
+          - git_authentication_file_check.stat.exists | default(false)
+          - git_authentication_file_check.stat.isreg | default(false)
+          - git_authentication_file_check.stat.size | default(0) | int > 0
+        fail_msg: |
+          [Git Clone]
+
+          Git authentication file does not exist, is not a file,
+          or is empty.
+
+          Expected path:
+            {{ install_user_profile }}\_netrc
+        success_msg: 'Git authentication file=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Workspace Parent Directory
+    #
+    # bootstrap.yml creates only the parent directory:
+    #   E:\digital-twin-studio\imap\workplaces
+    #
+    # The gateway directory itself is created by git clone.
+    # ========================================================
+
+    - name: Check gateway workspace parent directory
+      win_stat:
+        path: '{{ gateway_workspace_dir | win_dirname }}'
+        get_checksum: no
+      register: gateway_workspace_parent_check
+
+    - name: Validate gateway workspace parent directory
+      assert:
+        that:
+          - gateway_workspace_parent_check.stat.exists | default(false)
+          - gateway_workspace_parent_check.stat.isdir | default(false)
+        fail_msg: |
+          [Git Clone]
+
+          Gateway workspace parent directory does not exist.
+
+          Expected path:
+            {{ gateway_workspace_dir | win_dirname }}
+
+          Run the bootstrap tag before git-clone.
+        success_msg: 'Gateway workspace parent=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Git Runtime
+    # ========================================================
+
+    - name: Check Git runtime
+      win_command: '{{ git_executable }} --version'
+      register: git_runtime_result
+      changed_when: false
+      failed_when: false
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+
+    - name: Validate Git runtime
+      assert:
+        that:
+          - git_runtime_result.rc | default(1) == 0
+          - >-
+            'git version' in
+            (
+              (
+                git_runtime_result.stdout | default('')
+              )
+              ~
+              (
+                git_runtime_result.stderr | default('')
+              )
+            ) | lower
+        fail_msg: |
+          [Git Clone]
+
+          Git could not be executed.
+
+          Executable:
+            {{ git_executable }}
+
+          Return code:
+            {{ git_runtime_result.rc | default('unknown') }}
+
+          Standard output:
+            {{ git_runtime_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ git_runtime_result.stderr | default('') | trim }}
+        success_msg: 'Git runtime=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Remote Repository and Branch
+    #
+    # Remote access is checked before deleting the current
+    # workspace. This prevents deletion when authentication,
+    # network access, repository URL, or branch is invalid.
+    # ========================================================
+
+    - name: Check Gateway repository access
+      win_command: >-
+        {{ git_executable }}
+        ls-remote
+        --exit-code
+        --heads
+        "{{ gateway_repo_url }}"
+        "refs/heads/{{ gateway_repo_branch }}"
+      register: gateway_repository_access_result
+      changed_when: false
+      failed_when: false
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+
+    - name: Validate Gateway repository access
+      assert:
+        that:
+          - gateway_repository_access_result.rc | default(1) == 0
+          - >-
+            gateway_repository_access_result.stdout
+            | default('')
+            | trim
+            | length > 0
+          - >-
+            ('refs/heads/' ~ gateway_repo_branch)
+            in
+            (
+              gateway_repository_access_result.stdout
+              | default('')
+            )
+        fail_msg: |
+          [Git Clone]
+
+          Gateway repository or branch could not be accessed.
+
+          Repository:
+            {{ gateway_repo_url }}
+
+          Branch:
+            {{ gateway_repo_branch }}
+
+          Return code:
+            {{ gateway_repository_access_result.rc | default('unknown') }}
+
+          Standard output:
+            {{ gateway_repository_access_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ gateway_repository_access_result.stderr | default('') | trim }}
+
+          Verify:
+            Repository URL
+            Repository branch
+            Network access
+            {{ install_user_profile }}\_netrc
+        success_msg: 'Gateway repository access=OK'
+        quiet: yes
+
+    # ========================================================
+    # Check Existing Gateway Workspace
+    # ========================================================
+
+    - name: Check existing gateway workspace
+      win_stat:
+        path: '{{ gateway_workspace_dir }}'
+        get_checksum: no
+      register: gateway_workspace_before_check
+
+    - name: Display existing gateway workspace status
+      debug:
+        msg:
+          - >-
+            Gateway workspace before clone={{
+              'EXISTS'
+              if
+              (
+                gateway_workspace_before_check.stat.exists
+                | default(false)
+              )
+              else
+              'ABSENT'
+            }}
+          - 'Gateway workspace={{ gateway_workspace_dir }}'
+
+    # ========================================================
+    # Remove Existing Gateway Workspace
+    #
+    # Fresh-clone policy:
+    #   Existing workspace is always removed.
+    #
+    # The workspace is not used as a backup location.
+    # Backup files belong under gateway_backup_dir.
+    # ========================================================
+
+    - name: Remove existing gateway workspace
+      win_file:
+        path: '{{ gateway_workspace_dir }}'
+        state: absent
+      register: gateway_workspace_remove_result
+
+    # ========================================================
+    # Verify Workspace Removal
+    # ========================================================
+
+    - name: Check gateway workspace removal
+      win_stat:
+        path: '{{ gateway_workspace_dir }}'
+        get_checksum: no
+      register: gateway_workspace_removed_check
+
+    - name: Validate gateway workspace removal
+      assert:
+        that:
+          - not (gateway_workspace_removed_check.stat.exists | default(false))
+        fail_msg: |
+          [Git Clone]
+
+          Existing Gateway workspace could not be removed.
+
+          Path:
+            {{ gateway_workspace_dir }}
+
+          Verify that no process is using a file under the
+          workspace directory.
+        success_msg: 'Gateway workspace removal=OK'
+        quiet: yes
+
+    # ========================================================
+    # Clone Gateway Repository
+    # ========================================================
+
+    - name: Clone Gateway repository
+      win_command: >-
+        {{ git_executable }}
+        clone
+        --branch "{{ gateway_repo_branch }}"
+        --single-branch
+        "{{ gateway_repo_url }}"
+        "{{ gateway_workspace_dir }}"
+      register: gateway_repository_clone_result
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+
+    # ========================================================
+    # Validate Clone Command
+    # ========================================================
+
+    - name: Validate Gateway repository clone command
+      assert:
+        that:
+          - gateway_repository_clone_result.rc | default(1) == 0
+        fail_msg: |
+          [Git Clone]
+
+          Gateway repository clone failed.
+
+          Repository:
+            {{ gateway_repo_url }}
+
+          Branch:
+            {{ gateway_repo_branch }}
+
+          Target:
+            {{ gateway_workspace_dir }}
+
+          Return code:
+            {{ gateway_repository_clone_result.rc | default('unknown') }}
+
+          Standard output:
+            {{ gateway_repository_clone_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ gateway_repository_clone_result.stderr | default('') | trim }}
+        success_msg: 'Gateway repository clone command=OK'
+        quiet: yes
+
+    # ========================================================
+    # Validate Cloned Workspace
+    # ========================================================
+
+    - name: Check cloned gateway workspace
+      win_stat:
+        path: '{{ gateway_workspace_dir }}'
+        get_checksum: no
+      register: gateway_workspace_after_check
+
+    - name: Check cloned Gateway Git directory
+      win_stat:
+        path: '{{ gateway_workspace_dir }}\.git'
+        get_checksum: no
+      register: gateway_git_directory_check
+
+    - name: Validate cloned Gateway workspace
+      assert:
+        that:
+          - gateway_workspace_after_check.stat.exists | default(false)
+          - gateway_workspace_after_check.stat.isdir | default(false)
+          - gateway_git_directory_check.stat.exists | default(false)
+          - gateway_git_directory_check.stat.isdir | default(false)
+        fail_msg: |
+          [Git Clone]
+
+          Gateway repository directory was not created correctly.
+
+          Workspace:
+            {{ gateway_workspace_dir }}
+
+          Expected Git directory:
+            {{ gateway_workspace_dir }}\.git
+        success_msg: 'Cloned Gateway workspace=OK'
+        quiet: yes
+
+    # ========================================================
+    # Read Checked-Out Branch
+    # ========================================================
+
+    - name: Read checked-out Gateway branch
+      win_command: >-
+        {{ git_executable }}
+        -C
+        "{{ gateway_workspace_dir }}"
+        rev-parse
+        --abbrev-ref
+        HEAD
+      register: gateway_checked_out_branch_result
+      changed_when: false
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+
+    - name: Validate checked-out Gateway branch
+      assert:
+        that:
+          - gateway_checked_out_branch_result.rc | default(1) == 0
+          - >-
+            gateway_checked_out_branch_result.stdout
+            | default('')
+            | trim
+            ==
+            gateway_repo_branch
+        fail_msg: |
+          [Git Clone]
+
+          The checked-out Gateway branch is incorrect.
+
+          Required branch:
+            {{ gateway_repo_branch }}
+
+          Actual branch:
+            {{
+              gateway_checked_out_branch_result.stdout
+              | default('')
+              | trim
+            }}
+        success_msg: 'Checked-out Gateway branch=OK'
+        quiet: yes
+
+    # ========================================================
+    # Read Gateway Commit
+    # ========================================================
+
+    - name: Read Gateway repository commit
+      win_command: >-
+        {{ git_executable }}
+        -C
+        "{{ gateway_workspace_dir }}"
+        rev-parse
+        HEAD
+      register: gateway_commit_result
+      changed_when: false
+      environment:
+        HOME: '{{ install_user_profile }}'
+        USERPROFILE: '{{ install_user_profile }}'
+        GIT_TERMINAL_PROMPT: '0'
+
+    - name: Validate Gateway repository commit
+      assert:
+        that:
+          - gateway_commit_result.rc | default(1) == 0
+          - >-
+            gateway_commit_result.stdout
+            | default('')
+            | trim
+            | length == 40
+        fail_msg: |
+          [Git Clone]
+
+          Gateway repository commit could not be determined.
+
+          Workspace:
+            {{ gateway_workspace_dir }}
+
+          Standard output:
+            {{ gateway_commit_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ gateway_commit_result.stderr | default('') | trim }}
+        success_msg: 'Gateway repository commit=OK'
+        quiet: yes
+
+    # ========================================================
+    # Git Clone Summary
+    # ========================================================
+
+    - name: Display Git Clone summary
+      debug:
+        msg:
+          - '============================================================'
+          - 'Gateway Git Clone=OK'
+          - 'Repository={{ gateway_repo_url }}'
+          - 'Branch={{ gateway_checked_out_branch_result.stdout | trim }}'
+          - 'Commit={{ gateway_commit_result.stdout | trim }}'
+          - 'Workspace={{ gateway_workspace_dir }}'
+          - >-
+            Previous workspace={{
+              'REMOVED'
+              if
+              (
+                gateway_workspace_before_check.stat.exists
+                | default(false)
+              )
+              else
+              'NOT PRESENT'
+            }}
+          - 'Clone policy=FRESH CLONE'
+          - 'Gateway source directory=NOT MODIFIED'
+          - 'Virtual environment=NOT MODIFIED'
+          - 'Windows service=NOT MODIFIED'
+          - '============================================================'
+
+  tags:
+    - git-clone
