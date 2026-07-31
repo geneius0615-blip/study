@@ -43,3 +43,9 @@ $GatewaySrc = "$GatewaySource\src"
 
 & $GatewayPython -c "import sys; sys.path.insert(0, r'$GatewaySrc'); import imap_gateway; print('python=' + sys.executable); print('module=' + str(imap_gateway.__file__))"
 
+
+
+
+Test-Path "$GatewaySource\src\imap_gateway\config.py"
+Test-Path "$GatewaySource\src\imap_gateway\__init__.py"
+
