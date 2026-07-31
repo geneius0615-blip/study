@@ -58,3 +58,11 @@ Get-Service -Name $ServiceName
 
 
 
+Get-ChildItem `
+    -Path . `
+    -Recurse `
+    -File |
+Select-String -Pattern `
+'replace_with_asgi_module|REPLACE_WITH_ASGI_MODULE'
+
+
