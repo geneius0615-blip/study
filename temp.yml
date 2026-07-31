@@ -17,3 +17,12 @@ Get-NetTCPConnection `
     -LocalPort 8000 `
     -State Listen `
     -ErrorAction SilentlyContinue
+
+
+
+Stop-Service `
+    -Name 'GatewayService' `
+    -Force `
+    -ErrorAction SilentlyContinue
+
+Start-Sleep -Seconds 3
