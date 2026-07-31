@@ -60,3 +60,11 @@ Stop-Service `
     AppEnvironmentExtra `
     PATH
 
+
+
+Start-Service -Name $ServiceName
+
+Start-Sleep -Seconds 5
+
+Get-Service -Name $ServiceName
+
