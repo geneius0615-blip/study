@@ -1,16 +1,17 @@
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
+$GatewayRunBat = "$GatewaySource\Run.bat"
 
-Select-String `
-    -Path "$GatewaySource\run.py" `
-    -Pattern 'project_root|PROJECT_ROOT|find.*root' `
-    -Context 5,5
+Stop-Service -Name 'GatewayService' -Force -ErrorAction SilentlyContinue
 
+$env:PYTHONPATH = "$GatewaySource\src"
+$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
 
+Set-Location $GatewaySource
 
+Write-Host "PYTHONPATH=$env:PYTHONPATH"
+where.exe python
+python -c "import sys; print(sys.executable); import imap_gateway.config as config; print(config.__file__)"
 
-Select-String `
-    -Path `
-        "$GatewaySource\src\imap_gateway\config.py", `
-        "$GatewaySource\Run.bat" `
-    -Pattern 'project_root|PROJECT_ROOT|PROJECT_HOME|IMAP_HOME|WORKSPACE' `
-    -Context 5,5
+& $env:ComSpec /d /c "call `"$GatewayRunBat`""
