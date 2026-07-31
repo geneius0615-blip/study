@@ -3,3 +3,17 @@ Get-Content 'E:\Deploy\Python\imap-gateway\source\Run.bat'
 Select-String `
   -Path 'E:\Deploy\Python\imap-gateway\source\Run.bat' `
   -Pattern 'python|activate|PYTHONPATH|PATH=|set |cd |pushd|-E|-I'
+
+
+
+
+
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+
+$env:PYTHONPATH = "$GatewaySource\src"
+$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
+
+Set-Location $GatewaySource
+
+python -c "import sys, site; print('executable=' + sys.executable); print('site-packages=' + site.getsitepackages()[0]); import imap_shared.config as c; print('config=' + c.__file__)"
