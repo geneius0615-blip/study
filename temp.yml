@@ -9,3 +9,16 @@ Get-ChildItem `
     -File `
     -Filter 'main.py' |
 Select-Object FullName
+
+
+$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+
+Set-Location $GatewaySource
+
+& $GatewayPython `
+    -m uvicorn `
+    'imap_gateway.main:app' `
+    --app-dir "$GatewaySource\src" `
+    --host 127.0.0.1 `
+    --port 8000
