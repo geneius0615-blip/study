@@ -100,3 +100,17 @@ Select-Object Path, LineNumber, Line
 Get-ChildItem -Path $GatewaySource -Recurse -File -Filter '*.py' |
 Select-String -Pattern 'FastAPI\s*\(' |
 Select-Object Path, LineNumber, Line
+
+
+
+File   : api\main.py
+Module : api.main
+Object : app
+AppDir : E:\Deploy\Python\imap-gateway\source
+ASGI   : api.main:app
+
+File   : tests\test_app.py
+Module : tests.test_app
+Object : app
+AppDir : E:\Deploy\Python\imap-gateway\source
+ASGI   : tests.test_app:app
