@@ -84,3 +84,19 @@ Set-Location $GatewaySource
 Get-ChildItem -Path . -Recurse -File -Filter '*.py' |
 Select-String -Pattern 'FastAPI\s*\(' |
 Select-Object Path, LineNumber, Line
+
+
+
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+
+Get-ChildItem -Path $GatewaySource -Recurse -File -Filter '*.py' |
+Select-String -Pattern '^\s*(app|application|api)\s*=\s*FastAPI\s*\(' |
+Select-Object Path, LineNumber, Line
+
+
+
+
+
+Get-ChildItem -Path $GatewaySource -Recurse -File -Filter '*.py' |
+Select-String -Pattern 'FastAPI\s*\(' |
+Select-Object Path, LineNumber, Line
