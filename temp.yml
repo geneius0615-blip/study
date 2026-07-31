@@ -66,3 +66,11 @@ Select-String -Pattern `
 'replace_with_asgi_module|REPLACE_WITH_ASGI_MODULE'
 
 
+
+Get-ChildItem `
+    -Path 'E:\Deploy\Python\imap-gateway\source' `
+    -Recurse `
+    -File |
+Select-String -Pattern `
+'replace_with_asgi_module|REPLACE_WITH_ASGI_MODULE'
+
