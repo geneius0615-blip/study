@@ -1,48 +1,29 @@
-$ConfiguredEnvironment = (
-    Get-ItemProperty `
-        -LiteralPath $ParametersKey `
-        -Name 'AppEnvironmentExtra'
-).AppEnvironmentExtra
+# ============================================================
+# Gateway Windows Service
+# ============================================================
 
-$ConfiguredEnvironment |
-ForEach-Object {
-    Write-Host "[$_]"
-}
+gateway_service_name: 'GatewayService'
+gateway_service_display_name: 'IMAP Gateway Service'
+gateway_service_description: 'IMAP Gateway Python Service'
+gateway_service_account: 'LocalSystem'
 
+# Run.bat에서 python 명령을 실행하므로 존재 검증에 사용한다.
+gateway_service_python: '{{ gateway_venv_dir }}\Scripts\python.exe'
 
-$ConfiguredEnvironment.GetType().FullName
+# NSSM은 cmd.exe를 실행하고 cmd.exe가 Run.bat을 호출한다.
+gateway_service_application: 'C:\Windows\System32\cmd.exe'
+gateway_service_working_dir: '{{ gateway_source_dir }}'
+gateway_service_batch: '{{ gateway_source_dir }}\Run.bat'
 
+gateway_service_parameters: >-
+  /d /s /c call "{{ gateway_service_batch }}"
 
-& $Nssm get $ServiceName AppEnvironmentExtra PYTHONPATH
-& $Nssm get $ServiceName AppEnvironmentExtra PATH
+# NSSM 서비스 전용 실행 환경
+gateway_service_pythonpath: '{{ gateway_source_dir }}\src'
+gateway_service_venv_scripts: '{{ gateway_venv_dir }}\Scripts'
 
+gateway_service_stdout: '{{ gateway_logs_dir }}\imap-gateway.stdout.log'
+gateway_service_stderr: '{{ gateway_logs_dir }}\imap-gateway.stderr.log'
 
-& $Nssm get $ServiceName Application
-& $Nssm get $ServiceName AppDirectory
-& $Nssm get $ServiceName AppParameters
-
-
-
-Start-Service -Name $ServiceName
-
-Start-Sleep -Seconds 8
-
-Get-Service -Name $ServiceName
-& $Nssm status $ServiceName
-
-
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
-
-$env:PYTHONPATH = "$GatewaySource\src"
-$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
-
-Set-Location $GatewaySource
-
-& "$GatewayHome\.venv\Scripts\python.exe" '.\run.py'
-
-
-Get-NetTCPConnection `
-    -LocalPort 8000 `
-    -State Listen `
-    -ErrorAction SilentlyContinue
+gateway_service_restart_delay: 5000
+gateway_service_log_rotate_bytes: 10485760
