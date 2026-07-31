@@ -5,3 +5,12 @@ Get-Content `
 Get-Content `
     'E:\Deploy\Python\imap-gateway\logs\imap-gateway.stdout.log' `
     -Tail 100
+
+
+
+$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+
+$env:PYTHONPATH = "$GatewaySource\src"
+
+& $GatewayPython -c "import imap_shared; print('file=' + str(imap_shared.__file__)); print('path=' + str(list(imap_shared.__path__)))"
