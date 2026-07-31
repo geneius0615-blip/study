@@ -1,585 +1,531 @@
 ---
 # ============================================================
-# IMAP Gateway Python Package Installation
+# IMAP Gateway NSSM Service Installation
 # Ansible 2.9 / Windows Server
 #
-# Installation policy:
-#   1. Install requirements.txt
-#      - Includes private git+https libraries.
-#      - Packages are installed into Gateway site-packages.
+# Purpose:
+#   - Install or update the IMAP Gateway NSSM service.
+#   - Configure LocalSystem and automatic startup.
+#   - Configure NSSM restart and log rotation settings.
+#   - Leave the service stopped.
 #
-#   2. Install Torch from the approved local WHL.
-#
-#   3. Run pip check.
-#
-# Not used:
-#   - Editable repository
-#   - pip install --editable
-#   - Separate local package source directories
+# Service start:
+#   - Performed later by service-start.yml.
 # ============================================================
 
-- name: Install IMAP Gateway Python packages
+- name: Install and configure IMAP Gateway service
   block:
 
     # ========================================================
     # Validate Variables
     # ========================================================
 
-    - name: Validate package installation variables
+    - name: Validate service installation variables
       assert:
         that:
-          - gateway_source_dir is defined
-          - gateway_venv_dir is defined
-          - gateway_requirements_file is defined
-          - python_wheelhouse_dir is defined
-          - torch_wheel_file is defined
-          - install_user_profile is defined
-          - git_executable is defined
+          - nssm_executable is defined
+          - gateway_service_name is defined
+          - gateway_service_display_name is defined
+          - gateway_service_description is defined
+          - gateway_service_account is defined
+          - gateway_service_python is defined
+          - gateway_service_working_dir is defined
+          - gateway_service_parameters is defined
+          - gateway_service_stdout is defined
+          - gateway_service_stderr is defined
+          - gateway_service_restart_delay is defined
+          - gateway_service_log_rotate_bytes is defined
+          - gateway_logs_dir is defined
 
-          - gateway_source_dir | trim | length > 0
-          - gateway_venv_dir | trim | length > 0
-          - gateway_requirements_file | trim | length > 0
-          - python_wheelhouse_dir | trim | length > 0
-          - torch_wheel_file | trim | length > 0
-          - install_user_profile | trim | length > 0
-          - git_executable | trim | length > 0
+          - nssm_executable | trim | length > 0
+          - gateway_service_name | trim | length > 0
+          - gateway_service_display_name | trim | length > 0
+          - gateway_service_description | trim | length > 0
+          - gateway_service_account | trim | length > 0
+          - gateway_service_python | trim | length > 0
+          - gateway_service_working_dir | trim | length > 0
+          - gateway_service_parameters | trim | length > 0
+          - gateway_service_stdout | trim | length > 0
+          - gateway_service_stderr | trim | length > 0
+
+          - gateway_service_restart_delay | int >= 0
+          - gateway_service_log_rotate_bytes | int > 0
         fail_msg: |
-          [Install]
+          [Service Install]
 
-          Required package installation variables are missing
+          Required service installation variables are missing
           or empty.
 
           Required variables:
-            gateway_source_dir
-            gateway_venv_dir
-            gateway_requirements_file
-            python_wheelhouse_dir
-            torch_wheel_file
-            install_user_profile
-            git_executable
-        success_msg: 'Package installation variables=OK'
+            nssm_executable
+            gateway_service_name
+            gateway_service_display_name
+            gateway_service_description
+            gateway_service_account
+            gateway_service_python
+            gateway_service_working_dir
+            gateway_service_parameters
+            gateway_service_stdout
+            gateway_service_stderr
+            gateway_service_restart_delay
+            gateway_service_log_rotate_bytes
+            gateway_logs_dir
+        success_msg: 'Service installation variables=OK'
         quiet: yes
 
     # ========================================================
-    # Display Effective Paths
+    # Validate Service Account
     # ========================================================
 
-    - name: Display package installation paths
+    - name: Validate service account policy
+      assert:
+        that:
+          - gateway_service_account | lower == 'localsystem'
+        fail_msg: |
+          [Service Install]
+
+          The current deployment baseline supports LocalSystem
+          only.
+
+          Configured account:
+            {{ gateway_service_account }}
+        success_msg: 'Service account policy=OK'
+        quiet: yes
+
+    # ========================================================
+    # Display Configuration
+    # ========================================================
+
+    - name: Display IMAP Gateway service configuration
       debug:
         msg:
-          - 'Gateway source={{ gateway_source_dir }}'
-          - 'Virtual environment={{ gateway_venv_dir }}'
-          - 'Requirements={{ gateway_requirements_file }}'
-          - 'Wheelhouse={{ python_wheelhouse_dir }}'
-          - 'Torch wheel={{ torch_wheel_file }}'
-          - 'Install user profile={{ install_user_profile }}'
+          - 'Service name={{ gateway_service_name }}'
+          - 'Display name={{ gateway_service_display_name }}'
+          - 'Application={{ gateway_service_python }}'
+          - 'Working directory={{ gateway_service_working_dir }}'
+          - 'Parameters={{ gateway_service_parameters }}'
+          - 'Account={{ gateway_service_account }}'
+          - 'Stdout={{ gateway_service_stdout }}'
+          - 'Stderr={{ gateway_service_stderr }}'
 
     # ========================================================
-    # Validate Virtual Environment
+    # Validate Required Files and Directories
     # ========================================================
 
-    - name: Check virtual environment Python executable
+    - name: Check NSSM executable
       win_stat:
-        path: '{{ gateway_venv_dir }}\Scripts\python.exe'
+        path: '{{ nssm_executable }}'
         get_checksum: no
-      register: gateway_venv_python_check
+      register: service_install_nssm_check
 
-    - name: Validate virtual environment Python executable
-      assert:
-        that:
-          - gateway_venv_python_check.stat.exists | default(false)
-          - gateway_venv_python_check.stat.isreg | default(false)
-        fail_msg: |
-          [Install]
-
-          IMAP Gateway virtual environment Python does not exist.
-
-          Expected path:
-            {{ gateway_venv_dir }}\Scripts\python.exe
-
-          Run the venv tag before install.
-        success_msg: 'Virtual environment Python=OK'
-        quiet: yes
-
-    - name: Check virtual environment pip
-      win_command: >-
-        "{{ gateway_venv_dir }}\Scripts\python.exe"
-        -m pip
-        --version
-      register: gateway_venv_pip_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate virtual environment pip
-      assert:
-        that:
-          - gateway_venv_pip_result.rc | int == 0
-          - "'pip ' in ((gateway_venv_pip_result.stdout | default('')) ~ (gateway_venv_pip_result.stderr | default('')))"
-        fail_msg: |
-          [Install]
-
-          pip is not available inside the IMAP Gateway
-          virtual environment.
-
-          Output:
-            {{
-              (
-                (gateway_venv_pip_result.stdout | default(''))
-                ~
-                (gateway_venv_pip_result.stderr | default(''))
-              ) | trim
-            }}
-        success_msg: 'Virtual environment pip=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Deployment Source
-    # ========================================================
-
-    - name: Check IMAP Gateway source directory
+    - name: Check service Python executable
       win_stat:
-        path: '{{ gateway_source_dir }}'
+        path: '{{ gateway_service_python }}'
         get_checksum: no
-      register: gateway_source_install_check
+      register: service_install_python_check
 
-    - name: Validate IMAP Gateway source directory
-      assert:
-        that:
-          - gateway_source_install_check.stat.exists | default(false)
-          - gateway_source_install_check.stat.isdir | default(false)
-        fail_msg: |
-          [Install]
-
-          IMAP Gateway deployment source does not exist.
-
-          Expected path:
-            {{ gateway_source_dir }}
-
-          Run deploy-source before install.
-        success_msg: 'IMAP Gateway deployment source=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Requirements File
-    # ========================================================
-
-    - name: Check IMAP Gateway requirements file
+    - name: Check service working directory
       win_stat:
-        path: '{{ gateway_requirements_file }}'
+        path: '{{ gateway_service_working_dir }}'
         get_checksum: no
-      register: gateway_requirements_install_check
+      register: service_install_working_directory_check
 
-    - name: Validate IMAP Gateway requirements file
-      assert:
-        that:
-          - gateway_requirements_install_check.stat.exists | default(false)
-          - gateway_requirements_install_check.stat.isreg | default(false)
-          - gateway_requirements_install_check.stat.size | default(0) | int > 0
-        fail_msg: |
-          [Install]
-
-          IMAP Gateway requirements file does not exist,
-          is not a file, or is empty.
-
-          Expected path:
-            {{ gateway_requirements_file }}
-        success_msg: 'IMAP Gateway requirements file=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Install User Profile
-    # ========================================================
-
-    - name: Check install user profile
+    - name: Check service log directory
       win_stat:
-        path: '{{ install_user_profile }}'
+        path: '{{ gateway_logs_dir }}'
         get_checksum: no
-      register: install_user_profile_check
+      register: service_install_log_directory_check
 
-    - name: Validate install user profile
+    - name: Validate required service files and directories
       assert:
         that:
-          - install_user_profile_check.stat.exists | default(false)
-          - install_user_profile_check.stat.isdir | default(false)
+          - service_install_nssm_check.stat.exists | default(false)
+          - service_install_nssm_check.stat.isreg | default(false)
+          - service_install_nssm_check.stat.size | default(0) | int > 0
+
+          - service_install_python_check.stat.exists | default(false)
+          - service_install_python_check.stat.isreg | default(false)
+
+          - service_install_working_directory_check.stat.exists | default(false)
+          - service_install_working_directory_check.stat.isdir | default(false)
+
+          - service_install_log_directory_check.stat.exists | default(false)
+          - service_install_log_directory_check.stat.isdir | default(false)
         fail_msg: |
-          [Install]
+          [Service Install]
 
-          Install user profile does not exist.
+          One or more required service files or directories are
+          missing.
 
-          Expected path:
-            {{ install_user_profile }}
-        success_msg: 'Install user profile=OK'
+          NSSM:
+            {{ nssm_executable }}
+
+          Service Python:
+            {{ gateway_service_python }}
+
+          Working directory:
+            {{ gateway_service_working_dir }}
+
+          Log directory:
+            {{ gateway_logs_dir }}
+        success_msg: 'Required service files and directories=OK'
         quiet: yes
 
     # ========================================================
-    # Validate Git Authentication
-    #
-    # Private git+https dependencies in requirements.txt use:
-    #   C:\Users\appuser\_netrc
+    # Validate Existing Service Status
     # ========================================================
 
-    - name: Check Git authentication file
-      win_stat:
-        path: '{{ install_user_profile }}\_netrc'
-        get_checksum: no
-      register: install_netrc_check
-
-    - name: Validate Git authentication file
-      assert:
-        that:
-          - install_netrc_check.stat.exists | default(false)
-          - install_netrc_check.stat.isreg | default(false)
-          - install_netrc_check.stat.size | default(0) | int > 0
-        fail_msg: |
-          [Install]
-
-          Git authentication file does not exist, is not a file,
-          or is empty.
-
-          Expected path:
-            {{ install_user_profile }}\_netrc
-
-          This file is required for private git+https
-          dependencies in requirements.txt.
-        success_msg: 'Git authentication file=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Git Runtime
-    # ========================================================
-
-    - name: Check Git runtime
-      win_command: '{{ git_executable }} --version'
-      environment:
-        HOME: '{{ install_user_profile }}'
-        USERPROFILE: '{{ install_user_profile }}'
-        GIT_TERMINAL_PROMPT: '0'
-      register: install_git_runtime_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate Git runtime
-      assert:
-        that:
-          - install_git_runtime_result.rc | int == 0
-          - "'git version' in (((install_git_runtime_result.stdout | default('')) ~ (install_git_runtime_result.stderr | default(''))) | lower)"
-        fail_msg: |
-          [Install]
-
-          Git is not available for requirements installation.
-
-          Executable:
-            {{ git_executable }}
-
-          Output:
-            {{
-              (
-                (install_git_runtime_result.stdout | default(''))
-                ~
-                (install_git_runtime_result.stderr | default(''))
-              ) | trim
-            }}
-        success_msg: 'Git runtime=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Wheelhouse
-    # ========================================================
-
-    - name: Check Python wheelhouse directory
-      win_stat:
-        path: '{{ python_wheelhouse_dir }}'
-        get_checksum: no
-      register: install_wheelhouse_check
-
-    - name: Validate Python wheelhouse directory
-      assert:
-        that:
-          - install_wheelhouse_check.stat.exists | default(false)
-          - install_wheelhouse_check.stat.isdir | default(false)
-        fail_msg: |
-          [Install]
-
-          Python wheelhouse directory does not exist.
-
-          Expected path:
-            {{ python_wheelhouse_dir }}
-        success_msg: 'Python wheelhouse=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Torch Wheel
-    # ========================================================
-
-    - name: Check local Torch wheel
-      win_stat:
-        path: '{{ torch_wheel_file }}'
-        get_checksum: no
-      register: install_torch_wheel_check
-
-    - name: Validate local Torch wheel
-      assert:
-        that:
-          - install_torch_wheel_check.stat.exists | default(false)
-          - install_torch_wheel_check.stat.isreg | default(false)
-          - install_torch_wheel_check.stat.size | default(0) | int > 0
-        fail_msg: |
-          [Install]
-
-          Local Torch wheel does not exist, is not a file,
-          or is empty.
-
-          Expected path:
-            {{ torch_wheel_file }}
-        success_msg: 'Local Torch wheel=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Torch Requirement Policy
-    #
-    # Only the torch package itself must be disabled.
-    # git+https internal libraries must remain active.
-    # torchvision and torchaudio are not matched by this check.
-    # ========================================================
-
-    - name: Check active Torch entries in requirements file
+    - name: Check service status before installation
       win_shell: |
-        $activeTorchEntries = @()
+        $service = Get-Service -Name $env:SERVICE_NAME -ErrorAction SilentlyContinue
 
-        foreach ($requirementLine in Get-Content -LiteralPath $env:REQUIREMENTS_FILE) {
-          $trimmedLine = $requirementLine.Trim()
-
-          if ($trimmedLine.Length -eq 0) {
-            continue
-          }
-
-          if ($trimmedLine.StartsWith('#')) {
-            continue
-          }
-
-          if ($trimmedLine -match '^torch(\s|[<>=!~@;\[]|$)') {
-            $activeTorchEntries += $trimmedLine
-          }
+        if ($null -eq $service) {
+          Write-Output 'Absent'
+          exit 0
         }
 
-        if ($activeTorchEntries.Count -gt 0) {
-          Write-Output 'Active Torch requirement detected:'
-
-          foreach ($activeEntry in $activeTorchEntries) {
-            Write-Output $activeEntry
-          }
-
-          exit 1
-        }
-
-        Write-Output 'Requirements Torch entry=DISABLED'
+        Write-Output $service.Status.ToString()
         exit 0
-      args:
-        executable: powershell.exe
       environment:
-        REQUIREMENTS_FILE: '{{ gateway_requirements_file }}'
-      register: requirements_torch_check_result
+        SERVICE_NAME: '{{ gateway_service_name }}'
+      register: service_status_before_install_result
       changed_when: false
       failed_when: false
 
-    - name: Validate Torch requirement policy
+    - name: Validate service status before installation
       assert:
         that:
-          - requirements_torch_check_result.rc | int == 0
-          - "'Requirements Torch entry=DISABLED' in (requirements_torch_check_result.stdout | default(''))"
+          - service_status_before_install_result.rc | int == 0
+          - >-
+            service_status_before_install_result.stdout | trim
+            in ['Absent', 'Stopped']
         fail_msg: |
-          [Install]
+          [Service Install]
 
-          An active Torch entry was found in requirements.txt.
+          IMAP Gateway service must be absent or stopped before
+          installation or configuration.
 
-          Requirements:
-            {{ gateway_requirements_file }}
+          Service:
+            {{ gateway_service_name }}
 
-          Output:
-            {{ requirements_torch_check_result.stdout | default('') | trim }}
+          Current status:
+            {{ service_status_before_install_result.stdout | trim }}
 
-          Comment only the Torch package line.
-
-          Keep the private git+https libraries active.
-        success_msg: 'Requirements Torch policy=OK'
+          Run service-stop before service-install.
+        success_msg: 'Service status before installation=OK'
         quiet: yes
 
     # ========================================================
-    # Install requirements.txt
+    # Install or Update NSSM Service
     #
-    # Private Git packages are installed into:
-    #   .venv\Lib\site-packages
+    # win_nssm is idempotent and leaves state=present stopped.
     # ========================================================
 
-    - name: Install IMAP Gateway requirements
+    - name: Install IMAP Gateway NSSM service
+      win_nssm:
+        name: '{{ gateway_service_name }}'
+        executable: '{{ nssm_executable }}'
+        application: '{{ gateway_service_python }}'
+        arguments: '{{ gateway_service_parameters }}'
+        working_directory: '{{ gateway_service_working_dir }}'
+        display_name: '{{ gateway_service_display_name }}'
+        description: '{{ gateway_service_description }}'
+        stdout_file: '{{ gateway_service_stdout }}'
+        stderr_file: '{{ gateway_service_stderr }}'
+        state: present
+      register: gateway_nssm_install_result
+
+    # ========================================================
+    # Configure Windows Service Properties
+    #
+    # LocalSystem requires an explicit empty password in
+    # Ansible 2.9.
+    # ========================================================
+
+    - name: Configure IMAP Gateway Windows service
+      win_service:
+        name: '{{ gateway_service_name }}'
+        username: LocalSystem
+        password: ''
+        start_mode: auto
+        state: stopped
+      register: gateway_windows_service_configure_result
+
+    # ========================================================
+    # Read NSSM Advanced Settings
+    # ========================================================
+
+    - name: Read NSSM advanced service settings
       win_command: >-
-        "{{ gateway_venv_dir }}\Scripts\python.exe"
-        -m pip install
-        --disable-pip-version-check
-        --no-input
-        --no-cache-dir
-        -r "{{ gateway_requirements_file }}"
-      args:
-        chdir: '{{ gateway_source_dir }}'
-      environment:
-        HOME: '{{ install_user_profile }}'
-        USERPROFILE: '{{ install_user_profile }}'
-        GIT_TERMINAL_PROMPT: '0'
-        PIP_DISABLE_PIP_VERSION_CHECK: '1'
-        PIP_NO_INPUT: '1'
-        PYTHONUTF8: '1'
-      register: gateway_requirements_install_result
-      failed_when: false
-
-    - name: Validate IMAP Gateway requirements installation
-      assert:
-        that:
-          - gateway_requirements_install_result.rc | int == 0
-        fail_msg: |
-          [Install]
-
-          IMAP Gateway requirements installation failed.
-
-          Requirements:
-            {{ gateway_requirements_file }}
-
-          Return code:
-            {{ gateway_requirements_install_result.rc }}
-
-          Standard output:
-            {{ gateway_requirements_install_result.stdout | default('') | trim }}
-
-          Standard error:
-            {{ gateway_requirements_install_result.stderr | default('') | trim }}
-        success_msg: 'IMAP Gateway requirements installation=OK'
-        quiet: yes
-
-    # ========================================================
-    # Install Torch from Local Wheel
-    # ========================================================
-
-    - name: Install Torch from local wheelhouse
-      win_command: >-
-        "{{ gateway_venv_dir }}\Scripts\python.exe"
-        -m pip install
-        --disable-pip-version-check
-        --no-input
-        --no-cache-dir
-        --no-index
-        --find-links "{{ python_wheelhouse_dir }}"
-        "{{ torch_wheel_file }}"
-      environment:
-        PIP_DISABLE_PIP_VERSION_CHECK: '1'
-        PIP_NO_INPUT: '1'
-        PYTHONUTF8: '1'
-      register: torch_install_result
-      failed_when: false
-
-    - name: Validate local Torch installation
-      assert:
-        that:
-          - torch_install_result.rc | int == 0
-        fail_msg: |
-          [Install]
-
-          Local Torch wheel installation failed.
-
-          Torch wheel:
-            {{ torch_wheel_file }}
-
-          Wheelhouse:
-            {{ python_wheelhouse_dir }}
-
-          Return code:
-            {{ torch_install_result.rc }}
-
-          Standard output:
-            {{ torch_install_result.stdout | default('') | trim }}
-
-          Standard error:
-            {{ torch_install_result.stderr | default('') | trim }}
-        success_msg: 'Local Torch installation=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Torch Import
-    # ========================================================
-
-    - name: Check installed Torch version
-      win_command: >-
-        "{{ gateway_venv_dir }}\Scripts\python.exe"
-        -c "import torch; print(torch.__version__)"
-      register: torch_version_result
+        "{{ nssm_executable }}"
+        get
+        "{{ gateway_service_name }}"
+        "{{ item.parameter }}"
+      loop:
+        - parameter: AppRotateFiles
+          expected: '1'
+        - parameter: AppRotateOnline
+          expected: '1'
+        - parameter: AppRotateBytes
+          expected: '{{ gateway_service_log_rotate_bytes | string }}'
+        - parameter: AppRestartDelay
+          expected: '{{ gateway_service_restart_delay | string }}'
+      loop_control:
+        label: '{{ item.parameter }}'
+      register: nssm_advanced_setting_read_result
       changed_when: false
       failed_when: false
 
-    - name: Validate Torch import
+    - name: Validate NSSM advanced setting reads
       assert:
         that:
-          - torch_version_result.rc | int == 0
-          - torch_version_result.stdout | default('') | trim | length > 0
+          - item.rc | int == 0
         fail_msg: |
-          [Install]
+          [Service Install]
 
-          Torch was installed but could not be imported.
+          NSSM service setting could not be read.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Parameter:
+            {{ item.item.parameter }}
+
+          Return code:
+            {{ item.rc }}
 
           Standard output:
-            {{ torch_version_result.stdout | default('') | trim }}
+            {{ item.stdout | default('') | trim }}
 
           Standard error:
-            {{ torch_version_result.stderr | default('') | trim }}
-        success_msg: 'Torch import=OK'
+            {{ item.stderr | default('') | trim }}
+        success_msg: 'NSSM setting={{ item.item.parameter }}=READ'
         quiet: yes
+      loop: '{{ nssm_advanced_setting_read_result.results }}'
+      loop_control:
+        label: '{{ item.item.parameter }}'
 
     # ========================================================
-    # Validate Installed Dependencies
+    # Update NSSM Advanced Settings
     # ========================================================
 
-    - name: Run pip dependency check
+    - name: Configure NSSM advanced service settings
       win_command: >-
-        "{{ gateway_venv_dir }}\Scripts\python.exe"
-        -m pip check
-      register: pip_check_result
+        "{{ nssm_executable }}"
+        set
+        "{{ gateway_service_name }}"
+        "{{ item.item.parameter }}"
+        "{{ item.item.expected }}"
+      loop: '{{ nssm_advanced_setting_read_result.results }}'
+      loop_control:
+        label: '{{ item.item.parameter }}'
+      when:
+        - item.rc | int == 0
+        - item.stdout | trim != item.item.expected
+      register: nssm_advanced_setting_update_result
+
+    # ========================================================
+    # Configure Default Exit Action
+    #
+    # NSSM AppExit requires the Default subparameter.
+    # ========================================================
+
+    - name: Read NSSM default exit action
+      win_command: >-
+        "{{ nssm_executable }}"
+        get
+        "{{ gateway_service_name }}"
+        AppExit
+        Default
+      register: nssm_exit_action_read_result
       changed_when: false
       failed_when: false
 
-    - name: Validate pip dependency check
+    - name: Validate NSSM default exit action read
       assert:
         that:
-          - pip_check_result.rc | int == 0
+          - nssm_exit_action_read_result.rc | int == 0
         fail_msg: |
-          [Install]
+          [Service Install]
 
-          pip dependency validation failed.
+          NSSM default exit action could not be read.
 
-          Return code:
-            {{ pip_check_result.rc }}
+          Service:
+            {{ gateway_service_name }}
 
           Standard output:
-            {{ pip_check_result.stdout | default('') | trim }}
+            {{ nssm_exit_action_read_result.stdout | default('') | trim }}
 
           Standard error:
-            {{ pip_check_result.stderr | default('') | trim }}
-        success_msg: 'pip dependency check=OK'
+            {{ nssm_exit_action_read_result.stderr | default('') | trim }}
+        success_msg: 'NSSM default exit action=READ'
+        quiet: yes
+
+    - name: Configure NSSM default exit action
+      win_command: >-
+        "{{ nssm_executable }}"
+        set
+        "{{ gateway_service_name }}"
+        AppExit
+        Default
+        Restart
+      when:
+        - nssm_exit_action_read_result.stdout | trim != 'Restart'
+      register: nssm_exit_action_update_result
+
+    # ========================================================
+    # Verify NSSM Advanced Settings
+    # ========================================================
+
+    - name: Verify NSSM advanced service settings
+      win_command: >-
+        "{{ nssm_executable }}"
+        get
+        "{{ gateway_service_name }}"
+        "{{ item.parameter }}"
+      loop:
+        - parameter: AppRotateFiles
+          expected: '1'
+        - parameter: AppRotateOnline
+          expected: '1'
+        - parameter: AppRotateBytes
+          expected: '{{ gateway_service_log_rotate_bytes | string }}'
+        - parameter: AppRestartDelay
+          expected: '{{ gateway_service_restart_delay | string }}'
+      loop_control:
+        label: '{{ item.parameter }}'
+      register: nssm_advanced_setting_verify_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate NSSM advanced service settings
+      assert:
+        that:
+          - item.rc | int == 0
+          - item.stdout | trim == item.item.expected
+        fail_msg: |
+          [Service Install]
+
+          NSSM advanced setting validation failed.
+
+          Parameter:
+            {{ item.item.parameter }}
+
+          Expected:
+            {{ item.item.expected }}
+
+          Actual:
+            {{ item.stdout | default('') | trim }}
+
+          Standard error:
+            {{ item.stderr | default('') | trim }}
+        success_msg: 'NSSM setting={{ item.item.parameter }}=OK'
+        quiet: yes
+      loop: '{{ nssm_advanced_setting_verify_result.results }}'
+      loop_control:
+        label: '{{ item.item.parameter }}'
+
+    - name: Verify NSSM default exit action
+      win_command: >-
+        "{{ nssm_executable }}"
+        get
+        "{{ gateway_service_name }}"
+        AppExit
+        Default
+      register: nssm_exit_action_verify_result
+      changed_when: false
+      failed_when: false
+
+    - name: Validate NSSM default exit action
+      assert:
+        that:
+          - nssm_exit_action_verify_result.rc | int == 0
+          - nssm_exit_action_verify_result.stdout | trim == 'Restart'
+        fail_msg: |
+          [Service Install]
+
+          NSSM default exit action validation failed.
+
+          Expected:
+            Restart
+
+          Actual:
+            {{ nssm_exit_action_verify_result.stdout | default('') | trim }}
+
+          Standard error:
+            {{ nssm_exit_action_verify_result.stderr | default('') | trim }}
+        success_msg: 'NSSM default exit action=Restart'
         quiet: yes
 
     # ========================================================
-    # Installation Summary
+    # Verify Installed Windows Service
+    #
+    # win_service with only name queries the service and
+    # returns its effective configuration.
     # ========================================================
 
-    - name: Display package installation summary
+    - name: Read installed IMAP Gateway Windows service
+      win_service:
+        name: '{{ gateway_service_name }}'
+      register: gateway_service_verify_result
+
+    - name: Validate installed IMAP Gateway Windows service
+      assert:
+        that:
+          - gateway_service_verify_result.exists | default(false)
+          - gateway_service_verify_result.state == 'stopped'
+          - gateway_service_verify_result.start_mode == 'auto'
+          - gateway_service_verify_result.username == 'LocalSystem'
+          - >-
+            (nssm_executable | lower)
+            in
+            (gateway_service_verify_result.path | lower)
+        fail_msg: |
+          [Service Install]
+
+          Installed Windows service validation failed.
+
+          Service:
+            {{ gateway_service_name }}
+
+          Exists:
+            {{ gateway_service_verify_result.exists | default(false) }}
+
+          State:
+            {{ gateway_service_verify_result.state | default('unknown') }}
+
+          Start mode:
+            {{ gateway_service_verify_result.start_mode | default('unknown') }}
+
+          Username:
+            {{ gateway_service_verify_result.username | default('unknown') }}
+
+          Path:
+            {{ gateway_service_verify_result.path | default('unknown') }}
+        success_msg: 'Installed IMAP Gateway Windows service=OK'
+        quiet: yes
+
+    # ========================================================
+    # Summary
+    # ========================================================
+
+    - name: Display service installation summary
       debug:
         msg:
           - '============================================================'
-          - 'IMAP Gateway Package Installation=OK'
-          - 'Virtual environment={{ gateway_venv_dir }}'
-          - 'Requirements={{ gateway_requirements_file }}'
-          - 'Private Git libraries=INSTALLED FROM requirements.txt'
-          - 'Editable installation=NOT USED'
-          - 'Torch wheel={{ torch_wheel_file }}'
-          - 'Torch version={{ torch_version_result.stdout | trim }}'
-          - 'pip check=OK'
+          - 'IMAP Gateway Service Installation=OK'
+          - 'Service name={{ gateway_service_name }}'
+          - 'Display name={{ gateway_service_display_name }}'
+          - 'Application={{ gateway_service_python }}'
+          - 'Working directory={{ gateway_service_working_dir }}'
+          - 'Account=LocalSystem'
+          - 'Start mode=AUTOMATIC'
+          - 'Current state=STOPPED'
+          - 'Exit action=RESTART'
+          - 'Restart delay={{ gateway_service_restart_delay }} ms'
+          - 'Log rotation={{ gateway_service_log_rotate_bytes }} bytes'
+          - 'Service start=NOT PERFORMED'
           - '============================================================'
 
   tags:
-    - install
+    - service-install
