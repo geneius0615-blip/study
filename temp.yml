@@ -1,32 +1,5 @@
 $GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
+$GatewayRunBat = Join-Path $GatewaySource 'Run.bat'
 
-$env:PYTHONPATH = "$GatewaySource\src"
-
-Set-Location $GatewaySource
-
-& $GatewayPython '.\run.py'
-
-
-
-
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
-
-Stop-Service -Name 'GatewayService' -Force -ErrorAction SilentlyContinue
-
-Set-Location $GatewaySource
-
-$env:PYTHONPATH = "$GatewaySource\src"
-
-& $GatewayPython '.\run.py' 2>&1 |
-Tee-Object -FilePath 'E:\Deploy\Python\imap-gateway\logs\run-manual-error.log'
-
-
-
-
-
-
-Get-Content `
-    'E:\Deploy\Python\imap-gateway\logs\run-manual-error.log' `
-    -Tail 30
+Test-Path -LiteralPath $GatewayRunBat
+Get-Content -LiteralPath $GatewayRunBat
