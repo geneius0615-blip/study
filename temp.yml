@@ -7,3 +7,13 @@ Restart-Service `
 Start-Sleep -Seconds 8
 
 Get-Service -Name $ServiceName
+
+
+$Nssm = 'E:\Tools\nssm\nssm.exe'
+
+& $Nssm status 'GatewayService'
+
+Get-NetTCPConnection `
+    -LocalPort 8000 `
+    -State Listen `
+    -ErrorAction SilentlyContinue
