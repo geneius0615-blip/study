@@ -1,12 +1,14 @@
-$GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
-$AppDir = '위 출력의 AppDir'
-$AsgiApp = '위 출력의 ASGI'
+$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
 
-Set-Location $AppDir
-
-& $GatewayPython `
-    -m uvicorn `
-    $AsgiApp `
-    --app-dir $AppDir `
-    --host 127.0.0.1 `
-    --port 8000
+Get-ChildItem `
+    -Path $GatewaySource `
+    -Recurse `
+    -File `
+    -Filter '*.py' |
+Where-Object {
+    $_.FullName -notmatch '\\\.venv\\' -and
+    $_.FullName -notmatch '\\site-packages\\' -and
+    $_.FullName -notmatch '\\tests?\\'
+} |
+Select-String -Pattern 'FastAPI\s*\(' |
+Select-Object Path, LineNumber, Line
