@@ -31,6 +31,17 @@ Get-Service -Name $ServiceName
 & $Nssm status $ServiceName
 
 
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+
+$env:PYTHONPATH = "$GatewaySource\src"
+$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
+
+Set-Location $GatewaySource
+
+& "$GatewayHome\.venv\Scripts\python.exe" '.\run.py'
+
+
 Get-NetTCPConnection `
     -LocalPort 8000 `
     -State Listen `
