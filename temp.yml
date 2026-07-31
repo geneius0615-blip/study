@@ -75,3 +75,9 @@ Out-Null
 
 Get-Item -LiteralPath $LinkPath -Force |
 Format-List FullName, Attributes, LinkType, Target
+
+
+
+Set-Location 'E:\Deploy\Python\imap-gateway\source'
+
+& 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe' '.\run.py'
