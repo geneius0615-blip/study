@@ -1,22 +1,11 @@
-# ============================================================
-# Deploy Roots
-# ============================================================
+$allYml = '.\group_vars\all.yml'
 
-deploy_home: 'E:\Deploy'
-
-# ============================================================
-# IMAP Gateway Deployment
-# ============================================================
-
-gateway_home: '{{ deploy_home }}\Python\imap-gateway'
-gateway_source_dir: '{{ gateway_home }}\source'
-gateway_venv_dir: '{{ gateway_home }}\.venv'
-gateway_logs_dir: '{{ gateway_home }}\logs'
-gateway_requirements_file: '{{ gateway_source_dir }}\requirements.txt'
-
-# ============================================================
-# IMAP Gateway Workspace / Backup
-# ============================================================
-
-gateway_workspace_dir: 'E:\digital-twin-studio\imap\workplaces\imap-gateway'
-gateway_backup_dir: 'E:\Backup\Python\imap-gateway'
+Get-Content $allYml |
+ForEach-Object {
+    if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*):') {
+        $matches[1]
+    }
+} |
+Group-Object |
+Where-Object Count -gt 1 |
+Select-Object Name, Count
