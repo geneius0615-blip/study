@@ -1,13 +1,73 @@
-- gateway_service_application is defined
-- gateway_service_batch is defined
-- gateway_service_python is defined
-- gateway_service_pythonpath is defined
-- gateway_service_venv_scripts is defined
-- gateway_service_working_dir is defined
-- gateway_service_parameters is defined
+$ServiceName = 'GatewayService'
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+$GatewayVenv = "$GatewayHome\.venv"
 
-- gateway_service_application | trim | length > 0
-- gateway_service_batch | trim | length > 0
-- gateway_service_python | trim | length > 0
-- gateway_service_pythonpath | trim | length > 0
-- gateway_service_venv_scripts | trim | length > 0
+# 현재 PowerShell 위치가 source 안이면 먼저 이동
+Set-Location 'E:\'
+
+# 서비스 중지
+Stop-Service `
+    -Name $ServiceName `
+    -Force `
+    -ErrorAction SilentlyContinue
+
+Start-Sleep -Seconds 3
+
+
+
+Get-CimInstance Win32_Process |
+Where-Object {
+    (
+        $_.CommandLine -and
+        $_.CommandLine.IndexOf(
+            $GatewaySource,
+            [System.StringComparison]::OrdinalIgnoreCase
+        ) -ge 0
+    ) -or
+    (
+        $_.ExecutablePath -and
+        $_.ExecutablePath.StartsWith(
+            $GatewayVenv,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+    )
+} |
+Select-Object ProcessId, Name, ExecutablePath, CommandLine
+
+
+
+$GatewayProcesses = Get-CimInstance Win32_Process |
+Where-Object {
+    (
+        $_.CommandLine -and
+        $_.CommandLine.IndexOf(
+            $GatewaySource,
+            [System.StringComparison]::OrdinalIgnoreCase
+        ) -ge 0
+    ) -or
+    (
+        $_.ExecutablePath -and
+        $_.ExecutablePath.StartsWith(
+            $GatewayVenv,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+    )
+}
+
+foreach ($Process in $GatewayProcesses) {
+    Write-Host "Stopping PID=$($Process.ProcessId) Name=$($Process.Name)"
+
+    taskkill.exe `
+        /PID $Process.ProcessId `
+        /T `
+        /F
+}
+
+Start-Sleep -Seconds 2
+
+
+Remove-Item `
+    -LiteralPath $GatewaySource `
+    -Recurse `
+    -Force
