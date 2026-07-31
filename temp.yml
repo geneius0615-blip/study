@@ -33,3 +33,8 @@ $GatewayRunFile = Join-Path $GatewaySource 'run.py'
 Test-Path $GatewayPython
 Test-Path $GatewayRunFile
 
+Set-Location 'E:\Deploy\Python\imap-gateway\source'
+
+& 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe' '.\run.py'
+
+
