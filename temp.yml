@@ -15,3 +15,61 @@ Get-NetTCPConnection `
     -LocalPort 8000 `
     -State Listen `
     -ErrorAction SilentlyContinue
+
+
+
+
+
+$GatewayHome = 'E:\Deploy\Python\imap-gateway'
+$GatewaySource = "$GatewayHome\source"
+$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
+
+Test-Path $GatewayHome
+Test-Path $GatewaySource
+Test-Path $GatewayPython
+Test-Path "$GatewaySource\requirements.txt"
+
+
+
+
+
+
+& $GatewayPython --version
+& $GatewayPython -m pip --version
+& $GatewayPython -m pip check
+
+
+
+
+
+& $GatewayPython -c "import uvicorn; print('uvicorn=' + uvicorn.__version__)"
+& $GatewayPython -c "import torch; print('torch=' + torch.__version__)"
+
+
+
+
+$AsgiApp = 'app.main:app'
+
+
+
+$AsgiModule = $AsgiApp.Split(':')[0]
+$AsgiObject = $AsgiApp.Split(':')[1]
+
+Set-Location $GatewaySource
+
+& $GatewayPython -c "import importlib; m=importlib.import_module('$AsgiModule'); print(getattr(m, '$AsgiObject'))"
+
+
+
+
+Set-Location $GatewaySource
+
+& $GatewayPython `
+    -m uvicorn `
+    $AsgiApp `
+    --host 127.0.0.1 `
+    --port 8000
+
+
+
+curl.exe -i http://127.0.0.1:8000/health
