@@ -3,17 +3,20 @@
 # IMAP Gateway Deployment Clean
 # Ansible 2.9 / Windows Server
 #
-# Purpose:
-#   - Remove the previous deployed source directory.
-#   - Remove the previous Python virtual environment.
-#   - Preserve logs, backup, workspace, and NSSM.
+# Delete:
+#   - gateway_source_dir
+#   - gateway_venv_dir
 #
-# Required directory name:
-#   imap-gateway
+# Preserve:
+#   - gateway_home
+#   - gateway_logs_dir
+#   - gateway_workspace_dir
+#   - gateway_backup_dir
 # ============================================================
 
 - name: Clean previous IMAP Gateway deployment
   block:
+
     # ========================================================
     # Validate Variables
     # ========================================================
@@ -21,18 +24,26 @@
     - name: Validate clean variables
       assert:
         that:
-          - deploy_home | default('') | trim | length > 0
-          - gateway_home | default('') | trim | length > 0
-          - gateway_source_dir | default('') | trim | length > 0
-          - gateway_venv_dir | default('') | trim | length > 0
-          - gateway_logs_dir | default('') | trim | length > 0
-          - gateway_backup_dir | default('') | trim | length > 0
-          - gateway_workspace_dir | default('') | trim | length > 0
-          - gateway_service_name | default('') | trim | length > 0
+          - deploy_home is defined
+          - gateway_home is defined
+          - gateway_source_dir is defined
+          - gateway_venv_dir is defined
+          - gateway_logs_dir is defined
+          - gateway_workspace_dir is defined
+          - gateway_backup_dir is defined
+          - gateway_service_name is defined
+          - deploy_home | trim | length > 0
+          - gateway_home | trim | length > 0
+          - gateway_source_dir | trim | length > 0
+          - gateway_venv_dir | trim | length > 0
+          - gateway_logs_dir | trim | length > 0
+          - gateway_workspace_dir | trim | length > 0
+          - gateway_backup_dir | trim | length > 0
+          - gateway_service_name | trim | length > 0
         fail_msg: |
           [Clean]
 
-          Clean variables are not defined correctly.
+          Required clean variables are missing or empty.
 
           Required variables:
             deploy_home
@@ -40,11 +51,10 @@
             gateway_source_dir
             gateway_venv_dir
             gateway_logs_dir
-            gateway_backup_dir
             gateway_workspace_dir
+            gateway_backup_dir
             gateway_service_name
         success_msg: 'Clean variables=OK'
-        quiet: yes
 
     # ========================================================
     # Display Effective Paths
@@ -62,43 +72,48 @@
           - 'gateway_backup_dir={{ gateway_backup_dir }}'
 
     # ========================================================
-    # Validate Path Safety
-    #
-    # Path validation is performed on the Windows target.
-    # No directory is deleted when this validation fails.
+    # Validate Clean Path Safety
     # ========================================================
 
     - name: Check clean path safety
       win_shell: |
         $ErrorActionPreference = 'Stop'
 
+        $deployHome = [System.IO.Path]::GetFullPath(
+          $env:DEPLOY_HOME_PATH
+        ).TrimEnd([char]92)
+
         $gatewayHome = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_HOME_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
 
         $gatewaySource = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_SOURCE_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
 
         $gatewayVenv = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_VENV_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
 
         $gatewayLogs = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_LOGS_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
 
         $gatewayWorkspace = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_WORKSPACE_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
 
         $gatewayBackup = [System.IO.Path]::GetFullPath(
           $env:GATEWAY_BACKUP_PATH
-        ).TrimEnd('\')
+        ).TrimEnd([char]92)
+
+        $expectedHome = Join-Path `
+          -Path $deployHome `
+          -ChildPath 'Python\imap-gateway'
 
         $expectedHome = [System.IO.Path]::GetFullPath(
-          $env:EXPECTED_GATEWAY_HOME
-        ).TrimEnd('\')
+          $expectedHome
+        ).TrimEnd([char]92)
 
         $expectedSource = Join-Path `
           -Path $expectedHome `
@@ -115,35 +130,35 @@
         $errors = @()
 
         if ($gatewayHome -ine $expectedHome) {
-          $errors += "Invalid gateway_home: $gatewayHome"
-          $errors += "Expected gateway_home: $expectedHome"
-        }
-
-        if ((Split-Path -Leaf $gatewayHome) -ine 'imap-gateway') {
-          $errors += "gateway_home must end with imap-gateway"
+          $errors += "Invalid gateway_home=$gatewayHome"
+          $errors += "Expected gateway_home=$expectedHome"
         }
 
         if ($gatewaySource -ine $expectedSource) {
-          $errors += "Invalid gateway_source_dir: $gatewaySource"
-          $errors += "Expected gateway_source_dir: $expectedSource"
+          $errors += "Invalid gateway_source_dir=$gatewaySource"
+          $errors += "Expected gateway_source_dir=$expectedSource"
         }
 
         if ($gatewayVenv -ine $expectedVenv) {
-          $errors += "Invalid gateway_venv_dir: $gatewayVenv"
-          $errors += "Expected gateway_venv_dir: $expectedVenv"
+          $errors += "Invalid gateway_venv_dir=$gatewayVenv"
+          $errors += "Expected gateway_venv_dir=$expectedVenv"
         }
 
         if ($gatewayLogs -ine $expectedLogs) {
-          $errors += "Invalid gateway_logs_dir: $gatewayLogs"
-          $errors += "Expected gateway_logs_dir: $expectedLogs"
+          $errors += "Invalid gateway_logs_dir=$gatewayLogs"
+          $errors += "Expected gateway_logs_dir=$expectedLogs"
         }
 
-        if ($gatewaySource -ieq $gatewayHome) {
-          $errors += "gateway_source_dir must not equal gateway_home"
+        if ((Split-Path -Leaf $gatewayHome) -ine 'imap-gateway') {
+          $errors += 'gateway_home must end with imap-gateway'
         }
 
-        if ($gatewayVenv -ieq $gatewayHome) {
-          $errors += "gateway_venv_dir must not equal gateway_home"
+        if ((Split-Path -Parent $gatewaySource) -ine $gatewayHome) {
+          $errors += 'gateway_source_dir must be under gateway_home'
+        }
+
+        if ((Split-Path -Parent $gatewayVenv) -ine $gatewayHome) {
+          $errors += 'gateway_venv_dir must be under gateway_home'
         }
 
         $protectedPaths = @(
@@ -155,13 +170,11 @@
 
         foreach ($protectedPath in $protectedPaths) {
           if ($gatewaySource -ieq $protectedPath) {
-            $errors += `
-              "gateway_source_dir matches protected path: $protectedPath"
+            $errors += "Source matches protected path=$protectedPath"
           }
 
           if ($gatewayVenv -ieq $protectedPath) {
-            $errors += `
-              "gateway_venv_dir matches protected path: $protectedPath"
+            $errors += "Venv matches protected path=$protectedPath"
           }
         }
 
@@ -182,29 +195,23 @@
       args:
         executable: powershell.exe
       environment:
+        DEPLOY_HOME_PATH: '{{ deploy_home }}'
         GATEWAY_HOME_PATH: '{{ gateway_home }}'
         GATEWAY_SOURCE_PATH: '{{ gateway_source_dir }}'
         GATEWAY_VENV_PATH: '{{ gateway_venv_dir }}'
         GATEWAY_LOGS_PATH: '{{ gateway_logs_dir }}'
         GATEWAY_WORKSPACE_PATH: '{{ gateway_workspace_dir }}'
         GATEWAY_BACKUP_PATH: '{{ gateway_backup_dir }}'
-        EXPECTED_GATEWAY_HOME: '{{ deploy_home }}\Python\imap-gateway'
       register: clean_path_safety_result
       changed_when: false
       failed_when: false
 
-    - name: Validate clean path safety
-      assert:
-        that:
-          - clean_path_safety_result.rc | default(1) == 0
-          - >-
-            'Clean path safety=OK'
-            in
-            (clean_path_safety_result.stdout | default(''))
-        fail_msg: |
+    - name: Fail when clean paths are unsafe
+      fail:
+        msg: |
           [Clean]
 
-          Invalid or unsafe IMAP Gateway cleanup paths were detected.
+          Invalid or unsafe IMAP Gateway paths were detected.
 
           gateway_home:
             {{ gateway_home }}
@@ -222,20 +229,30 @@
             {{ clean_path_safety_result.stderr | default('') | trim }}
 
           No directory was deleted.
+      when: clean_path_safety_result.rc | int != 0
+
+    - name: Validate clean path safety result
+      assert:
+        that:
+          - clean_path_safety_result.rc | int == 0
+          - "'Clean path safety=OK' in clean_path_safety_result.stdout"
+        fail_msg: |
+          [Clean]
+
+          Clean path safety validation did not return the expected result.
         success_msg: 'Clean path safety=OK'
-        quiet: yes
 
     # ========================================================
     # Validate Gateway Home
     # ========================================================
 
-    - name: Check IMAP Gateway home directory
+    - name: Check IMAP Gateway home
       win_stat:
         path: '{{ gateway_home }}'
         get_checksum: no
       register: gateway_home_check
 
-    - name: Validate IMAP Gateway home directory
+    - name: Validate IMAP Gateway home
       assert:
         that:
           - gateway_home_check.stat.exists | default(false)
@@ -243,23 +260,22 @@
         fail_msg: |
           [Clean]
 
-          IMAP Gateway home directory does not exist.
+          IMAP Gateway home does not exist.
 
           Path:
             {{ gateway_home }}
 
-          Run the bootstrap tag before clean.
+          Run bootstrap before clean.
         success_msg: 'IMAP Gateway home=OK'
-        quiet: yes
 
     # ========================================================
     # Validate Service Status
     # ========================================================
 
-    - name: Check IMAP Gateway service status before clean
+    - name: Check IMAP Gateway service status
       win_shell: |
         $service = Get-Service `
-          -Name '{{ gateway_service_name }}' `
+          -Name $env:SERVICE_NAME `
           -ErrorAction SilentlyContinue
 
         if ($null -eq $service) {
@@ -268,45 +284,46 @@
         }
 
         Write-Output $service.Status.ToString()
+        exit 0
       args:
         executable: powershell.exe
-      register: gateway_service_clean_status_result
+      environment:
+        SERVICE_NAME: '{{ gateway_service_name }}'
+      register: gateway_service_status_result
       changed_when: false
       failed_when: false
 
-    - name: Validate IMAP Gateway service status before clean
-      assert:
-        that:
-          - gateway_service_clean_status_result.rc | default(1) == 0
-          - >-
-            gateway_service_clean_status_result.stdout | trim
-            in ['Absent', 'Stopped']
-        fail_msg: |
+    - name: Fail when IMAP Gateway service is active
+      fail:
+        msg: |
           [Clean]
 
-          IMAP Gateway service must be stopped before cleanup.
+          IMAP Gateway service must be stopped before clean.
 
           Service:
             {{ gateway_service_name }}
 
           Current status:
-            {{ gateway_service_clean_status_result.stdout | trim }}
+            {{ gateway_service_status_result.stdout | trim }}
 
-          Run the service-stop tag before clean.
-        success_msg: 'IMAP Gateway service status=OK'
-        quiet: yes
+          Run service-stop before clean.
+      when:
+        - gateway_service_status_result.rc | int != 0
+          or
+          (gateway_service_status_result.stdout | trim)
+          not in ['Absent', 'Stopped']
 
     # ========================================================
     # Check Existing Deployment
     # ========================================================
 
-    - name: Check deployed IMAP Gateway source before clean
+    - name: Check deployed IMAP Gateway source
       win_stat:
         path: '{{ gateway_source_dir }}'
         get_checksum: no
       register: gateway_source_before_check
 
-    - name: Check IMAP Gateway virtual environment before clean
+    - name: Check IMAP Gateway virtual environment
       win_stat:
         path: '{{ gateway_venv_dir }}'
         get_checksum: no
@@ -344,7 +361,7 @@
         get_checksum: no
       register: gateway_venv_after_check
 
-    - name: Validate IMAP Gateway deployment cleanup
+    - name: Validate IMAP Gateway cleanup
       assert:
         that:
           - not (gateway_source_after_check.stat.exists | default(false))
@@ -352,62 +369,27 @@
         fail_msg: |
           [Clean]
 
-          Previous IMAP Gateway deployment could not be removed.
+          IMAP Gateway cleanup failed.
 
           Source:
             {{ gateway_source_dir }}
 
-          Source exists:
-            {{
-              gateway_source_after_check.stat.exists
-              | default(false)
-            }}
-
           Virtual environment:
             {{ gateway_venv_dir }}
-
-          Virtual environment exists:
-            {{
-              gateway_venv_after_check.stat.exists
-              | default(false)
-            }}
-        success_msg: 'IMAP Gateway deployment cleanup=OK'
-        quiet: yes
+        success_msg: 'IMAP Gateway cleanup=OK'
 
     # ========================================================
-    # Clean Summary
+    # Summary
     # ========================================================
 
     - name: Display clean summary
       debug:
         msg:
           - '============================================================'
-          - 'IMAP Gateway Deployment Clean=OK'
+          - 'IMAP Gateway Clean=OK'
           - 'Gateway home={{ gateway_home }}'
           - 'Gateway source={{ gateway_source_dir }}'
           - 'Gateway venv={{ gateway_venv_dir }}'
-          - >-
-            Source cleanup={{
-              'PERFORMED'
-              if
-              (
-                gateway_source_before_check.stat.exists
-                | default(false)
-              )
-              else
-              'NOT REQUIRED'
-            }}
-          - >-
-            Venv cleanup={{
-              'PERFORMED'
-              if
-              (
-                gateway_venv_before_check.stat.exists
-                | default(false)
-              )
-              else
-              'NOT REQUIRED'
-            }}
           - 'Logs=PRESERVED'
           - 'Workspace=PRESERVED'
           - 'Backup=PRESERVED'
