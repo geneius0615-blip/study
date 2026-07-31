@@ -1,24 +1,8 @@
 $GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
-
-Get-ChildItem -LiteralPath "$GatewaySource\src" -Directory |
-Select-Object Name, FullName
-
-Get-ChildItem `
-    -LiteralPath "$GatewaySource\src" `
-    -Recurse `
-    -File `
-    -Filter 'main.py' |
-Select-Object FullName
-
-
 $GatewayPython = 'E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe'
-$GatewaySource = 'E:\Deploy\Python\imap-gateway\source'
+
+$env:PYTHONPATH = "$GatewaySource\src"
 
 Set-Location $GatewaySource
 
-& $GatewayPython `
-    -m uvicorn `
-    'imap_gateway.main:app' `
-    --app-dir "$GatewaySource\src" `
-    --host 127.0.0.1 `
-    --port 8000
+& $GatewayPython '.\run.py'
