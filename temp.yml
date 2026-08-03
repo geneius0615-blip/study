@@ -42,3 +42,8 @@ Select-String -Pattern "FastAPI\(|Starlette\(|app\s*=|application\s*=|create_app
 
 set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
 E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe -c "import imap_gateway.config; print(imap_gateway.config.__file__)"
+
+
+set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
+cd /d E:\Deploy\Python\imap-gateway\source
+E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe run.py
