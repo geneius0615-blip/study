@@ -1,86 +1,30 @@
----
-- name: Check gateway service
-  win_shell: |
-    $service = Get-Service `
-      -Name "{{ gateway_service_name }}" `
-      -ErrorAction SilentlyContinue
-
-    if ($null -eq $service) {
-      Write-Output "NOT_FOUND"
-    }
-    else {
-      Write-Output $service.Status
-    }
-  register: gateway_service_check
-  changed_when: false
-
-- name: Stop gateway service before clean
-  win_service:
-    name: "{{ gateway_service_name }}"
-    state: stopped
-  when:
-    - "'NOT_FOUND' not in gateway_service_check.stdout"
-
-- name: Stop remaining gateway Python processes
-  win_shell: |
-    $gatewayHome = "{{ gateway_home }}".ToLowerInvariant()
-    $gatewaySource = "{{ gateway_source_dir }}".ToLowerInvariant()
-
-    $processes = Get-CimInstance Win32_Process |
-      Where-Object {
-        $_.Name -ieq "python.exe" -and
-        $null -ne $_.CommandLine -and
-        (
-          $_.CommandLine.ToLowerInvariant().Contains($gatewayHome) -or
-          $_.CommandLine.ToLowerInvariant().Contains($gatewaySource)
-        )
-      }
-
-    foreach ($process in $processes) {
-      Stop-Process `
-        -Id $process.ProcessId `
-        -Force `
-        -ErrorAction Stop
-
-      Write-Output $process.ProcessId
-    }
-  register: gateway_python_stop
-  changed_when:
-    - gateway_python_stop.stdout | trim | length > 0
-
-- name: Wait for gateway Python processes to stop
-  win_shell: |
-    $gatewayHome = "{{ gateway_home }}".ToLowerInvariant()
-    $gatewaySource = "{{ gateway_source_dir }}".ToLowerInvariant()
-
-    $processes = Get-CimInstance Win32_Process |
-      Where-Object {
-        $_.Name -ieq "python.exe" -and
-        $null -ne $_.CommandLine -and
-        (
-          $_.CommandLine.ToLowerInvariant().Contains($gatewayHome) -or
-          $_.CommandLine.ToLowerInvariant().Contains($gatewaySource)
-        )
-      }
-
-    if ($processes) {
-      exit 1
-    }
-
-    exit 0
-  register: gateway_python_wait
-  changed_when: false
-  retries: 10
-  delay: 2
-  until:
-    - gateway_python_wait.rc == 0
-
 - name: Remove previous imap gateway source
   win_file:
     path: "{{ gateway_source_dir }}"
     state: absent
   register: gateway_source_remove
-  retries: 10
-  delay: 2
-  until:
-    - gateway_source_remove is succeeded
+
+- name: Check imap gateway source after cleanup
+  win_stat:
+    path: "{{ gateway_source_dir }}"
+  register: gateway_source_after_cleanup
+
+- name: Show imap gateway cleanup result
+  debug:
+    msg:
+      - "gateway_source_dir={{ gateway_source_dir }}"
+      - "source_exists={{ gateway_source_after_cleanup.stat.exists }}"
+      - "remove_changed={{ gateway_source_remove.changed }}"
+      - "remove_failed={{ gateway_source_remove.failed | default(false) }}"
+
+- name: Validate imap gateway cleanup
+  assert:
+    that:
+      - not gateway_source_after_cleanup.stat.exists
+    fail_msg: >-
+      Imap gateway cleanup failed.
+      Source directory still exists:
+      {{ gateway_source_dir }}
+    success_msg: >-
+      Imap gateway cleanup completed:
+      {{ gateway_source_dir }}
