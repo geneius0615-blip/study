@@ -25,3 +25,15 @@ print(
     f"{os.getenv('IMAP_LOGGING_CONFIG')!r}",
     flush=True,
 )
+
+
+Set-Location "E:\Deploy\Python\imap-gateway\source"
+
+& "E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe" `
+  -c "import run; print(run.__file__); print([x for x in dir(run) if not x.startswith('_')])"
+
+
+
+Get-ChildItem "E:\Deploy\Python\imap-gateway\source" `
+  -Recurse -File -Filter *.py |
+Select-String -Pattern "FastAPI\(|Starlette\(|app\s*=|application\s*=|create_app"
