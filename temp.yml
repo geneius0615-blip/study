@@ -1,7 +1,86 @@
-Get-NetTCPConnection -State Listen |
-Where-Object {
-    $_.OwningProcess -eq (
-        Get-CimInstance Win32_Service -Filter "Name='GatewayService'"
-    ).ProcessId
-} |
-Select-Object LocalAddress, LocalPort, OwningProcess
+---
+- name: Check gateway service
+  win_shell: |
+    $service = Get-Service `
+      -Name "{{ gateway_service_name }}" `
+      -ErrorAction SilentlyContinue
+
+    if ($null -eq $service) {
+      Write-Output "NOT_FOUND"
+    }
+    else {
+      Write-Output $service.Status
+    }
+  register: gateway_service_check
+  changed_when: false
+
+- name: Stop gateway service before clean
+  win_service:
+    name: "{{ gateway_service_name }}"
+    state: stopped
+  when:
+    - "'NOT_FOUND' not in gateway_service_check.stdout"
+
+- name: Stop remaining gateway Python processes
+  win_shell: |
+    $gatewayHome = "{{ gateway_home }}".ToLowerInvariant()
+    $gatewaySource = "{{ gateway_source_dir }}".ToLowerInvariant()
+
+    $processes = Get-CimInstance Win32_Process |
+      Where-Object {
+        $_.Name -ieq "python.exe" -and
+        $null -ne $_.CommandLine -and
+        (
+          $_.CommandLine.ToLowerInvariant().Contains($gatewayHome) -or
+          $_.CommandLine.ToLowerInvariant().Contains($gatewaySource)
+        )
+      }
+
+    foreach ($process in $processes) {
+      Stop-Process `
+        -Id $process.ProcessId `
+        -Force `
+        -ErrorAction Stop
+
+      Write-Output $process.ProcessId
+    }
+  register: gateway_python_stop
+  changed_when:
+    - gateway_python_stop.stdout | trim | length > 0
+
+- name: Wait for gateway Python processes to stop
+  win_shell: |
+    $gatewayHome = "{{ gateway_home }}".ToLowerInvariant()
+    $gatewaySource = "{{ gateway_source_dir }}".ToLowerInvariant()
+
+    $processes = Get-CimInstance Win32_Process |
+      Where-Object {
+        $_.Name -ieq "python.exe" -and
+        $null -ne $_.CommandLine -and
+        (
+          $_.CommandLine.ToLowerInvariant().Contains($gatewayHome) -or
+          $_.CommandLine.ToLowerInvariant().Contains($gatewaySource)
+        )
+      }
+
+    if ($processes) {
+      exit 1
+    }
+
+    exit 0
+  register: gateway_python_wait
+  changed_when: false
+  retries: 10
+  delay: 2
+  until:
+    - gateway_python_wait.rc == 0
+
+- name: Remove previous imap gateway source
+  win_file:
+    path: "{{ gateway_source_dir }}"
+    state: absent
+  register: gateway_source_remove
+  retries: 10
+  delay: 2
+  until:
+    - gateway_source_remove is succeeded
