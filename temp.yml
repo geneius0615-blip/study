@@ -1,43 +1,27 @@
-$ServiceName = 'GatewayService'
+import os
 
-Restart-Service `
-    -Name $ServiceName `
-    -Force
+print(
+    "[ENV TEST] "
+    f"IMAP_PATH_OVERRIDE_ENABLED="
+    f"{os.getenv('IMAP_PATH_OVERRIDE_ENABLED')!r}",
+    flush=True,
+)
 
-Start-Sleep -Seconds 8
+print(
+    "[ENV TEST] "
+    f"IMAP_STATIC_DIR={os.getenv('IMAP_STATIC_DIR')!r}",
+    flush=True,
+)
 
-Get-Service -Name $ServiceName
+print(
+    "[ENV TEST] "
+    f"IMAP_DIST_DIR={os.getenv('IMAP_DIST_DIR')!r}",
+    flush=True,
+)
 
-
-$Nssm = 'E:\Tools\nssm\nssm.exe'
-
-& $Nssm status 'GatewayService'
-
-Get-NetTCPConnection `
-    -LocalPort 8000 `
-    -State Listen `
-    -ErrorAction SilentlyContinue
-
-
-
-Stop-Service `
-    -Name 'GatewayService' `
-    -Force `
-    -ErrorAction SilentlyContinue
-
-Start-Sleep -Seconds 3
-
-
-$GatewayHome = 'E:\Deploy\Python\imap-gateway'
-$GatewaySource = "$GatewayHome\source"
-$GatewayPython = "$GatewayHome\.venv\Scripts\python.exe"
-
-$env:PYTHONPATH = "$GatewaySource\src"
-$env:PATH = "$GatewayHome\.venv\Scripts;$env:PATH"
-
-Set-Location $GatewaySource
-
-
-
-
-& $GatewayPython '.\run.py'
+print(
+    "[ENV TEST] "
+    f"IMAP_LOGGING_CONFIG="
+    f"{os.getenv('IMAP_LOGGING_CONFIG')!r}",
+    flush=True,
+)
