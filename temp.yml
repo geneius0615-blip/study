@@ -47,3 +47,6 @@ E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe -c "import imap_gateway.c
 set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
 cd /d E:\Deploy\Python\imap-gateway\source
 E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe run.py
+
+
+Get-Content "E:\Deploy\Python\imap-gateway\logs\stdout.log" -Tail 50 -Wait
