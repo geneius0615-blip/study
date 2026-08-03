@@ -37,3 +37,8 @@ Set-Location "E:\Deploy\Python\imap-gateway\source"
 Get-ChildItem "E:\Deploy\Python\imap-gateway\source" `
   -Recurse -File -Filter *.py |
 Select-String -Pattern "FastAPI\(|Starlette\(|app\s*=|application\s*=|create_app"
+
+
+
+set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
+E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe -c "import imap_gateway.config; print(imap_gateway.config.__file__)"
