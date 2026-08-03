@@ -8,7 +8,15 @@
   until:
     - gateway_venv_remove is succeeded
 
+- name: Check imap gateway source after cleanup
+  win_stat:
+    path: "{{ gateway_source_dir }}"
+  register: gateway_source_after_check
 
+- name: Check imap gateway virtual environment after cleanup
+  win_stat:
+    path: "{{ gateway_venv_dir }}"
+  register: gateway_venv_after_check
 
 - name: Validate imap gateway cleanup
   assert:
