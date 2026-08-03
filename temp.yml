@@ -1,52 +1,7 @@
-import os
-
-print(
-    "[ENV TEST] "
-    f"IMAP_PATH_OVERRIDE_ENABLED="
-    f"{os.getenv('IMAP_PATH_OVERRIDE_ENABLED')!r}",
-    flush=True,
-)
-
-print(
-    "[ENV TEST] "
-    f"IMAP_STATIC_DIR={os.getenv('IMAP_STATIC_DIR')!r}",
-    flush=True,
-)
-
-print(
-    "[ENV TEST] "
-    f"IMAP_DIST_DIR={os.getenv('IMAP_DIST_DIR')!r}",
-    flush=True,
-)
-
-print(
-    "[ENV TEST] "
-    f"IMAP_LOGGING_CONFIG="
-    f"{os.getenv('IMAP_LOGGING_CONFIG')!r}",
-    flush=True,
-)
-
-
-Set-Location "E:\Deploy\Python\imap-gateway\source"
-
-& "E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe" `
-  -c "import run; print(run.__file__); print([x for x in dir(run) if not x.startswith('_')])"
-
-
-
-Get-ChildItem "E:\Deploy\Python\imap-gateway\source" `
-  -Recurse -File -Filter *.py |
-Select-String -Pattern "FastAPI\(|Starlette\(|app\s*=|application\s*=|create_app"
-
-
-
-set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
-E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe -c "import imap_gateway.config; print(imap_gateway.config.__file__)"
-
-
-set PYTHONPATH=E:\Deploy\Python\imap-gateway\source\src
-cd /d E:\Deploy\Python\imap-gateway\source
-E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe run.py
-
-
-Get-Content "E:\Deploy\Python\imap-gateway\logs\stdout.log" -Tail 50 -Wait
+Get-NetTCPConnection -State Listen |
+Where-Object {
+    $_.OwningProcess -eq (
+        Get-CimInstance Win32_Service -Filter "Name='GatewayService'"
+    ).ProcessId
+} |
+Select-Object LocalAddress, LocalPort, OwningProcess
