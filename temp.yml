@@ -6,3 +6,11 @@ Get-ChildItem `
     -Filter "imap_shared" `
     -ErrorAction SilentlyContinue |
 Select-Object -ExpandProperty FullName
+
+
+$env:PYTHONPATH = `
+    "E:\Deploy\Python\imap-gateway\source\src;" +
+    "E:\digital-twin-studio\imap\workplaces\imap-shared\src"
+
+& "E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe" `
+    -c "import imap_shared; print(imap_shared.__file__)"
