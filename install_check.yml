@@ -1,1 +1,188 @@
- 
+---
+- name: Check imap orchestrator virtual environment Python for install check
+  win_stat:
+    path: "{{ imap_orchestrator_venv_dir }}\\Scripts\\python.exe"
+  register: imap_orchestrator_install_check_python
+
+- name: Validate imap orchestrator virtual environment Python for install check
+  assert:
+    that:
+      - imap_orchestrator_install_check_python.stat.exists
+      - not imap_orchestrator_install_check_python.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator virtual environment Python was not found:
+      {{ imap_orchestrator_venv_dir }}\Scripts\python.exe
+
+- name: Check imap orchestrator Python source paths
+  win_stat:
+    path: "{{ item }}"
+  with_items: "{{ imap_orchestrator_python_paths }}"
+  register: imap_orchestrator_python_path_checks
+
+- name: Validate imap orchestrator Python source paths
+  assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: >-
+      Python source path was not found:
+      {{ item.item }}
+  with_items: "{{ imap_orchestrator_python_path_checks.results }}"
+
+- name: Check imap orchestrator entry point
+  win_stat:
+    path: "{{ imap_orchestrator_source_dir }}\\run.py"
+  register: imap_orchestrator_entry_point_check
+
+- name: Validate imap orchestrator entry point
+  assert:
+    that:
+      - imap_orchestrator_entry_point_check.stat.exists
+      - not imap_orchestrator_entry_point_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator entry point was not found:
+      {{ imap_orchestrator_source_dir }}\run.py
+
+- name: Run pip dependency check
+  win_shell: |
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+    [Console]::InputEncoding = $utf8
+    [Console]::OutputEncoding = $utf8
+    $OutputEncoding = $utf8
+
+    $env:PYTHONUTF8 = "1"
+    $env:PYTHONIOENCODING = "utf-8"
+
+    $python = "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe"
+
+    & $python `
+      -X utf8 `
+      -m pip check
+
+    $pipCheckExitCode = $LASTEXITCODE
+
+    Write-Output "PIP_CHECK_EXIT_CODE=$pipCheckExitCode"
+
+    exit $pipCheckExitCode
+  environment:
+    PYTHONUTF8: "1"
+    PYTHONIOENCODING: "utf-8"
+  register: imap_orchestrator_pip_check
+  failed_when: false
+  changed_when: false
+
+- name: Show pip dependency check stdout
+  debug:
+    var: imap_orchestrator_pip_check.stdout_lines
+
+- name: Show pip dependency check stderr
+  debug:
+    var: imap_orchestrator_pip_check.stderr_lines
+
+- name: Fail when pip dependency check failed
+  fail:
+    msg: >-
+      IMAP orchestrator pip dependency check failed.
+      rc={{ imap_orchestrator_pip_check.rc }}
+      stdout={{ imap_orchestrator_pip_check.stdout | default('') }}
+      stderr={{ imap_orchestrator_pip_check.stderr | default('') }}
+  when:
+    - imap_orchestrator_pip_check.rc != 0
+
+- name: Check imap internal Python module imports
+  win_shell: |
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+    [Console]::InputEncoding = $utf8
+    [Console]::OutputEncoding = $utf8
+    $OutputEncoding = $utf8
+
+    $env:PYTHONUTF8 = "1"
+    $env:PYTHONIOENCODING = "utf-8"
+
+    $python = "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe"
+
+    $pythonScript = @'
+    import importlib.util
+    import os
+    import sys
+
+    modules = [
+    {% for module in imap_orchestrator_import_modules %}
+        "{{ module }}",
+    {% endfor %}
+    ]
+
+    print(f"python={sys.executable}")
+    print(f"pythonpath={os.environ.get('PYTHONPATH', '')}")
+
+    failed_modules = []
+
+    for module_name in modules:
+        spec = importlib.util.find_spec(module_name)
+
+        if spec is None:
+            print(f"IMPORT_NOT_FOUND={module_name}")
+            failed_modules.append(module_name)
+            continue
+
+        if spec.origin:
+            location = spec.origin
+        elif spec.submodule_search_locations:
+            location = ";".join(spec.submodule_search_locations)
+        else:
+            location = "unknown"
+
+        print(f"IMPORT_OK={module_name}|{location}")
+
+    if failed_modules:
+        print("IMPORT_FAILED=" + ",".join(failed_modules))
+        raise SystemExit(1)
+
+    print("IMPORT_CHECK_OK")
+    '@
+
+    $pythonScript | & $python -X utf8 -
+
+    $importCheckExitCode = $LASTEXITCODE
+
+    Write-Output "IMPORT_CHECK_EXIT_CODE=$importCheckExitCode"
+
+    exit $importCheckExitCode
+  environment:
+    PYTHONUTF8: "1"
+    PYTHONIOENCODING: "utf-8"
+    PYTHONPATH: "{{ imap_orchestrator_python_paths | join(';') }}"
+  register: imap_orchestrator_import_check
+  failed_when: false
+  changed_when: false
+
+- name: Show imap internal Python import check stdout
+  debug:
+    var: imap_orchestrator_import_check.stdout_lines
+
+- name: Show imap internal Python import check stderr
+  debug:
+    var: imap_orchestrator_import_check.stderr_lines
+
+- name: Fail when imap internal Python import check failed
+  fail:
+    msg: >-
+      IMAP internal Python module import check failed.
+      rc={{ imap_orchestrator_import_check.rc }}
+      PYTHONPATH={{ imap_orchestrator_python_paths | join(';') }}
+      stdout={{ imap_orchestrator_import_check.stdout | default('') }}
+      stderr={{ imap_orchestrator_import_check.stderr | default('') }}
+  when:
+    - imap_orchestrator_import_check.rc != 0
+
+- name: Show imap orchestrator install check result
+  debug:
+    msg:
+      - "IMAP orchestrator installation validation completed."
+      - "venv={{ imap_orchestrator_venv_dir }}"
+      - "entry_point={{ imap_orchestrator_source_dir }}\\run.py"
+      - "PYTHONPATH={{ imap_orchestrator_python_paths | join(';') }}"
+      - "pip_check=OK"
+      - "import_check=OK"
