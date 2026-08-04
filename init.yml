@@ -1,8 +1,6 @@
 ---
 - name: Initialize imap orchestrator sparse Git repository
   win_shell: |
-    $ErrorActionPreference = "Stop"
-
     $sourceDir = "{{ imap_source_dir }}"
     $repositoryUrl = "{{ imap_repo_url }}"
     $gitDirectory = Join-Path $sourceDir ".git"
@@ -29,22 +27,26 @@
     }
 
     # -------------------------------------------------------------------------
-    # Add or update origin
+    # Read current origin URL without using 'git remote get-url origin'
     # -------------------------------------------------------------------------
-    $remotes = @(
+    $currentOrigin = (
       & "{{ git_executable }}" `
         -C $sourceDir `
-        remote
-    )
+        config `
+        --get `
+        remote.origin.url `
+        2>$null |
+      Out-String
+    ).Trim()
 
-    if ($LASTEXITCODE -ne 0) {
-      exit $LASTEXITCODE
-    }
-
-    if ($remotes -notcontains "origin") {
+    # -------------------------------------------------------------------------
+    # Create or update origin configuration
+    # -------------------------------------------------------------------------
+    if ($currentOrigin -ne $repositoryUrl) {
       & "{{ git_executable }}" `
         -C $sourceDir `
-        remote add origin `
+        config `
+        remote.origin.url `
         $repositoryUrl
 
       if ($LASTEXITCODE -ne 0) {
@@ -53,51 +55,64 @@
 
       $changed = $true
     }
-    else {
-      $currentOrigin = & "{{ git_executable }}" `
+
+    $currentOriginFetch = (
+      & "{{ git_executable }}" `
         -C $sourceDir `
-        remote get-url origin
+        config `
+        --get `
+        remote.origin.fetch `
+        2>$null |
+      Out-String
+    ).Trim()
+
+    $requiredOriginFetch = "+refs/heads/*:refs/remotes/origin/*"
+
+    if ($currentOriginFetch -ne $requiredOriginFetch) {
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        remote.origin.fetch `
+        $requiredOriginFetch
 
       if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
       }
 
-      if ($currentOrigin.Trim() -ne $repositoryUrl) {
-        & "{{ git_executable }}" `
-          -C $sourceDir `
-          remote set-url origin `
-          $repositoryUrl
-
-        if ($LASTEXITCODE -ne 0) {
-          exit $LASTEXITCODE
-        }
-
-        $changed = $true
-      }
+      $changed = $true
     }
 
     # -------------------------------------------------------------------------
     # Enable sparse-checkout cone mode
     # -------------------------------------------------------------------------
-    $sparseCheckoutEnabled = & "{{ git_executable }}" `
-      -C $sourceDir `
-      config `
-      --bool `
-      core.sparseCheckout 2>$null
+    $sparseCheckoutEnabled = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        core.sparseCheckout `
+        2>$null |
+      Out-String
+    ).Trim()
 
-    $sparseCheckoutConeEnabled = & "{{ git_executable }}" `
-      -C $sourceDir `
-      config `
-      --bool `
-      core.sparseCheckoutCone 2>$null
+    $sparseCheckoutConeEnabled = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        core.sparseCheckoutCone `
+        2>$null |
+      Out-String
+    ).Trim()
 
     if (
-      $sparseCheckoutEnabled.Trim() -ne "true" -or
-      $sparseCheckoutConeEnabled.Trim() -ne "true"
+      $sparseCheckoutEnabled -ne "true" -or
+      $sparseCheckoutConeEnabled -ne "true"
     ) {
       & "{{ git_executable }}" `
         -C $sourceDir `
-        sparse-checkout init `
+        sparse-checkout `
+        init `
         --cone
 
       if ($LASTEXITCODE -ne 0) {
@@ -136,50 +151,79 @@
 
 - name: Read imap Git initialization context
   win_shell: |
-    $ErrorActionPreference = "Stop"
     $sourceDir = "{{ imap_source_dir }}"
 
-    $origin = & "{{ git_executable }}" `
-      -C $sourceDir `
-      remote get-url origin
+    $origin = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        remote.origin.url |
+      Out-String
+    ).Trim()
 
-    if ($LASTEXITCODE -ne 0) {
-      Write-Error "Unable to read Git remote origin"
-      exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($origin)) {
+      Write-Error "Git remote origin URL is not configured"
+      exit 1
     }
 
-    $sparseCheckout = & "{{ git_executable }}" `
-      -C $sourceDir `
-      config `
-      --bool `
-      core.sparseCheckout
+    $originFetch = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        remote.origin.fetch |
+      Out-String
+    ).Trim()
+
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originFetch)) {
+      Write-Error "Git remote origin fetch configuration is missing"
+      exit 1
+    }
+
+    $sparseCheckout = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        core.sparseCheckout |
+      Out-String
+    ).Trim()
 
     if ($LASTEXITCODE -ne 0) {
       Write-Error "Unable to read core.sparseCheckout"
-      exit $LASTEXITCODE
+      exit 1
     }
 
-    $sparseCheckoutCone = & "{{ git_executable }}" `
-      -C $sourceDir `
-      config `
-      --bool `
-      core.sparseCheckoutCone
+    $sparseCheckoutCone = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config `
+        --get `
+        core.sparseCheckoutCone |
+      Out-String
+    ).Trim()
 
     if ($LASTEXITCODE -ne 0) {
       Write-Error "Unable to read core.sparseCheckoutCone"
-      exit $LASTEXITCODE
+      exit 1
     }
 
-    Write-Output "origin=$($origin.Trim())"
-    Write-Output "sparse_checkout=$($sparseCheckout.Trim())"
-    Write-Output "sparse_checkout_cone=$($sparseCheckoutCone.Trim())"
+    Write-Output "origin=$origin"
+    Write-Output "origin_fetch=$originFetch"
+    Write-Output "sparse_checkout=$sparseCheckout"
+    Write-Output "sparse_checkout_cone=$sparseCheckoutCone"
+  environment:
+    HOME: "{{ deploy_user_profile }}"
+    USERPROFILE: "{{ deploy_user_profile }}"
   register: imap_orchestrator_git_init_context
   changed_when: false
 
 - name: Validate imap Git initialization context
   assert:
     that:
-      - "'origin=' + imap_repo_url in imap_orchestrator_git_init_context.stdout"
+      - ("origin=" + imap_repo_url) in imap_orchestrator_git_init_context.stdout
+      - "'origin_fetch=+refs/heads/*:refs/remotes/origin/*' in imap_orchestrator_git_init_context.stdout"
       - "'sparse_checkout=true' in imap_orchestrator_git_init_context.stdout"
       - "'sparse_checkout_cone=true' in imap_orchestrator_git_init_context.stdout"
     fail_msg: >-
