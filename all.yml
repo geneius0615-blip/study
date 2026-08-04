@@ -127,7 +127,8 @@ imap_orchestrator_import_modules:
 # Windows service
 # =============================================================================
 
-nssm_executable: nssm.exe
+# PATH에 의존하지 않고 NSSM 절대 경로를 사용
+nssm_executable: 'E:\Tools\nssm\nssm.exe'
 
 imap_orchestrator_service_name: imap-orchestrator
 
