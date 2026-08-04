@@ -1,1 +1,194 @@
- 
+---
+- name: Download imap orchestrator sparse source
+  win_shell: |
+    $sourceDir = "{{ imap_source_dir }}"
+    $branch = "{{ imap_repo_branch }}"
+    $sparseFile = Join-Path $sourceDir ".git\info\sparse-checkout"
+
+    $beforeCommit = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        rev-parse HEAD 2>$null |
+      Out-String
+    ).Trim()
+
+    if (Test-Path -LiteralPath $sparseFile) {
+      $beforeSparse = Get-Content `
+        -LiteralPath $sparseFile `
+        -Raw
+    }
+    else {
+      $beforeSparse = ""
+    }
+
+    # -------------------------------------------------------------------------
+    # Fetch requested branch
+    # -------------------------------------------------------------------------
+    & "{{ git_executable }}" `
+      -C $sourceDir `
+      fetch `
+      --depth 1 `
+      origin `
+      $branch
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Git fetch failed: origin/$branch"
+      exit $LASTEXITCODE
+    }
+
+    # -------------------------------------------------------------------------
+    # Create or reset local branch from FETCH_HEAD
+    # -------------------------------------------------------------------------
+    & "{{ git_executable }}" `
+      -C $sourceDir `
+      checkout `
+      -B $branch `
+      FETCH_HEAD
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Git checkout failed: $branch"
+      exit $LASTEXITCODE
+    }
+
+    # -------------------------------------------------------------------------
+    # Checkout only the required directories
+    # -------------------------------------------------------------------------
+    & "{{ git_executable }}" `
+      -C $sourceDir `
+      sparse-checkout set `
+      "apps/imap-orchestrator" `
+      "packages/imap-shared" `
+      "packages/imap-core" `
+      "packages/imap-plugin" `
+      "packages/imap-command"
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Git sparse-checkout set failed"
+      exit $LASTEXITCODE
+    }
+
+    $afterCommit = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        rev-parse HEAD |
+      Out-String
+    ).Trim()
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Unable to read checked-out commit"
+      exit $LASTEXITCODE
+    }
+
+    if (Test-Path -LiteralPath $sparseFile) {
+      $afterSparse = Get-Content `
+        -LiteralPath $sparseFile `
+        -Raw
+    }
+    else {
+      Write-Error "Sparse-checkout configuration file not found: $sparseFile"
+      exit 1
+    }
+
+    Write-Output "branch=$branch"
+    Write-Output "commit=$afterCommit"
+
+    if (
+      $beforeCommit -ne $afterCommit -or
+      $beforeSparse -ne $afterSparse
+    ) {
+      Write-Output "DOWNLOAD_CHANGED"
+    }
+    else {
+      Write-Output "DOWNLOAD_OK"
+    }
+  environment:
+    HOME: "{{ deploy_user_profile }}"
+    USERPROFILE: "{{ deploy_user_profile }}"
+  register: imap_orchestrator_download
+  changed_when:
+    - "'DOWNLOAD_CHANGED' in imap_orchestrator_download.stdout"
+
+- name: Check downloaded imap source directories
+  win_stat:
+    path: "{{ item.path }}"
+  with_items:
+    - name: imap-orchestrator
+      path: "{{ imap_orchestrator_source_dir }}"
+
+    - name: imap-shared
+      path: "{{ imap_shared_source_dir }}"
+
+    - name: imap-core
+      path: "{{ imap_core_source_dir }}"
+
+    - name: imap-plugin
+      path: "{{ imap_plugin_source_dir }}"
+
+    - name: imap-command
+      path: "{{ imap_command_source_dir }}"
+  register: imap_orchestrator_source_directory_checks
+
+- name: Validate downloaded imap source directories
+  assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: >-
+      Downloaded source directory was not found:
+      {{ item.item.name }}={{ item.item.path }}
+  with_items: "{{ imap_orchestrator_source_directory_checks.results }}"
+
+- name: Check downloaded imap requirements files
+  win_stat:
+    path: "{{ item.path }}"
+  with_items:
+    - name: imap-shared
+      path: "{{ imap_shared_requirements_file }}"
+
+    - name: imap-core
+      path: "{{ imap_core_requirements_file }}"
+
+    - name: imap-plugin
+      path: "{{ imap_plugin_requirements_file }}"
+
+    - name: imap-command
+      path: "{{ imap_command_requirements_file }}"
+
+    - name: imap-orchestrator
+      path: "{{ imap_orchestrator_requirements_file }}"
+  register: imap_orchestrator_requirements_checks
+
+- name: Validate downloaded imap requirements files
+  assert:
+    that:
+      - item.stat.exists
+      - not item.stat.isdir
+    fail_msg: >-
+      Requirements file was not found:
+      {{ item.item.name }}={{ item.item.path }}
+  with_items: "{{ imap_orchestrator_requirements_checks.results }}"
+
+- name: Check wheelhouse after Git download
+  win_stat:
+    path: "{{ python_wheelhouse_dir }}"
+  register: imap_orchestrator_wheelhouse_after_download
+
+- name: Validate wheelhouse after Git download
+  assert:
+    that:
+      - imap_orchestrator_wheelhouse_after_download.stat.exists
+      - imap_orchestrator_wheelhouse_after_download.stat.isdir
+    fail_msg: >-
+      Wheelhouse was not preserved:
+      {{ python_wheelhouse_dir }}
+
+- name: Show imap orchestrator download result
+  debug:
+    msg:
+      - "{{ imap_orchestrator_download.stdout_lines }}"
+      - "orchestrator={{ imap_orchestrator_source_dir }}"
+      - "shared={{ imap_shared_source_dir }}"
+      - "core={{ imap_core_source_dir }}"
+      - "plugin={{ imap_plugin_source_dir }}"
+      - "command={{ imap_command_source_dir }}"
+      - "wheelhouse={{ python_wheelhouse_dir }}"
