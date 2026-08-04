@@ -1,15 +1,54 @@
+---
+python_executable: C:\Users\appuser\AppData\Local\Programs\Python\Python311\python.exe
+python_required_version: "3.11"
+
+git_executable: git.exe
+nssm_executable: nssm.exe
+deploy_user_profile: C:\Users\appuser
+
+imap_repo_url: https://실제-Git-주소/imap.git
+imap_repo_branch: main
+
 imap_source_dir: E:\digital-twin-studio\imap\source
+imap_apps_dir: E:\digital-twin-studio\imap\source\apps
+imap_packages_dir: E:\digital-twin-studio\imap\source\packages
 
-imap_orchestrator_dir: "{{ imap_source_dir }}\\apps\\imap-orchestrator"
-imap_shared_dir: "{{ imap_source_dir }}\\packages\\imap-shared"
-imap_core_dir: "{{ imap_source_dir }}\\packages\\imap-core"
-imap_plugin_dir: "{{ imap_source_dir }}\\packages\\imap-plugin"
-imap_command_dir: "{{ imap_source_dir }}\\packages\\imap-command"
+imap_orchestrator_dir: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+imap_shared_dir: E:\digital-twin-studio\imap\source\packages\imap-shared
+imap_core_dir: E:\digital-twin-studio\imap\source\packages\imap-core
+imap_plugin_dir: E:\digital-twin-studio\imap\source\packages\imap-plugin
+imap_command_dir: E:\digital-twin-studio\imap\source\packages\imap-command
 
-imap_orchestrator_requirements_file: "{{ imap_orchestrator_dir }}\\requirements.txt"
-imap_shared_requirements_file: "{{ imap_shared_dir }}\\requirements.txt"
-imap_core_requirements_file: "{{ imap_core_dir }}\\requirements.txt"
-imap_plugin_requirements_file: "{{ imap_plugin_dir }}\\requirements.txt"
-imap_command_requirements_file: "{{ imap_command_dir }}\\requirements.txt"
+imap_orchestrator_requirements_file: E:\digital-twin-studio\imap\source\apps\imap-orchestrator\requirements.txt
+imap_shared_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-shared\requirements.txt
+imap_core_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-core\requirements.txt
+imap_plugin_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-plugin\requirements.txt
+imap_command_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-command\requirements.txt
 
-python_wheelhouse_dir: "{{ imap_source_dir }}\\wheelhouse"
+python_wheelhouse_dir: E:\digital-twin-studio\imap\source\wheelhouse
+
+gateway_home: E:\Deploy\Python\imap-gateway
+gateway_venv_dir: E:\Deploy\Python\imap-gateway\.venv
+gateway_logs_dir: E:\Deploy\Python\imap-gateway\logs
+
+gateway_service_name: GatewayService
+gateway_service_application: E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe
+gateway_service_app_directory: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+gateway_service_arguments: run.py
+
+gateway_port: 8000
+gateway_healthcheck_url: http://127.0.0.1:8000/health
+
+# 각 디렉터리 바로 아래에 imap_shared 등의 Python 폴더가 있는 경우
+imap_orchestrator_python_path: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+imap_shared_python_path: E:\digital-twin-studio\imap\source\packages\imap-shared
+imap_core_python_path: E:\digital-twin-studio\imap\source\packages\imap-core
+imap_plugin_python_path: E:\digital-twin-studio\imap\source\packages\imap-plugin
+imap_command_python_path: E:\digital-twin-studio\imap\source\packages\imap-command
+
+gateway_python_path: >-
+  {{ imap_orchestrator_python_path }};
+  {{ imap_shared_python_path }};
+  {{ imap_core_python_path }};
+  {{ imap_plugin_python_path }};
+  {{ imap_command_python_path }}
