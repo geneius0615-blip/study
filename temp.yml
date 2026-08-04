@@ -14,3 +14,11 @@ $env:PYTHONPATH = `
 
 & "E:\Deploy\Python\imap-gateway\.venv\Scripts\python.exe" `
     -c "import imap_shared; print(imap_shared.__file__)"
+
+
+
+
+imap_shared_repo_dir: E:\실제경로\imap-shared
+imap_core_repo_dir: E:\실제경로\imap-core
+imap_command_repo_dir: E:\실제경로\imap-command
+imap_plugin_repo_dir: E:\실제경로\imap-plugin
