@@ -1,1 +1,130 @@
- 
+---
+- name: Check imap core requirements file
+  win_stat:
+    path: "{{ imap_core_requirements_file }}"
+  register: imap_core_requirements_check
+
+- name: Validate imap core requirements file
+  assert:
+    that:
+      - imap_core_requirements_check.stat.exists
+      - not imap_core_requirements_check.stat.isdir
+    fail_msg: >-
+      IMAP core requirements file was not found:
+      {{ imap_core_requirements_file }}
+
+- name: Check imap orchestrator virtual environment Python for core
+  win_stat:
+    path: "{{ imap_orchestrator_venv_dir }}\\Scripts\\python.exe"
+  register: imap_core_venv_python_check
+
+- name: Validate imap orchestrator virtual environment Python for core
+  assert:
+    that:
+      - imap_core_venv_python_check.stat.exists
+      - not imap_core_venv_python_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator virtual environment was not found:
+      {{ imap_orchestrator_venv_dir }}.
+      Run the venv tag first.
+
+- name: Read imap core requirements with UTF-8 encoding
+  win_shell: |
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+    [Console]::OutputEncoding = $utf8
+    $OutputEncoding = $utf8
+
+    $requirementsFile = "{{ imap_core_requirements_file }}"
+    $lineNumber = 0
+
+    $requirementsLines = [System.IO.File]::ReadAllLines(
+      $requirementsFile,
+      [System.Text.Encoding]::UTF8
+    )
+
+    foreach ($line in $requirementsLines) {
+      $lineNumber++
+
+      Write-Output (
+        "{0,4}: {1}" -f $lineNumber, $line
+      )
+    }
+  register: imap_core_requirements_content
+  changed_when: false
+
+- name: Show imap core requirements
+  debug:
+    msg:
+      - "requirements={{ imap_core_requirements_file }}"
+      - "{{ imap_core_requirements_content.stdout_lines }}"
+
+- name: Install imap core requirements with UTF-8 encoding
+  win_shell: |
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+    [Console]::InputEncoding = $utf8
+    [Console]::OutputEncoding = $utf8
+    $OutputEncoding = $utf8
+
+    $env:PYTHONUTF8 = "1"
+    $env:PYTHONIOENCODING = "utf-8"
+
+    $python = "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe"
+    $requirementsFile = "{{ imap_core_requirements_file }}"
+    $wheelhouse = "{{ python_wheelhouse_dir }}"
+
+    & $python `
+      -X utf8 `
+      -m pip install `
+      --find-links $wheelhouse `
+      -r $requirementsFile
+
+    $pipExitCode = $LASTEXITCODE
+
+    Write-Output "PIP_EXIT_CODE=$pipExitCode"
+
+    exit $pipExitCode
+  environment:
+    PYTHONUTF8: "1"
+    PYTHONIOENCODING: "utf-8"
+  register: imap_core_requirements_install
+  failed_when: false
+  changed_when:
+    - imap_core_requirements_install.rc == 0
+    - "'Successfully installed' in imap_core_requirements_install.stdout"
+
+- name: Show imap core pip return code
+  debug:
+    msg:
+      - "rc={{ imap_core_requirements_install.rc }}"
+      - "requirements={{ imap_core_requirements_file }}"
+      - "venv={{ imap_orchestrator_venv_dir }}"
+      - "wheelhouse={{ python_wheelhouse_dir }}"
+
+- name: Show imap core pip stdout
+  debug:
+    var: imap_core_requirements_install.stdout_lines
+
+- name: Show imap core pip stderr
+  debug:
+    var: imap_core_requirements_install.stderr_lines
+
+- name: Fail when imap core requirements installation failed
+  fail:
+    msg: >-
+      IMAP core requirements installation failed.
+      rc={{ imap_core_requirements_install.rc }}
+      stdout={{ imap_core_requirements_install.stdout | default('') }}
+      stderr={{ imap_core_requirements_install.stderr | default('No stderr output') }}
+  when:
+    - imap_core_requirements_install.rc != 0
+
+- name: Show imap core requirements installation result
+  debug:
+    msg:
+      - "IMAP core requirements installation completed."
+      - "requirements={{ imap_core_requirements_file }}"
+      - "venv={{ imap_orchestrator_venv_dir }}"
+  when:
+    - imap_core_requirements_install.rc == 0
