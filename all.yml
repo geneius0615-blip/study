@@ -16,7 +16,7 @@ git_executable: git.exe
 # _netrc 파일은 이 경로 아래에 존재해야 함
 deploy_user_profile: C:\Users\appuser
 
-# 현재 사용 중인 실제 모노레포 Git 주소 유지
+# 실제 모노레포 Git 주소
 imap_repo_url: https://실제-Git-주소/imap.git
 imap_repo_branch: main
 
@@ -27,6 +27,7 @@ imap_repo_branch: main
 imap_source_dir: E:\digital-twin-studio\imap\source
 imap_apps_dir: E:\digital-twin-studio\imap\source\apps
 imap_packages_dir: E:\digital-twin-studio\imap\source\packages
+imap_scripts_dir: E:\digital-twin-studio\imap\source\scripts
 
 # sparse-checkout으로 가져올 Git 내부 상대 경로
 imap_sparse_paths:
@@ -35,6 +36,7 @@ imap_sparse_paths:
   - packages/imap-core
   - packages/imap-plugin
   - packages/imap-command
+  - scripts
 
 # =============================================================================
 # Application source
@@ -98,8 +100,8 @@ imap_orchestrator_logs_dir: E:\Deploy\Python\imap-orchestrator\logs
 # Python source paths
 # =============================================================================
 
-# orchestrator는 애플리케이션 저장소 루트를 직접 사용
-imap_orchestrator_python_path: "{{ imap_orchestrator_source_dir }}"
+# orchestrator의 실제 Python 패키지는 src 아래에 존재
+imap_orchestrator_python_path: "{{ imap_orchestrator_source_dir }}\\src"
 
 # 내부 패키지는 각 저장소의 src 디렉터리를 Python import 경로로 사용
 imap_shared_python_path: "{{ imap_shared_source_dir }}\\src"
@@ -118,6 +120,7 @@ imap_orchestrator_python_paths:
 
 # install_check 단계에서 import 가능 여부를 확인할 내부 모듈
 imap_orchestrator_import_modules:
+  - imap_orchestrator
   - imap_shared
   - imap_core
   - imap_plugin
@@ -127,7 +130,7 @@ imap_orchestrator_import_modules:
 # Windows service
 # =============================================================================
 
-# PATH에 의존하지 않고 NSSM 절대 경로를 사용
+# 실제 NSSM 절대 경로
 nssm_executable: 'E:\Tools\nssm\nssm.exe'
 
 imap_orchestrator_service_name: imap-orchestrator
