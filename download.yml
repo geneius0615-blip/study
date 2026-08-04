@@ -1,14 +1,37 @@
 ---
+- name: Check initialized imap Git directory before download
+  win_stat:
+    path: "{{ imap_source_dir }}\\.git"
+  register: imap_orchestrator_download_git_check
+
+- name: Validate initialized imap Git directory before download
+  assert:
+    that:
+      - imap_orchestrator_download_git_check.stat.exists
+      - imap_orchestrator_download_git_check.stat.isdir
+    fail_msg: >-
+      Initialized Git repository was not found:
+      {{ imap_source_dir }}\.git.
+      Run the init tag first.
+
 - name: Download imap orchestrator sparse source
   win_shell: |
     $sourceDir = "{{ imap_source_dir }}"
     $branch = "{{ imap_repo_branch }}"
     $sparseFile = Join-Path $sourceDir ".git\info\sparse-checkout"
 
+    $sparsePaths = @(
+    {% for sparse_path in imap_sparse_paths %}
+      "{{ sparse_path }}"
+    {% endfor %}
+    )
+
     $beforeCommit = (
       & "{{ git_executable }}" `
         -C $sourceDir `
-        rev-parse HEAD 2>$null |
+        rev-parse `
+        HEAD `
+        2>$null |
       Out-String
     ).Trim()
 
@@ -37,7 +60,24 @@
     }
 
     # -------------------------------------------------------------------------
-    # Create or reset local branch from FETCH_HEAD
+    # Configure sparse-checkout paths
+    # -------------------------------------------------------------------------
+    $sparseArguments = @(
+      "-C"
+      $sourceDir
+      "sparse-checkout"
+      "set"
+    ) + $sparsePaths
+
+    & "{{ git_executable }}" @sparseArguments
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Git sparse-checkout set failed"
+      exit $LASTEXITCODE
+    }
+
+    # -------------------------------------------------------------------------
+    # Create or reset local branch from fetched commit
     # -------------------------------------------------------------------------
     & "{{ git_executable }}" `
       -C $sourceDir `
@@ -50,27 +90,11 @@
       exit $LASTEXITCODE
     }
 
-    # -------------------------------------------------------------------------
-    # Checkout only the required directories
-    # -------------------------------------------------------------------------
-    & "{{ git_executable }}" `
-      -C $sourceDir `
-      sparse-checkout set `
-      "apps/imap-orchestrator" `
-      "packages/imap-shared" `
-      "packages/imap-core" `
-      "packages/imap-plugin" `
-      "packages/imap-command"
-
-    if ($LASTEXITCODE -ne 0) {
-      Write-Error "Git sparse-checkout set failed"
-      exit $LASTEXITCODE
-    }
-
     $afterCommit = (
       & "{{ git_executable }}" `
         -C $sourceDir `
-        rev-parse HEAD |
+        rev-parse `
+        HEAD |
       Out-String
     ).Trim()
 
@@ -85,12 +109,20 @@
         -Raw
     }
     else {
-      Write-Error "Sparse-checkout configuration file not found: $sparseFile"
+      Write-Error (
+        "Sparse-checkout configuration file not found: {0}" -f
+        $sparseFile
+      )
+
       exit 1
     }
 
     Write-Output "branch=$branch"
     Write-Output "commit=$afterCommit"
+
+    foreach ($sparsePath in $sparsePaths) {
+      Write-Output "sparse_path=$sparsePath"
+    }
 
     if (
       $beforeCommit -ne $afterCommit -or
@@ -126,6 +158,9 @@
 
     - name: imap-command
       path: "{{ imap_command_source_dir }}"
+
+    - name: scripts
+      path: "{{ imap_scripts_dir }}"
   register: imap_orchestrator_source_directory_checks
 
 - name: Validate downloaded imap source directories
@@ -141,21 +176,7 @@
 - name: Check downloaded imap requirements files
   win_stat:
     path: "{{ item.path }}"
-  with_items:
-    - name: imap-shared
-      path: "{{ imap_shared_requirements_file }}"
-
-    - name: imap-core
-      path: "{{ imap_core_requirements_file }}"
-
-    - name: imap-plugin
-      path: "{{ imap_plugin_requirements_file }}"
-
-    - name: imap-command
-      path: "{{ imap_command_requirements_file }}"
-
-    - name: imap-orchestrator
-      path: "{{ imap_orchestrator_requirements_file }}"
+  with_items: "{{ imap_requirements_files }}"
   register: imap_orchestrator_requirements_checks
 
 - name: Validate downloaded imap requirements files
@@ -191,4 +212,5 @@
       - "core={{ imap_core_source_dir }}"
       - "plugin={{ imap_plugin_source_dir }}"
       - "command={{ imap_command_source_dir }}"
+      - "scripts={{ imap_scripts_dir }}"
       - "wheelhouse={{ python_wheelhouse_dir }}"
