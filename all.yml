@@ -1,28 +1,131 @@
+---
+# =============================================================================
+# Python
+# =============================================================================
+
 python_executable: C:\Users\appuser\AppData\Local\Programs\Python\Python311\python.exe
 python_required_version: "3.11"
+
+# =============================================================================
+# Git
+# =============================================================================
+
 git_executable: git.exe
 
-imap_repo_url: 실제_모노레포_Git_URL
+# Git 명령 실행 계정의 사용자 프로필
+# _netrc 파일을 사용하는 경우 이 경로 아래에 존재해야 함
+deploy_user_profile: C:\Users\appuser
+
+# 실제 모노레포 Git 주소로 변경
+imap_repo_url: https://실제-Git-주소/imap.git
 imap_repo_branch: main
+
+# =============================================================================
+# IMAP monorepo source
+# =============================================================================
 
 imap_source_dir: E:\digital-twin-studio\imap\source
 imap_apps_dir: E:\digital-twin-studio\imap\source\apps
 imap_packages_dir: E:\digital-twin-studio\imap\source\packages
 
-imap_orchestrator_dir: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
-imap_shared_dir: E:\digital-twin-studio\imap\source\packages\imap-shared
-imap_core_dir: E:\digital-twin-studio\imap\source\packages\imap-core
-imap_plugin_dir: E:\digital-twin-studio\imap\source\packages\imap-plugin
-imap_command_dir: E:\digital-twin-studio\imap\source\packages\imap-command
+# sparse-checkout으로 가져올 Git 내부 상대 경로
+imap_sparse_paths:
+  - apps/imap-orchestrator
+  - packages/imap-shared
+  - packages/imap-core
+  - packages/imap-plugin
+  - packages/imap-command
+
+# =============================================================================
+# Application source
+# =============================================================================
+
+imap_orchestrator_source_dir: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+
+# =============================================================================
+# Package sources
+# =============================================================================
+
+imap_shared_source_dir: E:\digital-twin-studio\imap\source\packages\imap-shared
+imap_core_source_dir: E:\digital-twin-studio\imap\source\packages\imap-core
+imap_plugin_source_dir: E:\digital-twin-studio\imap\source\packages\imap-plugin
+imap_command_source_dir: E:\digital-twin-studio\imap\source\packages\imap-command
+
+# =============================================================================
+# Requirements files
+# =============================================================================
 
 imap_orchestrator_requirements_file: E:\digital-twin-studio\imap\source\apps\imap-orchestrator\requirements.txt
+
 imap_shared_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-shared\requirements.txt
 imap_core_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-core\requirements.txt
 imap_plugin_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-plugin\requirements.txt
 imap_command_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-command\requirements.txt
 
+# requirements 설치 순서
+# 공통 패키지를 먼저 설치하고 실행 애플리케이션을 마지막에 설치
+imap_requirements_files:
+  - name: imap-shared
+    path: "{{ imap_shared_requirements_file }}"
+
+  - name: imap-core
+    path: "{{ imap_core_requirements_file }}"
+
+  - name: imap-plugin
+    path: "{{ imap_plugin_requirements_file }}"
+
+  - name: imap-command
+    path: "{{ imap_command_requirements_file }}"
+
+  - name: imap-orchestrator
+    path: "{{ imap_orchestrator_requirements_file }}"
+
+# =============================================================================
+# Wheelhouse
+# =============================================================================
+
 python_wheelhouse_dir: E:\digital-twin-studio\imap\source\wheelhouse
 
-gateway_home: E:\Deploy\Python\imap-gateway
-gateway_venv_dir: E:\Deploy\Python\imap-gateway\.venv
-gateway_logs_dir: E:\Deploy\Python\imap-gateway\logs
+# =============================================================================
+# IMAP orchestrator runtime
+# =============================================================================
+
+imap_orchestrator_home: E:\Deploy\Python\imap-orchestrator
+imap_orchestrator_venv_dir: E:\Deploy\Python\imap-orchestrator\.venv
+imap_orchestrator_logs_dir: E:\Deploy\Python\imap-orchestrator\logs
+
+# =============================================================================
+# Python source paths
+# =============================================================================
+
+# 현재는 각 Git 디렉터리 바로 아래에 Python 패키지가 있다는 기준
+# 실제 구조가 source\packages\imap-shared\src\imap_shared라면
+# 해당 항목 뒤에 \src를 추가해야 함
+imap_orchestrator_python_paths:
+  - "{{ imap_orchestrator_source_dir }}"
+  - "{{ imap_shared_source_dir }}"
+  - "{{ imap_core_source_dir }}"
+  - "{{ imap_plugin_source_dir }}"
+  - "{{ imap_command_source_dir }}"
+
+# =============================================================================
+# Windows service
+# =============================================================================
+
+nssm_executable: nssm.exe
+
+imap_orchestrator_service_name: imap-orchestrator
+
+imap_orchestrator_service_application: E:\Deploy\Python\imap-orchestrator\.venv\Scripts\python.exe
+imap_orchestrator_service_app_directory: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+imap_orchestrator_service_arguments: run.py
+
+imap_orchestrator_stdout_log: E:\Deploy\Python\imap-orchestrator\logs\imap-orchestrator-stdout.log
+imap_orchestrator_stderr_log: E:\Deploy\Python\imap-orchestrator\logs\imap-orchestrator-stderr.log
+
+# =============================================================================
+# Network and health check
+# =============================================================================
+
+imap_orchestrator_port: 8000
+imap_orchestrator_healthcheck_url: http://127.0.0.1:8000/health
