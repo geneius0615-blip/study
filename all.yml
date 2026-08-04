@@ -13,10 +13,10 @@ python_required_version: "3.11"
 git_executable: git.exe
 
 # Git 명령 실행 계정의 사용자 프로필
-# _netrc 파일을 사용하는 경우 이 경로 아래에 존재해야 함
+# _netrc 파일은 이 경로 아래에 존재해야 함
 deploy_user_profile: C:\Users\appuser
 
-# 실제 모노레포 Git 주소
+# 현재 사용 중인 실제 모노레포 Git 주소 유지
 imap_repo_url: https://실제-Git-주소/imap.git
 imap_repo_branch: main
 
@@ -46,6 +46,7 @@ imap_orchestrator_source_dir: E:\digital-twin-studio\imap\source\apps\imap-orche
 # Package sources
 # =============================================================================
 
+# requirements.txt와 Git 소스의 기준 경로
 imap_shared_source_dir: E:\digital-twin-studio\imap\source\packages\imap-shared
 imap_core_source_dir: E:\digital-twin-studio\imap\source\packages\imap-core
 imap_plugin_source_dir: E:\digital-twin-studio\imap\source\packages\imap-plugin
@@ -97,14 +98,23 @@ imap_orchestrator_logs_dir: E:\Deploy\Python\imap-orchestrator\logs
 # Python source paths
 # =============================================================================
 
+# orchestrator는 애플리케이션 저장소 루트를 직접 사용
+imap_orchestrator_python_path: "{{ imap_orchestrator_source_dir }}"
+
+# 내부 패키지는 각 저장소의 src 디렉터리를 Python import 경로로 사용
+imap_shared_python_path: "{{ imap_shared_source_dir }}\\src"
+imap_core_python_path: "{{ imap_core_source_dir }}\\src"
+imap_plugin_python_path: "{{ imap_plugin_source_dir }}\\src"
+imap_command_python_path: "{{ imap_command_source_dir }}\\src"
+
 # 내부 패키지는 site-packages에 직접 설치하지 않고
 # Git에서 받은 소스 경로를 PYTHONPATH로 참조
 imap_orchestrator_python_paths:
-  - "{{ imap_orchestrator_source_dir }}"
-  - "{{ imap_shared_source_dir }}"
-  - "{{ imap_core_source_dir }}"
-  - "{{ imap_plugin_source_dir }}"
-  - "{{ imap_command_source_dir }}"
+  - "{{ imap_orchestrator_python_path }}"
+  - "{{ imap_shared_python_path }}"
+  - "{{ imap_core_python_path }}"
+  - "{{ imap_plugin_python_path }}"
+  - "{{ imap_command_python_path }}"
 
 # install_check 단계에서 import 가능 여부를 확인할 내부 모듈
 imap_orchestrator_import_modules:
