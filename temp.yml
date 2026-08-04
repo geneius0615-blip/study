@@ -22,3 +22,50 @@ imap_shared_repo_dir: E:\실제경로\imap-shared
 imap_core_repo_dir: E:\실제경로\imap-core
 imap_command_repo_dir: E:\실제경로\imap-command
 imap_plugin_repo_dir: E:\실제경로\imap-plugin
+
+
+
+- name: Install local imap packages into gateway virtual environment
+  win_shell: |
+    & "{{ gateway_venv_dir }}\Scripts\python.exe" `
+      -m pip install `
+      --no-deps `
+      "{{ item }}"
+
+    if ($LASTEXITCODE -ne 0) {
+      exit $LASTEXITCODE
+    }
+  with_items:
+    - "{{ imap_shared_repo_dir }}"
+    - "{{ imap_core_repo_dir }}"
+    - "{{ imap_command_repo_dir }}"
+    - "{{ imap_plugin_repo_dir }}"
+  register: gateway_local_packages_install
+  changed_when:
+    - "'Successfully installed' in gateway_local_packages_install.stdout"
+
+
+
+- name: Validate local imap package imports
+  win_shell: |
+    & "{{ gateway_venv_dir }}\Scripts\python.exe" -c @'
+    import imap_shared
+    import imap_core
+    import imap_command
+    import imap_plugin
+
+    print("imap_shared=" + str(imap_shared.__file__))
+    print("imap_core=" + str(imap_core.__file__))
+    print("imap_command=" + str(imap_command.__file__))
+    print("imap_plugin=" + str(imap_plugin.__file__))
+    '@
+
+    if ($LASTEXITCODE -ne 0) {
+      exit $LASTEXITCODE
+    }
+  register: gateway_local_package_imports
+  changed_when: false
+
+
+
+
