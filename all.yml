@@ -16,7 +16,7 @@ git_executable: git.exe
 # _netrc 파일을 사용하는 경우 이 경로 아래에 존재해야 함
 deploy_user_profile: C:\Users\appuser
 
-# 실제 모노레포 Git 주소로 변경
+# 실제 모노레포 Git 주소
 imap_repo_url: https://실제-Git-주소/imap.git
 imap_repo_branch: main
 
@@ -63,7 +63,6 @@ imap_plugin_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-
 imap_command_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-command\requirements.txt
 
 # requirements 설치 순서
-# 공통 패키지를 먼저 설치하고 실행 애플리케이션을 마지막에 설치
 imap_requirements_files:
   - name: imap-shared
     path: "{{ imap_shared_requirements_file }}"
@@ -98,15 +97,21 @@ imap_orchestrator_logs_dir: E:\Deploy\Python\imap-orchestrator\logs
 # Python source paths
 # =============================================================================
 
-# 현재는 각 Git 디렉터리 바로 아래에 Python 패키지가 있다는 기준
-# 실제 구조가 source\packages\imap-shared\src\imap_shared라면
-# 해당 항목 뒤에 \src를 추가해야 함
+# 내부 패키지는 site-packages에 직접 설치하지 않고
+# Git에서 받은 소스 경로를 PYTHONPATH로 참조
 imap_orchestrator_python_paths:
   - "{{ imap_orchestrator_source_dir }}"
   - "{{ imap_shared_source_dir }}"
   - "{{ imap_core_source_dir }}"
   - "{{ imap_plugin_source_dir }}"
   - "{{ imap_command_source_dir }}"
+
+# install_check 단계에서 import 가능 여부를 확인할 내부 모듈
+imap_orchestrator_import_modules:
+  - imap_shared
+  - imap_core
+  - imap_plugin
+  - imap_command
 
 # =============================================================================
 # Windows service
