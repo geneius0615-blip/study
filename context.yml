@@ -1,437 +1,119 @@
 ---
-# ============================================================
-# Gateway Context Validation
-# Ansible 2.9 / Windows Server
-#
-# Purpose:
-#   - Validate variables and deployment prerequisites only.
-#   - Do not create, install, modify, or delete anything.
-#   - A successful execution must finish with changed=0.
-# ============================================================
-
-- name: Validate gateway deployment context
-  block:
-    # ========================================================
-    # Validate System Variables
-    # ========================================================
-
-    - name: Validate system variables
-      assert:
-        that:
-          - python_executable | default('') | trim | length > 0
-          - python_required_version | default('') | string | trim | length > 0
-          - git_executable | default('') | trim | length > 0
-        fail_msg: |
-          [Context]
-
-          System variables are not defined correctly.
-
-          Required variables:
-            python_executable
-            python_required_version
-            git_executable
-        success_msg: 'System variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Deploy Variables
-    # ========================================================
-
-    - name: Validate deploy variables
-      assert:
-        that:
-          - deploy_home | default('') | trim | length > 0
-          - gateway_home | default('') | trim | length > 0
-          - gateway_source_dir | default('') | trim | length > 0
-          - gateway_logs_dir | default('') | trim | length > 0
-          - gateway_venv_dir | default('') | trim | length > 0
-          - gateway_workspace_dir | default('') | trim | length > 0
-        fail_msg: |
-          [Context]
-
-          Deploy variables are not defined correctly.
-
-          Required variables:
-            deploy_home
-            gateway_home
-            gateway_source_dir
-            gateway_logs_dir
-            gateway_venv_dir
-            gateway_workspace_dir
-        success_msg: 'Deploy variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Wheel Variables
-    # ========================================================
-
-    - name: Validate wheel variables
-      assert:
-        that:
-          - python_wheelhouse_dir | default('') | trim | length > 0
-          - torch_wheel_file | default('') | trim | length > 0
-        fail_msg: |
-          [Context]
-
-          Wheel variables are not defined correctly.
-
-          Required variables:
-            python_wheelhouse_dir
-            torch_wheel_file
-        success_msg: 'Wheel variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Editable Repository Variables
-    # ========================================================
-
-    - name: Validate editable repository variables
-      assert:
-        that:
-          - editable_repo_url | default('') | trim | length > 0
-          - editable_repo_branch | default('') | trim | length > 0
-          - editable_repo_dir | default('') | trim | length > 0
-          - editable_package_dirs is defined
-          - editable_package_dirs is sequence
-          - editable_package_dirs is not string
-          - editable_package_dirs | length > 0
-        fail_msg: |
-          [Context]
-
-          Editable repository variables are not defined correctly.
-
-          Required variables:
-            editable_repo_url
-            editable_repo_branch
-            editable_repo_dir
-            editable_package_dirs
-        success_msg: 'Editable repository variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Gateway Variables
-    # ========================================================
-
-    - name: Validate gateway variables
-      assert:
-        that:
-          - gateway_requirements_file | default('') | trim | length > 0
-          - gateway_host | default('') | trim | length > 0
-          - gateway_port | default(0) | int > 0
-          - gateway_port | default(0) | int <= 65535
-          - gateway_healthcheck_url | default('') | trim | length > 0
-        fail_msg: |
-          [Context]
-
-          Gateway variables are not defined correctly.
-
-          Required variables:
-            gateway_requirements_file
-            gateway_host
-            gateway_port
-            gateway_healthcheck_url
-        success_msg: 'Gateway variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Service Variables
-    # ========================================================
-
-    - name: Validate service variables
-      assert:
-        that:
-          - gateway_service_name | default('') | trim | length > 0
-          - gateway_service_display_name | default('') | trim | length > 0
-          - gateway_service_description | default('') | trim | length > 0
-          - gateway_service_python | default('') | trim | length > 0
-          - gateway_service_working_dir | default('') | trim | length > 0
-          - gateway_asgi_app | default('') | trim | length > 0
-          - gateway_service_parameters | default('') | trim | length > 0
-          - gateway_service_stdout | default('') | trim | length > 0
-          - gateway_service_stderr | default('') | trim | length > 0
-          - gateway_service_restart_delay | default(-1) | int >= 0
-          - gateway_service_log_rotate_bytes | default(0) | int > 0
-        fail_msg: |
-          [Context]
-
-          Service variables are not defined correctly.
-
-          Required variables:
-            gateway_service_name
-            gateway_service_display_name
-            gateway_service_description
-            gateway_service_python
-            gateway_service_working_dir
-            gateway_asgi_app
-            gateway_service_parameters
-            gateway_service_stdout
-            gateway_service_stderr
-            gateway_service_restart_delay
-            gateway_service_log_rotate_bytes
-        success_msg: 'Service variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate NSSM Variables
-    # ========================================================
-
-    - name: Validate NSSM variables
-      assert:
-        that:
-          - nssm_install_dir | default('') | trim | length > 0
-          - nssm_executable | default('') | trim | length > 0
-        fail_msg: |
-          [Context]
-
-          NSSM variables are not defined correctly.
-
-          Required variables:
-            nssm_install_dir
-            nssm_executable
-        success_msg: 'NSSM variables=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Python Executable
-    # ========================================================
-
-    - name: Check Python executable
-      win_stat:
-        path: '{{ python_executable }}'
-        get_checksum: no
-      register: python_executable_check
-
-    - name: Validate Python executable
-      assert:
-        that:
-          - python_executable_check.stat.exists | default(false)
-          - python_executable_check.stat.isreg | default(false)
-        fail_msg: |
-          [Context]
-
-          Python executable does not exist or is not a file.
-
-          Path:
-            {{ python_executable }}
-        success_msg: 'Python executable=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Python Version
-    # ========================================================
-
-    - name: Check Python version
-      win_command: '"{{ python_executable }}" --version'
-      register: python_version_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate Python version
-      assert:
-        that:
-          - python_version_result.rc | default(1) == 0
-          - "('Python ' ~ (python_required_version | string)) in ((python_version_result.stdout | default('')) ~ (python_version_result.stderr | default('')))"
-        fail_msg: |
-          [Context]
-
-          Python version validation failed.
-
-          Required version:
-            {{ python_required_version }}
-
-          Command output:
-            {{ ((python_version_result.stdout | default('')) ~
-                (python_version_result.stderr | default(''))) | trim }}
-        success_msg: 'Python version=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate pip
-    # ========================================================
-
-    - name: Check pip version
-      win_command: '"{{ python_executable }}" -m pip --version'
-      register: pip_version_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate pip
-      assert:
-        that:
-          - pip_version_result.rc | default(1) == 0
-          - "'pip ' in ((pip_version_result.stdout | default('')) ~ (pip_version_result.stderr | default('')))"
-        fail_msg: |
-          [Context]
-
-          pip is not available for the configured Python executable.
-
-          Python:
-            {{ python_executable }}
-
-          Command output:
-            {{ ((pip_version_result.stdout | default('')) ~
-                (pip_version_result.stderr | default(''))) | trim }}
-        success_msg: 'pip=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Git
-    # ========================================================
-
-    - name: Check Git version
-      win_command: '{{ git_executable }} --version'
-      register: git_version_result
-      changed_when: false
-      failed_when: false
-
-    - name: Validate Git
-      assert:
-        that:
-          - git_version_result.rc | default(1) == 0
-          - "'git version' in ((git_version_result.stdout | default('')) ~ (git_version_result.stderr | default('')))"
-        fail_msg: |
-          [Context]
-
-          Git is not available.
-
-          Executable:
-            {{ git_executable }}
-
-          Command output:
-            {{ ((git_version_result.stdout | default('')) ~
-                (git_version_result.stderr | default(''))) | trim }}
-        success_msg: 'Git=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Source Root
-    #
-    # python_wheelhouse_dir:
-    #   E:\digital-twin-studio\imap\source\wheelhouse
-    #
-    # source root derived with win_dirname:
-    #   E:\digital-twin-studio\imap\source
-    # ========================================================
-
-    - name: Check source root directory
-      win_stat:
-        path: '{{ python_wheelhouse_dir | win_dirname }}'
-        get_checksum: no
-      register: source_root_check
-
-    - name: Validate source root directory
-      assert:
-        that:
-          - source_root_check.stat.exists | default(false)
-          - source_root_check.stat.isdir | default(false)
-        fail_msg: |
-          [Context]
-
-          Source root directory does not exist.
-
-          Path:
-            {{ python_wheelhouse_dir | win_dirname }}
-        success_msg: 'Source root=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Environment File
-    #
-    # Expected path:
-    #   E:\digital-twin-studio\imap\source\.env.dev
-    # ========================================================
-
-    - name: Check environment file
-      win_stat:
-        path: '{{ python_wheelhouse_dir | win_dirname }}\.env.dev'
-        get_checksum: no
-      register: environment_file_check
-
-    - name: Validate environment file
-      assert:
-        that:
-          - environment_file_check.stat.exists | default(false)
-          - environment_file_check.stat.isreg | default(false)
-        fail_msg: |
-          [Context]
-
-          Gateway environment file does not exist or is not a file.
-
-          Path:
-            {{ python_wheelhouse_dir | win_dirname }}\.env.dev
-        success_msg: 'Environment file=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Wheelhouse
-    # ========================================================
-
-    - name: Check Python wheelhouse directory
-      win_stat:
-        path: '{{ python_wheelhouse_dir }}'
-        get_checksum: no
-      register: wheelhouse_check
-
-    - name: Validate Python wheelhouse directory
-      assert:
-        that:
-          - wheelhouse_check.stat.exists | default(false)
-          - wheelhouse_check.stat.isdir | default(false)
-        fail_msg: |
-          [Context]
-
-          Python wheelhouse directory does not exist.
-
-          Path:
-            {{ python_wheelhouse_dir }}
-        success_msg: 'Wheelhouse=OK'
-        quiet: yes
-
-    # ========================================================
-    # Validate Torch Wheel
-    # ========================================================
-
-    - name: Check Torch wheel file
-      win_stat:
-        path: '{{ torch_wheel_file }}'
-        get_checksum: no
-      register: torch_wheel_check
-
-    - name: Validate Torch wheel file
-      assert:
-        that:
-          - torch_wheel_check.stat.exists | default(false)
-          - torch_wheel_check.stat.isreg | default(false)
-          - torch_wheel_check.stat.size | default(0) | int > 0
-        fail_msg: |
-          [Context]
-
-          Torch wheel does not exist, is not a file, or is empty.
-
-          Path:
-            {{ torch_wheel_file }}
-        success_msg: 'Torch wheel=OK'
-        quiet: yes
-
-    # ========================================================
-    # Context Summary
-    # ========================================================
-
-    - name: Display context validation summary
-      debug:
-        msg:
-          - '============================================================'
-          - 'Context Validation=OK'
-          - 'Python={{ ((python_version_result.stdout | default("")) ~ (python_version_result.stderr | default(""))) | trim }}'
-          - 'pip={{ ((pip_version_result.stdout | default("")) ~ (pip_version_result.stderr | default(""))) | trim }}'
-          - 'Git={{ ((git_version_result.stdout | default("")) ~ (git_version_result.stderr | default(""))) | trim }}'
-          - 'Source root={{ python_wheelhouse_dir | win_dirname }}'
-          - 'Environment={{ python_wheelhouse_dir | win_dirname }}\.env.dev'
-          - 'Wheelhouse={{ python_wheelhouse_dir }}'
-          - 'Torch wheel={{ torch_wheel_file }}'
-          - 'Service={{ gateway_service_name }}'
-          - 'Healthcheck={{ gateway_healthcheck_url }}'
-          - '============================================================'
-
-  tags:
-    - context
+- name: Validate required inventory groups
+  assert:
+    that:
+      - groups['deploy'] is defined
+      - groups['gateway'] is defined
+      - groups['python'] is defined
+    fail_msg: "Required inventory groups are missing: deploy, gateway, python"
+
+- name: Validate required deployment variables
+  assert:
+    that:
+      - python_executable is defined
+      - python_required_version is defined
+      - git_executable is defined
+
+      - imap_repo_url is defined
+      - imap_repo_url | length > 0
+      - imap_repo_branch is defined
+      - imap_repo_branch | length > 0
+
+      - imap_source_dir is defined
+      - imap_apps_dir is defined
+      - imap_packages_dir is defined
+
+      - imap_orchestrator_dir is defined
+      - imap_shared_dir is defined
+      - imap_core_dir is defined
+      - imap_plugin_dir is defined
+      - imap_command_dir is defined
+
+      - imap_orchestrator_requirements_file is defined
+      - imap_shared_requirements_file is defined
+      - imap_core_requirements_file is defined
+      - imap_plugin_requirements_file is defined
+      - imap_command_requirements_file is defined
+
+      - python_wheelhouse_dir is defined
+      - gateway_home is defined
+      - gateway_venv_dir is defined
+      - gateway_logs_dir is defined
+    fail_msg: "Required 신규 gateway deployment variable is missing"
+
+- name: Check Python executable
+  win_stat:
+    path: "{{ python_executable }}"
+  register: gateway_python_executable_check
+
+- name: Validate Python executable
+  assert:
+    that:
+      - gateway_python_executable_check.stat.exists
+      - not gateway_python_executable_check.stat.isdir
+    fail_msg: "Python executable not found: {{ python_executable }}"
+
+- name: Check wheelhouse directory
+  win_stat:
+    path: "{{ python_wheelhouse_dir }}"
+  register: gateway_wheelhouse_check
+
+- name: Validate wheelhouse directory
+  assert:
+    that:
+      - gateway_wheelhouse_check.stat.exists
+      - gateway_wheelhouse_check.stat.isdir
+    fail_msg: "Wheelhouse directory not found: {{ python_wheelhouse_dir }}"
+
+- name: Check Python version
+  win_shell: |
+    $pythonVersion = & "{{ python_executable }}" --version 2>&1
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error $pythonVersion
+      exit $LASTEXITCODE
+    }
+
+    Write-Output $pythonVersion
+  register: gateway_python_version
+  changed_when: false
+
+- name: Validate required Python version
+  assert:
+    that:
+      - python_required_version in gateway_python_version.stdout
+    fail_msg: >-
+      Required Python version is {{ python_required_version }},
+      but detected {{ gateway_python_version.stdout | trim }}
+
+- name: Check Git version
+  win_shell: |
+    $gitVersion = & "{{ git_executable }}" --version 2>&1
+
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error $gitVersion
+      exit $LASTEXITCODE
+    }
+
+    Write-Output $gitVersion
+  register: gateway_git_version
+  changed_when: false
+
+- name: Show 신규 gateway context
+  debug:
+    msg:
+      - "repository={{ imap_repo_url }}"
+      - "branch={{ imap_repo_branch }}"
+      - "source={{ imap_source_dir }}"
+      - "apps={{ imap_apps_dir }}"
+      - "packages={{ imap_packages_dir }}"
+      - "orchestrator={{ imap_orchestrator_dir }}"
+      - "shared={{ imap_shared_dir }}"
+      - "core={{ imap_core_dir }}"
+      - "plugin={{ imap_plugin_dir }}"
+      - "command={{ imap_command_dir }}"
+      - "wheelhouse={{ python_wheelhouse_dir }}"
+      - "gateway_home={{ gateway_home }}"
+      - "gateway_venv={{ gateway_venv_dir }}"
+      - "python={{ gateway_python_version.stdout | trim }}"
+      - "git={{ gateway_git_version.stdout | trim }}"
