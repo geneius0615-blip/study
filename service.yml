@@ -1,4 +1,18 @@
 ---
+- name: Check NSSM executable
+  win_stat:
+    path: "{{ nssm_executable }}"
+  register: imap_orchestrator_nssm_check
+
+- name: Validate NSSM executable
+  assert:
+    that:
+      - imap_orchestrator_nssm_check.stat.exists
+      - not imap_orchestrator_nssm_check.stat.isdir
+    fail_msg: >-
+      NSSM executable was not found:
+      {{ nssm_executable }}
+
 - name: Check imap orchestrator service application
   win_stat:
     path: "{{ imap_orchestrator_service_application }}"
@@ -66,14 +80,14 @@
     $appParameters = "{{ imap_orchestrator_service_arguments }}"
     $stdoutLog = "{{ imap_orchestrator_stdout_log }}"
     $stderrLog = "{{ imap_orchestrator_stderr_log }}"
-
     $pythonPath = "{{ imap_orchestrator_python_paths | join(';') }}"
+    $nssm = "{{ nssm_executable }}"
 
-    $nssmCommand = Get-Command `
-      "{{ nssm_executable }}" `
-      -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $nssm -PathType Leaf)) {
+      Write-Error "NSSM executable was not found: $nssm"
+      exit 1
+    }
 
-    $nssm = $nssmCommand.Source
     $changed = $false
 
     $service = Get-Service `
@@ -155,7 +169,7 @@
     }
 
     # -------------------------------------------------------------------------
-    # Configure service
+    # Configure service application
     # -------------------------------------------------------------------------
     Set-NssmValue `
       -Parameter "Application" `
@@ -169,6 +183,9 @@
       -Parameter "AppParameters" `
       -RequiredValue $appParameters
 
+    # -------------------------------------------------------------------------
+    # Configure service logs
+    # -------------------------------------------------------------------------
     Set-NssmValue `
       -Parameter "AppStdout" `
       -RequiredValue $stdoutLog
@@ -228,7 +245,7 @@
     }
 
     # -------------------------------------------------------------------------
-    # Restart service when the application exits
+    # Restart application when process exits
     # -------------------------------------------------------------------------
     $currentExitAction = (
       & $nssm `
@@ -320,6 +337,7 @@
     msg:
       - "{{ imap_orchestrator_service_config.stdout_lines }}"
       - "{{ imap_orchestrator_service_status.stdout_lines }}"
+      - "nssm={{ nssm_executable }}"
       - "application={{ imap_orchestrator_service_application }}"
       - "directory={{ imap_orchestrator_service_app_directory }}"
       - "arguments={{ imap_orchestrator_service_arguments }}"
