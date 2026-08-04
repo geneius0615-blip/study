@@ -3,8 +3,6 @@
   win_stat:
     path: "{{ imap_shared_requirements_file }}"
   register: imap_shared_requirements_check
-  tags:
-    - install_shared
 
 - name: Validate imap shared requirements file
   assert:
@@ -14,50 +12,92 @@
     fail_msg: >-
       IMAP shared requirements file was not found:
       {{ imap_shared_requirements_file }}
-  tags:
-    - install_shared
 
 - name: Check imap orchestrator virtual environment Python
   win_stat:
     path: "{{ imap_orchestrator_venv_dir }}\\Scripts\\python.exe"
-  register: imap_orchestrator_install_python_check
-  tags:
-    - install_shared
+  register: imap_shared_venv_python_check
 
 - name: Validate imap orchestrator virtual environment Python
   assert:
     that:
-      - imap_orchestrator_install_python_check.stat.exists
-      - not imap_orchestrator_install_python_check.stat.isdir
+      - imap_shared_venv_python_check.stat.exists
+      - not imap_shared_venv_python_check.stat.isdir
     fail_msg: >-
       IMAP orchestrator virtual environment was not found:
-      {{ imap_orchestrator_venv_dir }}
+      {{ imap_orchestrator_venv_dir }}.
       Run the venv tag first.
-  tags:
-    - install_shared
 
-- name: Install imap shared requirements
+- name: Read imap shared requirements with line numbers
   win_shell: |
-    & "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe" `
-      -m pip install `
-      --find-links "{{ python_wheelhouse_dir }}" `
-      -r "{{ imap_shared_requirements_file }}"
+    $requirementsFile = "{{ imap_shared_requirements_file }}"
+    $lineNumber = 0
 
-    if ($LASTEXITCODE -ne 0) {
-      exit $LASTEXITCODE
-    }
-  register: imap_shared_requirements_install
-  changed_when:
-    - "'Successfully installed' in imap_shared_requirements_install.stdout"
-  tags:
-    - install_shared
+    Get-Content -LiteralPath $requirementsFile |
+      ForEach-Object {
+        $lineNumber++
 
-- name: Show imap shared requirements installation
+        Write-Output (
+          "{0,4}: {1}" -f $lineNumber, $_
+        )
+      }
+  register: imap_shared_requirements_content
+  changed_when: false
+
+- name: Show imap shared requirements
   debug:
     msg:
       - "requirements={{ imap_shared_requirements_file }}"
+      - "{{ imap_shared_requirements_content.stdout_lines }}"
+
+- name: Install imap shared requirements
+  win_shell: |
+    $python = "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe"
+    $requirementsFile = "{{ imap_shared_requirements_file }}"
+    $wheelhouse = "{{ python_wheelhouse_dir }}"
+
+    & $python `
+      -m pip install `
+      --find-links $wheelhouse `
+      -r $requirementsFile
+
+    exit $LASTEXITCODE
+  register: imap_shared_requirements_install
+  failed_when: false
+  changed_when:
+    - imap_shared_requirements_install.rc == 0
+    - "'Successfully installed' in imap_shared_requirements_install.stdout"
+
+- name: Show imap shared pip return code
+  debug:
+    msg:
+      - "rc={{ imap_shared_requirements_install.rc }}"
+      - "requirements={{ imap_shared_requirements_file }}"
       - "venv={{ imap_orchestrator_venv_dir }}"
       - "wheelhouse={{ python_wheelhouse_dir }}"
-      - "{{ imap_shared_requirements_install.stdout_lines }}"
-  tags:
-    - install_shared
+
+- name: Show imap shared pip stdout
+  debug:
+    var: imap_shared_requirements_install.stdout_lines
+
+- name: Show imap shared pip stderr
+  debug:
+    var: imap_shared_requirements_install.stderr_lines
+
+- name: Fail when imap shared requirements installation failed
+  fail:
+    msg: >-
+      IMAP shared requirements installation failed.
+      rc={{ imap_shared_requirements_install.rc }}
+      stderr={{ imap_shared_requirements_install.stderr | default('No stderr output') }}
+  when:
+    - imap_shared_requirements_install.rc != 0
+
+- name: Show imap shared requirements installation result
+  debug:
+    msg:
+      - "IMAP shared requirements installation completed."
+      - "requirements={{ imap_shared_requirements_file }}"
+      - "venv={{ imap_orchestrator_venv_dir }}"
+  when:
+    - imap_shared_requirements_install.rc == 0
