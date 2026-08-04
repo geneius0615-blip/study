@@ -1,6 +1,328 @@
 ---
-- name: Configure Python services
-  include_tasks: service_each.yml
-  loop: "{{ python_services }}"
-  loop_control:
-    loop_var: svc_name
+- name: Check imap orchestrator service application
+  win_stat:
+    path: "{{ imap_orchestrator_service_application }}"
+  register: imap_orchestrator_service_application_check
+
+- name: Validate imap orchestrator service application
+  assert:
+    that:
+      - imap_orchestrator_service_application_check.stat.exists
+      - not imap_orchestrator_service_application_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator service Python was not found:
+      {{ imap_orchestrator_service_application }}
+
+- name: Check imap orchestrator service application directory
+  win_stat:
+    path: "{{ imap_orchestrator_service_app_directory }}"
+  register: imap_orchestrator_service_directory_check
+
+- name: Validate imap orchestrator service application directory
+  assert:
+    that:
+      - imap_orchestrator_service_directory_check.stat.exists
+      - imap_orchestrator_service_directory_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator service application directory was not found:
+      {{ imap_orchestrator_service_app_directory }}
+
+- name: Check imap orchestrator service entry point
+  win_stat:
+    path: >-
+      {{ imap_orchestrator_service_app_directory }}\{{ imap_orchestrator_service_arguments }}
+  register: imap_orchestrator_service_entry_point_check
+
+- name: Validate imap orchestrator service entry point
+  assert:
+    that:
+      - imap_orchestrator_service_entry_point_check.stat.exists
+      - not imap_orchestrator_service_entry_point_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator service entry point was not found:
+      {{ imap_orchestrator_service_app_directory }}\{{ imap_orchestrator_service_arguments }}
+
+- name: Check imap orchestrator logs directory
+  win_stat:
+    path: "{{ imap_orchestrator_logs_dir }}"
+  register: imap_orchestrator_service_logs_check
+
+- name: Validate imap orchestrator logs directory
+  assert:
+    that:
+      - imap_orchestrator_service_logs_check.stat.exists
+      - imap_orchestrator_service_logs_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator logs directory was not found:
+      {{ imap_orchestrator_logs_dir }}
+
+- name: Configure imap orchestrator NSSM service
+  win_shell: |
+    $ErrorActionPreference = "Stop"
+
+    $serviceName = "{{ imap_orchestrator_service_name }}"
+    $application = "{{ imap_orchestrator_service_application }}"
+    $appDirectory = "{{ imap_orchestrator_service_app_directory }}"
+    $appParameters = "{{ imap_orchestrator_service_arguments }}"
+    $stdoutLog = "{{ imap_orchestrator_stdout_log }}"
+    $stderrLog = "{{ imap_orchestrator_stderr_log }}"
+
+    $pythonPath = "{{ imap_orchestrator_python_paths | join(';') }}"
+
+    $nssmCommand = Get-Command `
+      "{{ nssm_executable }}" `
+      -ErrorAction Stop
+
+    $nssm = $nssmCommand.Source
+    $changed = $false
+
+    $service = Get-Service `
+      -Name $serviceName `
+      -ErrorAction SilentlyContinue
+
+    if (
+      $null -ne $service -and
+      $service.Status -eq "Running"
+    ) {
+      Write-Output "SERVICE_WAS_RUNNING=1"
+    }
+    else {
+      Write-Output "SERVICE_WAS_RUNNING=0"
+    }
+
+    # -------------------------------------------------------------------------
+    # Install service when it does not exist
+    # -------------------------------------------------------------------------
+    if ($null -eq $service) {
+      & $nssm `
+        install `
+        $serviceName `
+        $application
+
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error "NSSM service installation failed: $serviceName"
+        exit $LASTEXITCODE
+      }
+
+      $changed = $true
+    }
+
+    function Get-NssmValue {
+      param(
+        [string]$Parameter
+      )
+
+      $value = (
+        & $nssm `
+          get `
+          $serviceName `
+          $Parameter `
+          2>$null |
+        Out-String
+      ).Trim()
+
+      return $value
+    }
+
+    function Set-NssmValue {
+      param(
+        [string]$Parameter,
+        [string]$RequiredValue
+      )
+
+      $currentValue = Get-NssmValue `
+        -Parameter $Parameter
+
+      if ($currentValue -ne $RequiredValue) {
+        & $nssm `
+          set `
+          $serviceName `
+          $Parameter `
+          $RequiredValue
+
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error (
+            "NSSM setting failed: {0}={1}" -f
+            $Parameter,
+            $RequiredValue
+          )
+
+          exit $LASTEXITCODE
+        }
+
+        $script:changed = $true
+      }
+    }
+
+    # -------------------------------------------------------------------------
+    # Configure service
+    # -------------------------------------------------------------------------
+    Set-NssmValue `
+      -Parameter "Application" `
+      -RequiredValue $application
+
+    Set-NssmValue `
+      -Parameter "AppDirectory" `
+      -RequiredValue $appDirectory
+
+    Set-NssmValue `
+      -Parameter "AppParameters" `
+      -RequiredValue $appParameters
+
+    Set-NssmValue `
+      -Parameter "AppStdout" `
+      -RequiredValue $stdoutLog
+
+    Set-NssmValue `
+      -Parameter "AppStderr" `
+      -RequiredValue $stderrLog
+
+    # -------------------------------------------------------------------------
+    # Configure service environment variables
+    # -------------------------------------------------------------------------
+    $requiredEnvironment = @(
+      "PYTHONPATH=$pythonPath"
+      "PYTHONUTF8=1"
+      "PYTHONIOENCODING=utf-8"
+    )
+
+    $currentEnvironment = @(
+      & $nssm `
+        get `
+        $serviceName `
+        AppEnvironmentExtra `
+        2>$null
+    ) |
+      ForEach-Object {
+        $_.ToString().Trim()
+      } |
+      Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+      } |
+      Sort-Object
+
+    $sortedRequiredEnvironment = @(
+      $requiredEnvironment |
+        Sort-Object
+    )
+
+    $environmentDifference = @(
+      Compare-Object `
+        -ReferenceObject $sortedRequiredEnvironment `
+        -DifferenceObject $currentEnvironment
+    )
+
+    if ($environmentDifference.Count -gt 0) {
+      & $nssm `
+        set `
+        $serviceName `
+        AppEnvironmentExtra `
+        $requiredEnvironment
+
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error "NSSM AppEnvironmentExtra configuration failed"
+        exit $LASTEXITCODE
+      }
+
+      $changed = $true
+    }
+
+    # -------------------------------------------------------------------------
+    # Restart service when the application exits
+    # -------------------------------------------------------------------------
+    $currentExitAction = (
+      & $nssm `
+        get `
+        $serviceName `
+        AppExit `
+        Default `
+        2>$null |
+      Out-String
+    ).Trim()
+
+    if ($currentExitAction -ne "Restart") {
+      & $nssm `
+        set `
+        $serviceName `
+        AppExit `
+        Default `
+        Restart
+
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error "NSSM AppExit configuration failed"
+        exit $LASTEXITCODE
+      }
+
+      $changed = $true
+    }
+
+    if ($changed) {
+      Write-Output "SERVICE_CONFIG_CHANGED"
+    }
+    else {
+      Write-Output "SERVICE_CONFIG_OK"
+    }
+  environment:
+    PYTHONUTF8: "1"
+    PYTHONIOENCODING: "utf-8"
+  register: imap_orchestrator_service_config
+  changed_when:
+    - "'SERVICE_CONFIG_CHANGED' in imap_orchestrator_service_config.stdout"
+
+- name: Restart imap orchestrator service when configuration changed
+  win_service:
+    name: "{{ imap_orchestrator_service_name }}"
+    start_mode: auto
+    state: restarted
+  register: imap_orchestrator_service_restart
+  when:
+    - "'SERVICE_CONFIG_CHANGED' in imap_orchestrator_service_config.stdout"
+    - "'SERVICE_WAS_RUNNING=1' in imap_orchestrator_service_config.stdout"
+
+- name: Start imap orchestrator service
+  win_service:
+    name: "{{ imap_orchestrator_service_name }}"
+    start_mode: auto
+    state: started
+  register: imap_orchestrator_service_start
+
+- name: Read imap orchestrator service status
+  win_shell: |
+    $serviceName = "{{ imap_orchestrator_service_name }}"
+
+    $service = Get-Service `
+      -Name $serviceName `
+      -ErrorAction Stop
+
+    $serviceConfiguration = Get-CimInstance `
+      -ClassName Win32_Service `
+      -Filter "Name='$serviceName'"
+
+    Write-Output "name=$($service.Name)"
+    Write-Output "display_name=$($service.DisplayName)"
+    Write-Output "status=$($service.Status)"
+    Write-Output "start_mode=$($serviceConfiguration.StartMode)"
+    Write-Output "path_name=$($serviceConfiguration.PathName)"
+  register: imap_orchestrator_service_status
+  changed_when: false
+
+- name: Validate imap orchestrator service status
+  assert:
+    that:
+      - "'status=Running' in imap_orchestrator_service_status.stdout"
+      - "'start_mode=Auto' in imap_orchestrator_service_status.stdout"
+    fail_msg: >-
+      IMAP orchestrator service is not running correctly.
+      {{ imap_orchestrator_service_status.stdout }}
+
+- name: Show imap orchestrator service result
+  debug:
+    msg:
+      - "{{ imap_orchestrator_service_config.stdout_lines }}"
+      - "{{ imap_orchestrator_service_status.stdout_lines }}"
+      - "application={{ imap_orchestrator_service_application }}"
+      - "directory={{ imap_orchestrator_service_app_directory }}"
+      - "arguments={{ imap_orchestrator_service_arguments }}"
+      - "PYTHONPATH={{ imap_orchestrator_python_paths | join(';') }}"
+      - "stdout_log={{ imap_orchestrator_stdout_log }}"
+      - "stderr_log={{ imap_orchestrator_stderr_log }}"
