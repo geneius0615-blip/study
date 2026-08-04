@@ -88,7 +88,7 @@
       exit 1
     }
 
-    $changed = $false
+    $script:changed = $false
 
     $service = Get-Service `
       -Name $serviceName `
@@ -118,7 +118,7 @@
         exit $LASTEXITCODE
       }
 
-      $changed = $true
+      $script:changed = $true
     }
 
     function Get-NssmValue {
@@ -203,33 +203,45 @@
       "PYTHONIOENCODING=utf-8"
     )
 
-    $currentEnvironment = @(
+    # AppEnvironmentExtra가 설정되지 않은 최초 실행에서는
+    # NSSM 조회 결과가 없을 수 있으므로 항상 배열로 처리
+    $currentEnvironmentOutput = @(
       & $nssm `
         get `
         $serviceName `
         AppEnvironmentExtra `
         2>$null
-    ) |
-      ForEach-Object {
-        $_.ToString().Trim()
-      } |
-      Where-Object {
-        -not [string]::IsNullOrWhiteSpace($_)
-      } |
-      Sort-Object
+    )
+
+    $currentEnvironment = @(
+      $currentEnvironmentOutput |
+        ForEach-Object {
+          if ($null -ne $_) {
+            $_.ToString().Trim()
+          }
+        } |
+        Where-Object {
+          -not [string]::IsNullOrWhiteSpace($_)
+        } |
+        Sort-Object
+    )
 
     $sortedRequiredEnvironment = @(
       $requiredEnvironment |
         Sort-Object
     )
 
-    $environmentDifference = @(
-      Compare-Object `
-        -ReferenceObject $sortedRequiredEnvironment `
-        -DifferenceObject $currentEnvironment
-    )
+    # Compare-Object는 빈 배열을 null로 처리할 수 있으므로
+    # 정렬된 환경변수를 하나의 문자열로 변환하여 비교
+    $currentEnvironmentText = (
+      $currentEnvironment -join "`n"
+    ).Trim()
 
-    if ($environmentDifference.Count -gt 0) {
+    $requiredEnvironmentText = (
+      $sortedRequiredEnvironment -join "`n"
+    ).Trim()
+
+    if ($currentEnvironmentText -ne $requiredEnvironmentText) {
       & $nssm `
         set `
         $serviceName `
@@ -241,7 +253,7 @@
         exit $LASTEXITCODE
       }
 
-      $changed = $true
+      $script:changed = $true
     }
 
     # -------------------------------------------------------------------------
@@ -270,10 +282,10 @@
         exit $LASTEXITCODE
       }
 
-      $changed = $true
+      $script:changed = $true
     }
 
-    if ($changed) {
+    if ($script:changed) {
       Write-Output "SERVICE_CONFIG_CHANGED"
     }
     else {
