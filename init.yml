@@ -1,10 +1,11 @@
 ---
-- name: Initialize imap sparse Git repository
+- name: Initialize imap orchestrator sparse Git repository
   win_shell: |
     $ErrorActionPreference = "Stop"
 
     $sourceDir = "{{ imap_source_dir }}"
     $repositoryUrl = "{{ imap_repo_url }}"
+    $gitDirectory = Join-Path $sourceDir ".git"
     $changed = $false
 
     if (-not (Test-Path -LiteralPath $sourceDir)) {
@@ -12,8 +13,9 @@
       exit 1
     }
 
-    $gitDirectory = Join-Path $sourceDir ".git"
-
+    # -------------------------------------------------------------------------
+    # Initialize local Git repository
+    # -------------------------------------------------------------------------
     if (-not (Test-Path -LiteralPath $gitDirectory)) {
       & "{{ git_executable }}" `
         -C $sourceDir `
@@ -26,11 +28,20 @@
       $changed = $true
     }
 
-    $currentOrigin = & "{{ git_executable }}" `
-      -C $sourceDir `
-      remote get-url origin 2>$null
+    # -------------------------------------------------------------------------
+    # Add or update origin
+    # -------------------------------------------------------------------------
+    $remotes = @(
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        remote
+    )
 
     if ($LASTEXITCODE -ne 0) {
+      exit $LASTEXITCODE
+    }
+
+    if ($remotes -notcontains "origin") {
       & "{{ git_executable }}" `
         -C $sourceDir `
         remote add origin `
@@ -42,19 +53,32 @@
 
       $changed = $true
     }
-    elseif ($currentOrigin.Trim() -ne $repositoryUrl) {
-      & "{{ git_executable }}" `
+    else {
+      $currentOrigin = & "{{ git_executable }}" `
         -C $sourceDir `
-        remote set-url origin `
-        $repositoryUrl
+        remote get-url origin
 
       if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
       }
 
-      $changed = $true
+      if ($currentOrigin.Trim() -ne $repositoryUrl) {
+        & "{{ git_executable }}" `
+          -C $sourceDir `
+          remote set-url origin `
+          $repositoryUrl
+
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
+
+        $changed = $true
+      }
     }
 
+    # -------------------------------------------------------------------------
+    # Enable sparse-checkout cone mode
+    # -------------------------------------------------------------------------
     $sparseCheckoutEnabled = & "{{ git_executable }}" `
       -C $sourceDir `
       config `
@@ -96,12 +120,12 @@
   changed_when:
     - "'INIT_CHANGED' in imap_orchestrator_git_init.stdout"
 
-- name: Check initialized Git directory
+- name: Check initialized imap Git directory
   win_stat:
     path: "{{ imap_source_dir }}\\.git"
   register: imap_orchestrator_git_directory_check
 
-- name: Validate initialized Git directory
+- name: Validate initialized imap Git directory
   assert:
     that:
       - imap_orchestrator_git_directory_check.stat.exists
@@ -112,6 +136,7 @@
 
 - name: Read imap Git initialization context
   win_shell: |
+    $ErrorActionPreference = "Stop"
     $sourceDir = "{{ imap_source_dir }}"
 
     $origin = & "{{ git_executable }}" `
@@ -119,6 +144,7 @@
       remote get-url origin
 
     if ($LASTEXITCODE -ne 0) {
+      Write-Error "Unable to read Git remote origin"
       exit $LASTEXITCODE
     }
 
@@ -129,6 +155,7 @@
       core.sparseCheckout
 
     if ($LASTEXITCODE -ne 0) {
+      Write-Error "Unable to read core.sparseCheckout"
       exit $LASTEXITCODE
     }
 
@@ -139,15 +166,13 @@
       core.sparseCheckoutCone
 
     if ($LASTEXITCODE -ne 0) {
+      Write-Error "Unable to read core.sparseCheckoutCone"
       exit $LASTEXITCODE
     }
 
-    Write-Output "origin=$origin"
-    Write-Output "sparse_checkout=$sparseCheckout"
-    Write-Output "sparse_checkout_cone=$sparseCheckoutCone"
-  environment:
-    HOME: "{{ deploy_user_profile }}"
-    USERPROFILE: "{{ deploy_user_profile }}"
+    Write-Output "origin=$($origin.Trim())"
+    Write-Output "sparse_checkout=$($sparseCheckout.Trim())"
+    Write-Output "sparse_checkout_cone=$($sparseCheckoutCone.Trim())"
   register: imap_orchestrator_git_init_context
   changed_when: false
 
@@ -158,7 +183,7 @@
       - "'sparse_checkout=true' in imap_orchestrator_git_init_context.stdout"
       - "'sparse_checkout_cone=true' in imap_orchestrator_git_init_context.stdout"
     fail_msg: >-
-      IMAP Git repository initialization validation failed.
+      IMAP Git initialization validation failed.
       {{ imap_orchestrator_git_init_context.stdout }}
 
 - name: Show imap Git initialization result
