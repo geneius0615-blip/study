@@ -1,94 +1,41 @@
 ---
-- name: Gateway Deployment
+- name: Deploy imap gateway
   hosts: gateway
   gather_facts: false
 
   tasks:
-
-    # ========================================================
-    # Context
-    # ========================================================
-    - name: Context
-      import_tasks: roles/app/tasks/context.yml
+    - import_tasks: roles/gateway/tasks/context.yml
       tags:
         - context
 
-    # ========================================================
-    # Configuration
-    # ========================================================
-    - name: Configuration
-      import_tasks: roles/app/tasks/configuration.yml
-      tags:
-        - configuration
-
-    # ========================================================
-    # Bootstrap
-    # ========================================================
-    - name: Bootstrap
-      import_tasks: roles/app/tasks/bootstrap.yml
+    - import_tasks: roles/gateway/tasks/bootstrap.yml
       tags:
         - bootstrap
 
-    # ========================================================
-    # Init
-    # ========================================================
-    - name: Init
-      import_tasks: roles/app/tasks/init.yml
-      tags:
-        - init
-
-    # ========================================================
-    # Download
-    # ========================================================
-    - name: Download
-      import_tasks: roles/app/tasks/download.yml
-      tags:
-        - download
-
-    # ========================================================
-    # Backup
-    # ========================================================
-    - name: Backup
-      import_tasks: roles/app/tasks/backup.yml
-      tags:
-        - backup
-
-    # ========================================================
-    # Clean
-    # ========================================================
-    - name: Clean
-      import_tasks: roles/app/tasks/clean.yml
+    - import_tasks: roles/gateway/tasks/clean.yml
       tags:
         - clean
 
-    # ========================================================
-    # Extract
-    # ========================================================
-    - name: Extract
-      import_tasks: roles/app/tasks/extract.yml
+    - import_tasks: roles/gateway/tasks/init.yml
       tags:
-        - extract
+        - init
 
-    # ========================================================
-    # Virtual Environment
-    # ========================================================
-    - name: Venv
-      import_tasks: roles/app/tasks/venv.yml
+    - import_tasks: roles/gateway/tasks/download.yml
+      tags:
+        - download
+
+    - import_tasks: roles/gateway/tasks/venv.yml
       tags:
         - venv
 
-    # ========================================================
-    # Install
-    # ========================================================
-    - name: Install
-      import_tasks: roles/app/tasks/install.yml
+    - import_tasks: roles/gateway/tasks/install.yml
       tags:
         - install
 
-    # ========================================================
-    # Service
-    # ========================================================
-    - name: Service
-      import_tasks: roles/app/tasks/service.yml
+    - import_tasks: roles/gateway/tasks/service.yml
       tags:
         - service
+
+    - import_tasks: roles/gateway/tasks/healthcheck.yml
+      tags:
+        - healthcheck
