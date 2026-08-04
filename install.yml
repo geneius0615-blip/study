@@ -1,15 +1,63 @@
-- name: Check imap requirements files
+---
+- name: Check imap shared requirements file
   win_stat:
-    path: "{{ item.path }}"
-  with_items:
-    - name: imap-shared
-      path: "{{ imap_shared_requirements_file }}"
-    - name: imap-core
-      path: "{{ imap_core_requirements_file }}"
-    - name: imap-plugin
-      path: "{{ imap_plugin_requirements_file }}"
-    - name: imap-command
-      path: "{{ imap_command_requirements_file }}"
-    - name: imap-orchestrator
-      path: "{{ imap_orchestrator_requirements_file }}"
-  register: imap_requirements_checks
+    path: "{{ imap_shared_requirements_file }}"
+  register: imap_shared_requirements_check
+  tags:
+    - install_shared
+
+- name: Validate imap shared requirements file
+  assert:
+    that:
+      - imap_shared_requirements_check.stat.exists
+      - not imap_shared_requirements_check.stat.isdir
+    fail_msg: >-
+      IMAP shared requirements file was not found:
+      {{ imap_shared_requirements_file }}
+  tags:
+    - install_shared
+
+- name: Check imap orchestrator virtual environment Python
+  win_stat:
+    path: "{{ imap_orchestrator_venv_dir }}\\Scripts\\python.exe"
+  register: imap_orchestrator_install_python_check
+  tags:
+    - install_shared
+
+- name: Validate imap orchestrator virtual environment Python
+  assert:
+    that:
+      - imap_orchestrator_install_python_check.stat.exists
+      - not imap_orchestrator_install_python_check.stat.isdir
+    fail_msg: >-
+      IMAP orchestrator virtual environment was not found:
+      {{ imap_orchestrator_venv_dir }}
+      Run the venv tag first.
+  tags:
+    - install_shared
+
+- name: Install imap shared requirements
+  win_shell: |
+    & "{{ imap_orchestrator_venv_dir }}\Scripts\python.exe" `
+      -m pip install `
+      --find-links "{{ python_wheelhouse_dir }}" `
+      -r "{{ imap_shared_requirements_file }}"
+
+    if ($LASTEXITCODE -ne 0) {
+      exit $LASTEXITCODE
+    }
+  register: imap_shared_requirements_install
+  changed_when:
+    - "'Successfully installed' in imap_shared_requirements_install.stdout"
+  tags:
+    - install_shared
+
+- name: Show imap shared requirements installation
+  debug:
+    msg:
+      - "requirements={{ imap_shared_requirements_file }}"
+      - "venv={{ imap_orchestrator_venv_dir }}"
+      - "wheelhouse={{ python_wheelhouse_dir }}"
+      - "{{ imap_shared_requirements_install.stdout_lines }}"
+  tags:
+    - install_shared
