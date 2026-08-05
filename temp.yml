@@ -1,19 +1,10 @@
-- name: Install torch from wheelhouse
-  win_shell: >
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -m pip install
-    --no-index
-    --find-links "{{ python_wheelhouse_dir }}"
-    torch
-  register: gateway_torch_install
-  changed_when:
-    - "'Successfully installed' in gateway_torch_install.stdout"
+$nssm = 'E:\Tools\nssm\nssm.exe'
 
+Get-Service imap-orchestrator |
+  Select-Object Name, Status, StartType
 
+& $nssm status imap-orchestrator
 
-- name: Validate torch import
-  win_shell: >
-    "{{ gateway_venv_dir }}\Scripts\python.exe"
-    -c "import torch; print(torch.__version__)"
-  register: gateway_torch_validation
-  changed_when: false
+Get-CimInstance Win32_Service `
+  -Filter "Name='imap-orchestrator'" |
+  Select-Object Name, State, StartName, ProcessId, PathName
