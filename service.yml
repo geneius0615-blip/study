@@ -13,20 +13,6 @@
       NSSM executable was not found:
       {{ nssm_executable }}
 
-- name: Check imap orchestrator prestart batch
-  win_stat:
-    path: "{{ imap_orchestrator_prestart_batch }}"
-  register: imap_orchestrator_prestart_batch_check
-
-- name: Validate imap orchestrator prestart batch
-  assert:
-    that:
-      - imap_orchestrator_prestart_batch_check.stat.exists
-      - not imap_orchestrator_prestart_batch_check.stat.isdir
-    fail_msg: >-
-      IMAP orchestrator prestart batch was not found:
-      {{ imap_orchestrator_prestart_batch }}
-
 - name: Check imap orchestrator run batch
   win_stat:
     path: "{{ imap_orchestrator_run_batch }}"
@@ -90,26 +76,23 @@
     $serviceName = "{{ imap_orchestrator_service_name }}"
     $application = "{{ imap_orchestrator_service_application }}"
     $appDirectory = "{{ imap_orchestrator_service_app_directory }}"
-
-    $prestartBatch = "{{ imap_orchestrator_prestart_batch }}"
     $runBatch = "{{ imap_orchestrator_run_batch }}"
 
     $stdoutLog = "{{ imap_orchestrator_stdout_log }}"
     $stderrLog = "{{ imap_orchestrator_stderr_log }}"
 
     $pythonPath = "{{ imap_orchestrator_python_paths | join(';') }}"
+    $myMode = "{{ imap_orchestrator_my_mode }}"
+
     $nssm = "{{ nssm_executable }}"
 
-    # cmd.exe가 다음 순서로 실행
+    # 최종 실행 구조:
+    # NSSM -> cmd.exe -> call run.bat
     #
-    # 1. 사전 실행 배치
-    # 2. 사전 실행 배치가 종료 코드 0을 반환하면 run.bat 실행
-    #
-    # 실제 생성 예:
-    # /d /s /c ""call "...\prestart.bat" && call "...\run.bat"""
+    # MY_MODE는 AppParameters 인수가 아니라
+    # NSSM AppEnvironmentExtra 환경변수로 run.bat에 전달
     $appParameters = (
-      '/d /s /c ""call "{0}" && call "{1}"""' -f
-      $prestartBatch,
+      '/d /c call "{0}"' -f
       $runBatch
     )
 
@@ -123,11 +106,6 @@
       exit 1
     }
 
-    if (-not (Test-Path -LiteralPath $prestartBatch -PathType Leaf)) {
-      Write-Error "Prestart batch was not found: $prestartBatch"
-      exit 1
-    }
-
     if (-not (Test-Path -LiteralPath $runBatch -PathType Leaf)) {
       Write-Error "Run batch was not found: $runBatch"
       exit 1
@@ -135,6 +113,11 @@
 
     if (-not (Test-Path -LiteralPath $appDirectory -PathType Container)) {
       Write-Error "Service application directory was not found: $appDirectory"
+      exit 1
+    }
+
+    if ([string]::IsNullOrWhiteSpace($myMode)) {
+      Write-Error "MY_MODE value is empty"
       exit 1
     }
 
@@ -251,9 +234,10 @@
       "PYTHONPATH=$pythonPath"
       "PYTHONUTF8=1"
       "PYTHONIOENCODING=utf-8"
+      "MY_MODE=$myMode"
     )
 
-    # AppEnvironmentExtra가 아직 설정되지 않은 최초 실행에서는
+    # AppEnvironmentExtra가 설정되지 않은 최초 실행에서는
     # NSSM 조회 결과가 없을 수 있으므로 항상 배열로 처리
     $currentEnvironmentOutput = @(
       & $nssm `
@@ -336,8 +320,8 @@
     Write-Output "application=$application"
     Write-Output "app_directory=$appDirectory"
     Write-Output "app_parameters=$appParameters"
-    Write-Output "prestart_batch=$prestartBatch"
     Write-Output "run_batch=$runBatch"
+    Write-Output "MY_MODE=$myMode"
 
     if ($script:changed) {
       Write-Output "SERVICE_CONFIG_CHANGED"
@@ -404,10 +388,10 @@
       - "{{ imap_orchestrator_service_config.stdout_lines }}"
       - "{{ imap_orchestrator_service_status.stdout_lines }}"
       - "nssm={{ nssm_executable }}"
-      - "prestart_batch={{ imap_orchestrator_prestart_batch }}"
       - "run_batch={{ imap_orchestrator_run_batch }}"
       - "application={{ imap_orchestrator_service_application }}"
       - "directory={{ imap_orchestrator_service_app_directory }}"
       - "PYTHONPATH={{ imap_orchestrator_python_paths | join(';') }}"
+      - "MY_MODE={{ imap_orchestrator_my_mode }}"
       - "stdout_log={{ imap_orchestrator_stdout_log }}"
       - "stderr_log={{ imap_orchestrator_stderr_log }}"
