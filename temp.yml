@@ -1,10 +1,56 @@
-$nssm = 'E:\Tools\nssm\nssm.exe'
+imap_orchestrator_service_name: 'imap-orchestrator'
 
-Get-Service imap-orchestrator |
-  Select-Object Name, Status, StartType
+imap_orchestrator_run_bat_source_path: 'E:\외부경로\run.bat'
 
-& $nssm status imap-orchestrator
+imap_orchestrator_run_bat_path: >-
+  {{ imap_orchestrator_source_dir }}\scripts\run.bat
 
-Get-CimInstance Win32_Service `
-  -Filter "Name='imap-orchestrator'" |
-  Select-Object Name, State, StartName, ProcessId, PathName
+imap_orchestrator_run_bat_backup_path: >-
+  {{ imap_orchestrator_source_dir }}\scripts\run.bat.bak
+
+
+
+
+- name: Check replacement run.bat
+  win_stat:
+    path: '{{ imap_orchestrator_run_bat_source_path }}'
+  register: replacement_run_bat
+
+- name: Fail when replacement run.bat does not exist
+  fail:
+    msg: 'run.bat not found: {{ imap_orchestrator_run_bat_source_path }}'
+  when: not replacement_run_bat.stat.exists
+
+- name: Stop imap-orchestrator service
+  win_service:
+    name: '{{ imap_orchestrator_service_name }}'
+    state: stopped
+  failed_when: false
+
+- name: Check current run.bat
+  win_stat:
+    path: '{{ imap_orchestrator_run_bat_path }}'
+  register: current_run_bat
+
+- name: Backup current run.bat
+  win_copy:
+    src: '{{ imap_orchestrator_run_bat_path }}'
+    dest: '{{ imap_orchestrator_run_bat_backup_path }}'
+    remote_src: true
+    force: true
+  when: current_run_bat.stat.exists
+
+- name: Replace run.bat
+  win_copy:
+    src: '{{ imap_orchestrator_run_bat_source_path }}'
+    dest: '{{ imap_orchestrator_run_bat_path }}'
+    remote_src: true
+    force: true
+  register: replace_run_bat
+
+- name: Start imap-orchestrator service
+  win_service:
+    name: '{{ imap_orchestrator_service_name }}'
+    state: started
+    start_mode: auto
+  when: replace_run_bat is succeeded
