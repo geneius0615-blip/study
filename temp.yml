@@ -3,3 +3,15 @@ vs_BuildTools.exe --layout C:\VS2022BuildTools ^
  --add Microsoft.VisualStudio.Workload.VCTools ^
  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
  --add Microsoft.VisualStudio.Component.Windows10SDK.19041
+
+
+
+cd /d C:\VS2022BuildToolsOffline
+
+vs_BuildTools.exe --noWeb --wait --passive --norestart ^
+ --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
+ --add Microsoft.VisualStudio.Workload.VCTools ^
+ --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
+ --add Microsoft.VisualStudio.Component.Windows10SDK.19041
+
+echo ExitCode=%ERRORLEVEL%
