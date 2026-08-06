@@ -15,3 +15,39 @@ vs_BuildTools.exe --noWeb --wait --passive --norestart ^
  --add Microsoft.VisualStudio.Component.Windows10SDK.19041
 
 echo ExitCode=%ERRORLEVEL%
+
+
+
+cd /d C:\VS2022BuildToolsOffline
+
+certutil.exe -addstore -f Root "Certificates\manifestRootCertificate.cer"
+certutil.exe -addstore -f Root "Certificates\manifestCounterSignRootCertificate.cer"
+certutil.exe -addstore -f Root "Certificates\vs_installer_opc.RootCertificate.cer"
+
+
+
+cd /d C:\VS2022BuildToolsOffline
+
+vs_BuildTools.exe --noWeb --wait --passive --norestart ^
+ --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
+ --add Microsoft.VisualStudio.Workload.VCTools ^
+ --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
+ --add Microsoft.VisualStudio.Component.Windows10SDK.19041
+
+echo ExitCode=%ERRORLEVEL%
+
+
+$logs = Get-ChildItem `
+  "$env:TEMP\dd_bootstrapper*.log",
+  "$env:TEMP\dd_client*.log",
+  "$env:TEMP\dd_setup*.log" `
+  -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 5
+
+foreach ($log in $logs) {
+    "===== $($log.FullName) =====" |
+        Out-File C:\vs_install_error.txt -Append
+    Get-Content $log.FullName -Tail 150 |
+        Out-File C:\vs_install_error.txt -Append
+}
