@@ -62,3 +62,9 @@ curl.exe -L ^
 
 
 https://www.microsoft.com/pkiops/certs/Microsoft%20Windows%20Code%20Signing%20PCA%202024.crt
+
+
+certutil -addstore -f CA "C:\Temp\Microsoft Windows Code Signing PCA 2024.crt"
+
+
+certutil -store CA "Microsoft Windows Code Signing PCA 2024"
