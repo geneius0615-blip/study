@@ -58,3 +58,7 @@ mkdir C:\exportCerts
 curl.exe -L ^
  "https://www.microsoft.com/pkiops/certs/Microsoft%20Windows%20Code%20Signing%20PCA%202024.crt" ^
  -o "C:\exportCerts\Microsoft Windows Code Signing PCA 2024.crt"
+
+
+
+https://www.microsoft.com/pkiops/certs/Microsoft%20Windows%20Code%20Signing%20PCA%202024.crt
