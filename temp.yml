@@ -1,70 +1,7 @@
-vs_BuildTools.exe --layout C:\VS2022BuildTools ^
- --lang ko-KR en-US ^
- --add Microsoft.VisualStudio.Workload.VCTools ^
- --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
- --add Microsoft.VisualStudio.Component.Windows10SDK.19041
+set "GCM_CREDENTIAL_STORE=dpapi"
+git config --global credential.credentialStore dpapi
 
-
-
-cd /d C:\VS2022BuildToolsOffline
-
-vs_BuildTools.exe --noWeb --wait --passive --norestart ^
- --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
- --add Microsoft.VisualStudio.Workload.VCTools ^
- --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
- --add Microsoft.VisualStudio.Component.Windows10SDK.19041
-
-echo ExitCode=%ERRORLEVEL%
-
-
-
-cd /d C:\VS2022BuildToolsOffline
-
-certutil.exe -addstore -f Root "Certificates\manifestRootCertificate.cer"
-certutil.exe -addstore -f Root "Certificates\manifestCounterSignRootCertificate.cer"
-certutil.exe -addstore -f Root "Certificates\vs_installer_opc.RootCertificate.cer"
-
-
-
-cd /d C:\VS2022BuildToolsOffline
-
-vs_BuildTools.exe --noWeb --wait --passive --norestart ^
- --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
- --add Microsoft.VisualStudio.Workload.VCTools ^
- --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
- --add Microsoft.VisualStudio.Component.Windows10SDK.19041
-
-echo ExitCode=%ERRORLEVEL%
-
-
-$logs = Get-ChildItem `
-  "$env:TEMP\dd_bootstrapper*.log",
-  "$env:TEMP\dd_client*.log",
-  "$env:TEMP\dd_setup*.log" `
-  -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 5
-
-foreach ($log in $logs) {
-    "===== $($log.FullName) =====" |
-        Out-File C:\vs_install_error.txt -Append
-    Get-Content $log.FullName -Tail 150 |
-        Out-File C:\vs_install_error.txt -Append
-}
-
-
-mkdir C:\exportCerts
-
-curl.exe -L ^
- "https://www.microsoft.com/pkiops/certs/Microsoft%20Windows%20Code%20Signing%20PCA%202024.crt" ^
- -o "C:\exportCerts\Microsoft Windows Code Signing PCA 2024.crt"
-
-
-
-https://www.microsoft.com/pkiops/certs/Microsoft%20Windows%20Code%20Signing%20PCA%202024.crt
-
-
-certutil -addstore -f CA "C:\Temp\Microsoft Windows Code Signing PCA 2024.crt"
-
-
-certutil -store CA "Microsoft Windows Code Signing PCA 2024"
+echo %GCM_CREDENTIAL_STORE%
+git config --show-origin --show-scope --list | findstr /i "credentialstore"
+where git
+whoami
