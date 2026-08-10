@@ -15,3 +15,13 @@ tasklist /FI "IMAGENAME eq ssh.exe"
 powershell -NoProfile -Command "Get-Item 'E:\digital-twin-studio\imap\source\.git\objects\pack\tmp_pack_gmwd4l' | Select-Object Length,LastWriteTime"
 
 powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('git.exe','git-remote-https.exe') } | Select-Object ProcessId,ParentProcessId,Name,CreationDate | Sort-Object CreationDate | Format-Table -AutoSize"
+
+
+
+
+sc.exe qc "Imap-Minerva"
+
+Get-CimInstance Win32_Process |
+  Where-Object { $_.CommandLine -match 'Imap-Minerva|debugpy|Minerva' } |
+  Select-Object ProcessId,ParentProcessId,Name,CommandLine |
+  Format-List
