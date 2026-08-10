@@ -1,3 +1,6 @@
 powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*imap-Minerva*' -or $_.CommandLine -like '*imap-Minerva*' } | Select-Object ProcessId,ParentProcessId,Name"
 
 powershell -NoProfile -Command "Get-CimInstance Win32_Service | Where-Object { $_.PathName -like '*imap-Minerva*' } | Select-Object Name,State,ProcessId"
+
+
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -in @(2336,10088,5548) } | Select-Object ProcessId,ParentProcessId,Name,CommandLine | Format-List"
