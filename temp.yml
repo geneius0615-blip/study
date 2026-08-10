@@ -4,3 +4,9 @@ powershell -NoProfile -Command "Get-CimInstance Win32_Service | Where-Object { $
 
 
 powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -in @(2336,10088,5548) } | Select-Object ProcessId,ParentProcessId,Name,CommandLine | Format-List"
+
+
+tasklist /FI "IMAGENAME eq git.exe"
+tasklist /FI "IMAGENAME eq git-remote-https.exe"
+tasklist /FI "IMAGENAME eq git-lfs.exe"
+tasklist /FI "IMAGENAME eq ssh.exe"
