@@ -10,3 +10,6 @@ tasklist /FI "IMAGENAME eq git.exe"
 tasklist /FI "IMAGENAME eq git-remote-https.exe"
 tasklist /FI "IMAGENAME eq git-lfs.exe"
 tasklist /FI "IMAGENAME eq ssh.exe"
+
+
+powershell -NoProfile -Command "Get-Item 'E:\digital-twin-studio\imap\source\.git\objects\pack\tmp_pack_gmwd4l' | Select-Object Length,LastWriteTime"
