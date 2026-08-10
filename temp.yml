@@ -1,7 +1,3 @@
-set "GCM_CREDENTIAL_STORE=dpapi"
-git config --global credential.credentialStore dpapi
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -like '*imap-Minerva*' -or $_.CommandLine -like '*imap-Minerva*' } | Select-Object ProcessId,ParentProcessId,Name"
 
-echo %GCM_CREDENTIAL_STORE%
-git config --show-origin --show-scope --list | findstr /i "credentialstore"
-where git
-whoami
+powershell -NoProfile -Command "Get-CimInstance Win32_Service | Where-Object { $_.PathName -like '*imap-Minerva*' } | Select-Object Name,State,ProcessId"
