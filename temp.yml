@@ -1,7 +1,43 @@
-python -c "import imap_shared; print(imap_shared.__file__)"
+- name: Stop imap gateway service before clean
+  win_service:
+    name: imap_gateway
+    state: stopped
 
+- name: Stop debug process using port 5678
+  win_shell: |
+    $port = 5678
 
-python -c "import sys; print(sys.executable)"
+    $connections = Get-NetTCPConnection `
+      -LocalPort $port `
+      -State Listen `
+      -ErrorAction SilentlyContinue
 
+    if ($connections) {
+      $pids = $connections |
+        Select-Object -ExpandProperty OwningProcess -Unique
 
-C:\Python\python.exe -Xfrozen_modules=off -c "import os,sys; print(os.environ.get('PYTHONPATH')); print(*sys.path, sep='\n'); import imap_shared; print(imap_shared.__file__)"
+      foreach ($processId in $pids) {
+        Write-Output "Stopping debug PID: $processId"
+
+        Stop-Process `
+          -Id $processId `
+          -Force `
+          -ErrorAction SilentlyContinue
+      }
+    }
+
+    Start-Sleep -Seconds 1
+
+    $remaining = Get-NetTCPConnection `
+      -LocalPort $port `
+      -State Listen `
+      -ErrorAction SilentlyContinue
+
+    if ($remaining) {
+      Write-Error "Debug port 5678 is still in use."
+      exit 1
+    }
+
+    Write-Output "DEBUG_PORT_5678_CLOSED"
+  register: debug_port_stop
+  changed_when: "'DEBUG_PORT_5678_CLOSED' in debug_port_stop.stdout"
