@@ -1,36 +1,31 @@
-- name: Stop debug port before clean
+- name: Validate NSSM PYTHONPATH before service start
   win_shell: |
-    $port = 5678
+    $serviceName = "{{ imap_orchestrator_service_name }}"
+    $nssm = "{{ nssm_executable }}"
+    $requiredPath = "{{ imap_shared_python_path }}"
 
-    $connections = Get-NetTCPConnection `
-      -LocalPort $port `
-      -State Listen `
-      -ErrorAction SilentlyContinue
+    $environment = @(
+      & $nssm `
+        get `
+        $serviceName `
+        AppEnvironmentExtra `
+        2>$null
+    )
 
-    if ($connections) {
-      $pids = $connections |
-        Select-Object -ExpandProperty OwningProcess -Unique
-
-      foreach ($processId in $pids) {
-        Stop-Process `
-          -Id $processId `
-          -Force `
-          -ErrorAction Stop
+    $pythonPath = $environment |
+      Where-Object {
+        $_ -like "PYTHONPATH=*"
       }
-    }
 
-    Start-Sleep -Milliseconds 500
-
-    $remaining = Get-NetTCPConnection `
-      -LocalPort $port `
-      -State Listen `
-      -ErrorAction SilentlyContinue
-
-    if ($remaining) {
-      Write-Error "Debug port $port is still listening"
+    if (-not $pythonPath) {
+      Write-Error "PYTHONPATH is not configured in NSSM"
       exit 1
     }
 
-    Write-Output "DEBUG_PORT_CLOSED"
-  register: debug_port_stop
-  changed_when: "'DEBUG_PORT_CLOSED' in debug_port_stop.stdout"
+    if ($pythonPath -notlike "*$requiredPath*") {
+      Write-Error "imap_shared path is missing from PYTHONPATH"
+      exit 1
+    }
+
+    Write-Output "PYTHONPATH_OK"
+  changed_when: false
