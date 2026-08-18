@@ -1,3 +1,6 @@
+python -c "import imap_shared; print(imap_shared.__file__)"
+
+
 python -c "import sys; print(sys.executable)"
 
 
