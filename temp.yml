@@ -1,11 +1,6 @@
-- name: Stop service
-  win_service:
-    name: "{{ service_name }}"
-    state: stopped
-
-- name: Stop debug port before remove
+- name: Stop debug port before clean
   win_shell: |
-    $port = {{ debug_port }}
+    $port = 5678
 
     $connections = Get-NetTCPConnection `
       -LocalPort $port `
@@ -13,13 +8,29 @@
       -ErrorAction SilentlyContinue
 
     if ($connections) {
-        $pids = $connections |
-          Select-Object -ExpandProperty OwningProcess -Unique
+      $pids = $connections |
+        Select-Object -ExpandProperty OwningProcess -Unique
 
-        foreach ($processId in $pids) {
-            Stop-Process -Id $processId -Force
-        }
+      foreach ($processId in $pids) {
+        Stop-Process `
+          -Id $processId `
+          -Force `
+          -ErrorAction Stop
+      }
     }
 
-- name: Remove service
-  # 지금 사용하고 있는 기존 remove task
+    Start-Sleep -Milliseconds 500
+
+    $remaining = Get-NetTCPConnection `
+      -LocalPort $port `
+      -State Listen `
+      -ErrorAction SilentlyContinue
+
+    if ($remaining) {
+      Write-Error "Debug port $port is still listening"
+      exit 1
+    }
+
+    Write-Output "DEBUG_PORT_CLOSED"
+  register: debug_port_stop
+  changed_when: "'DEBUG_PORT_CLOSED' in debug_port_stop.stdout"
