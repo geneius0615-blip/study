@@ -1,43 +1,13 @@
-- name: Stop imap gateway service before clean
-  win_service:
-    name: imap_gateway
-    state: stopped
+Get-NetTCPConnection -State Listen |
+ForEach-Object {
+    $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
 
-- name: Stop debug process using port 5678
-  win_shell: |
-    $port = 5678
-
-    $connections = Get-NetTCPConnection `
-      -LocalPort $port `
-      -State Listen `
-      -ErrorAction SilentlyContinue
-
-    if ($connections) {
-      $pids = $connections |
-        Select-Object -ExpandProperty OwningProcess -Unique
-
-      foreach ($processId in $pids) {
-        Write-Output "Stopping debug PID: $processId"
-
-        Stop-Process `
-          -Id $processId `
-          -Force `
-          -ErrorAction SilentlyContinue
-      }
+    if ($p.ProcessName -like "*python*") {
+        [PSCustomObject]@{
+            Address = $_.LocalAddress
+            Port    = $_.LocalPort
+            PID     = $_.OwningProcess
+            Process = $p.ProcessName
+        }
     }
-
-    Start-Sleep -Seconds 1
-
-    $remaining = Get-NetTCPConnection `
-      -LocalPort $port `
-      -State Listen `
-      -ErrorAction SilentlyContinue
-
-    if ($remaining) {
-      Write-Error "Debug port 5678 is still in use."
-      exit 1
-    }
-
-    Write-Output "DEBUG_PORT_5678_CLOSED"
-  register: debug_port_stop
-  changed_when: "'DEBUG_PORT_5678_CLOSED' in debug_port_stop.stdout"
+}
