@@ -1,13 +1,19 @@
-Get-NetTCPConnection -State Listen |
-ForEach-Object {
-    $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
+# 2. 기존 WAR 삭제
 
-    if ($p.ProcessName -like "*python*") {
-        [PSCustomObject]@{
-            Address = $_.LocalAddress
-            Port    = $_.LocalPort
-            PID     = $_.OwningProcess
-            Process = $p.ProcessName
-        }
-    }
-}
+- name: Remove existing Edge WAR
+
+  win_file:
+
+    path: E:\Tools\tomcat\webapps\edge.war
+
+    state: absent
+
+# 3. 기존 압축 해제 디렉터리도 삭제
+
+- name: Remove existing Edge application directory
+
+  win_file:
+
+    path: E:\Tools\tomcat\webapps\edge
+
+    state: absent
