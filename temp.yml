@@ -1,19 +1,23 @@
-# 2. 기존 WAR 삭제
+# 1. Edge 서비스 중지
+- name: Stop Edge service
+  ansible.windows.win_service:
+    name: "{{ edge_service_name }}"
+    state: stopped
 
-- name: Remove existing Edge WAR
-
-  win_file:
-
-    path: E:\Tools\tomcat\webapps\edge.war
-
+# 2. 이전 다운로드 파일 전체 삭제
+- name: Remove existing Edge download files
+  ansible.windows.win_file:
+    path: "{{ edge_download_path }}"
     state: absent
 
-# 3. 기존 압축 해제 디렉터리도 삭제
+# 3. 다운로드 폴더 다시 생성
+- name: Recreate Edge download directory
+  ansible.windows.win_file:
+    path: "{{ edge_download_path }}"
+    state: directory
 
-- name: Remove existing Edge application directory
-
-  win_file:
-
-    path: E:\Tools\tomcat\webapps\edge
-
-    state: absent
+# 4. 신규 파일 다운로드
+- name: Download new Edge package
+  ansible.windows.win_get_url:
+    url: "{{ edge_download_url }}"
+    dest: "{{ edge_download_path }}\\{{ edge_file_name }}"
