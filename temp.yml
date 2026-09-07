@@ -1,25 +1,5 @@
-- name: Find IMAP-Client backup directories
-  win_find:
-    paths: "E:\\Deploy\\Vue\\imap-client\\backup"
-    file_type: directory
-    recurse: no
-  register: imap_client_backups
-  tags:
-    - cleanup_client_backup
-
-- name: Sort IMAP-Client backups
-  set_fact:
-    sorted_imap_client_backups: >-
-      {{ imap_client_backups.files
-         | sort(attribute='lastwritetime', reverse=true) }}
-  tags:
-    - cleanup_client_backup
-
-- name: Delete old IMAP-Client backups - keep latest 3
-  win_file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ sorted_imap_client_backups[3:] }}"
-  when: sorted_imap_client_backups | length > 3
-  tags:
-    - cleanup_client_backup
+Get-CimInstance Win32_Process |
+Where-Object {
+    $_.CommandLine -like "*digital-twin-studio*"
+} |
+Select-Object ProcessId, Name, CommandLine
