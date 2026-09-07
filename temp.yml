@@ -1,23 +1,26 @@
-# 1. Edge 서비스 중지
-- name: Stop Edge service
-  ansible.windows.win_service:
-    name: "{{ edge_service_name }}"
-    state: stopped
+- name: Find IMAP-Client backup directories
+  ansible.windows.win_find:
+    paths: "E:\\Deploy\\Vue\\imap-client\\backup"
+    file_type: directory
+    recurse: no
+    get_checksum: no
+  register: imap_client_backups
+  tags:
+    - cleanup_client_backup
 
-# 2. 이전 다운로드 파일 전체 삭제
-- name: Remove existing Edge download files
+- name: Sort IMAP-Client backups by modified time
+  ansible.builtin.set_fact:
+    sorted_imap_client_backups: >-
+      {{ imap_client_backups.files
+         | sort(attribute='lastwritetime', reverse=true) }}
+  tags:
+    - cleanup_client_backup
+
+- name: Delete old IMAP-Client backups and keep latest 3
   ansible.windows.win_file:
-    path: "{{ edge_download_path }}"
+    path: "{{ item.path }}"
     state: absent
-
-# 3. 다운로드 폴더 다시 생성
-- name: Recreate Edge download directory
-  ansible.windows.win_file:
-    path: "{{ edge_download_path }}"
-    state: directory
-
-# 4. 신규 파일 다운로드
-- name: Download new Edge package
-  ansible.windows.win_get_url:
-    url: "{{ edge_download_url }}"
-    dest: "{{ edge_download_path }}\\{{ edge_file_name }}"
+  loop: "{{ sorted_imap_client_backups[3:] }}"
+  when: sorted_imap_client_backups | length > 3
+  tags:
+    - cleanup_client_backup
