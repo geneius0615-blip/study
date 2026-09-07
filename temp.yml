@@ -1,23 +1,22 @@
 - name: Find IMAP-Client backup directories
-  ansible.windows.win_find:
+  win_find:
     paths: "E:\\Deploy\\Vue\\imap-client\\backup"
     file_type: directory
     recurse: no
-    get_checksum: no
   register: imap_client_backups
   tags:
     - cleanup_client_backup
 
-- name: Sort IMAP-Client backups by modified time
-  ansible.builtin.set_fact:
+- name: Sort IMAP-Client backups
+  set_fact:
     sorted_imap_client_backups: >-
       {{ imap_client_backups.files
          | sort(attribute='lastwritetime', reverse=true) }}
   tags:
     - cleanup_client_backup
 
-- name: Delete old IMAP-Client backups and keep latest 3
-  ansible.windows.win_file:
+- name: Delete old IMAP-Client backups - keep latest 3
+  win_file:
     path: "{{ item.path }}"
     state: absent
   loop: "{{ sorted_imap_client_backups[3:] }}"
