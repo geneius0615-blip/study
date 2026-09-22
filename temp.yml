@@ -8,3 +8,14 @@ $result = Invoke-RestMethod -Uri 'http://localhost:9000/api/measures/component?c
 $result.component.measures |
     Select-Object metric, value |
     Format-Table -AutoSize
+
+
+$token = "발급받은토큰"
+
+$headers = @{
+    Authorization = "Bearer $token"
+}
+
+Invoke-RestMethod `
+  -Uri 'http://127.0.0.1:9000/sonar-qube/api/system/status' `
+  -Headers $headers
