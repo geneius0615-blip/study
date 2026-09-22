@@ -1,5 +1,7 @@
-Get-CimInstance Win32_Process |
-Where-Object {
-    $_.CommandLine -like "*digital-twin-studio*"
-} |
-Select-Object ProcessId, Name, CommandLine
+$token = "발급받은토큰"
+
+$headers = @{
+    Authorization = "Bearer $token"
+}
+
+Invoke-RestMethod -Uri 'http://localhost:9000/api/measures/component?component=imap-client&metricKeys=ncloc,code_smells,complexity' -Headers $headers
