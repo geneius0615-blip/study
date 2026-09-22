@@ -1,7 +1,10 @@
-$token = "발급받은토큰"
+$result.component.measures |
+    Select-Object metric, value |
+    Format-Table -AutoSize
 
-$headers = @{
-    Authorization = "Bearer $token"
-}
 
-Invoke-RestMethod -Uri 'http://localhost:9000/api/measures/component?component=imap-client&metricKeys=ncloc,code_smells,complexity' -Headers $headers
+$result = Invoke-RestMethod -Uri 'http://localhost:9000/api/measures/component?component=imap-client&metricKeys=ncloc,bugs,vulnerabilities,code_smells,duplicated_lines_density,complexity' -Headers $headers
+
+$result.component.measures |
+    Select-Object metric, value |
+    Format-Table -AutoSize
