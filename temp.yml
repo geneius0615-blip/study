@@ -1,6 +1,13 @@
-- name: Check path
-  debug:
-    msg:
-      - "HOST={{ inventory_hostname }}"
-      - "GROUP={{ group_names }}"
-      - "PATH={{ path | default('UNDEFINED') }}"
+stage('Check Ansible Variables') {
+    steps {
+        sh '''
+            echo "=== Current Workspace ==="
+            pwd
+
+            echo "=== Variable File Search ==="
+            grep -RnlE 'path:|path\\.tar\\.download\\.directory' . \
+              --include="*.yml" \
+              --include="*.yaml" || true
+        '''
+    }
+}
