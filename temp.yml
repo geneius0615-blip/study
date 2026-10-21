@@ -10,26 +10,42 @@
     download_directory: "{{ path.tar.download.directory }}"
     download_file: '{{ path.tar.download.directory }}\{{ artifact_filename }}'
 
-# 001. 다운로드 디렉터리 생성
-- name: "001 다운로드 디렉터리 생성"
+
+- name: "001 다운로드 경로 출력"
+  debug:
+    msg:
+      - "HOST={{ inventory_hostname }}"
+      - "PATH={{ download_directory }}"
+      - "PATH_RAW={{ download_directory | to_json }}"
+
+- name: "002 다운로드 디렉터리 생성"
   win_file:
     path: "{{ download_directory }}"
     state: directory
+  register: create_dir
 
-# 002. 다운로드 디렉터리 확인
-- name: "002 다운로드 디렉터리 확인"
+- name: "003 다운로드 디렉터리 확인"
   win_stat:
     path: "{{ download_directory }}"
+    follow: yes
   register: download_dir
 
-# 003. 디렉터리 유효성 검사
-- name: "003 디렉터리 유효성 검사"
+- name: "004 디렉터리 상세 결과"
+  debug:
+    msg:
+      - "CREATE_CHANGED={{ create_dir.changed }}"
+      - "EXISTS={{ download_dir.stat.exists | default(false) }}"
+      - "ISDIR={{ download_dir.stat.isdir | default(false) }}"
+      - "ACTUAL_PATH={{ download_dir.stat.path | default('UNKNOWN') }}"
+
+- name: "005 디렉터리 유효성 검사"
   assert:
     that:
-      - download_dir.stat.exists
-      - download_dir.stat.isdir
-    fail_msg: "다운로드 디렉터리가 존재하지 않거나 올바르지 않습니다."
-    success_msg: "다운로드 디렉터리 확인 완료"
+      - download_dir.stat.exists | default(false)
+      - download_dir.stat.isdir | default(false)
+    fail_msg: "다운로드 디렉터리 확인 실패"
+    success_msg: "다운로드 디렉터리 정상"
+
 
 # 004. 아티팩트 다운로드
 - name: "004 파일 다운로드"
