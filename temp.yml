@@ -1,7 +1,15 @@
 - name: "001 파일 다운로드"
   win_command: >-
-    curl.exe -k
+    curl.exe -fksS
     -u "{{ artifact_id }}:{{ artifact_password }}"
     "{{ artifact_url.rstrip('/') }}/{{ artifact_filename }}"
     --output "{{ path.tar.download.directory }}\{{ artifact_filename }}"
+  register: download_result
   no_log: true
+  ignore_errors: true
+
+- name: Check download result
+  debug:
+    msg:
+      - "FAILED={{ download_result.failed | default('UNKNOWN') }}"
+      - "RC={{ download_result.rc | default('UNKNOWN') }}"
