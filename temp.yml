@@ -1,13 +1,7 @@
-stage('Check Ansible Variables') {
-    steps {
-        sh '''
-            echo "=== Current Workspace ==="
-            pwd
-
-            echo "=== Variable File Search ==="
-            grep -RnlE 'path:|path\\.tar\\.download\\.directory' . \
-              --include="*.yml" \
-              --include="*.yaml" || true
-        '''
-    }
-}
+- name: "001 파일 다운로드"
+  win_command: >-
+    curl.exe -k
+    -u "{{ artifact_id }}:{{ artifact_password }}"
+    "{{ artifact_url.rstrip('/') }}/{{ artifact_filename }}"
+    --output "{{ path.tar.download.directory }}\{{ artifact_filename }}"
+  no_log: true
