@@ -1,32 +1,110 @@
-- name: "001 실행 환경 확인"
+
+# ==========================================
+# imap-admin 다운로드 작업
+# Ansible 2.9 / Windows Server
+# ==========================================
+
+# 001. Windows 홈 디렉터리 확인
+- name: "001 Windows 홈 경로 확인"
+  win_shell: |
+    $homeDir = [Environment]::GetFolderPath('UserProfile')
+
+    if ([string]::IsNullOrWhiteSpace($homeDir)) {
+        throw "Windows 홈 디렉터리를 확인할 수 없습니다."
+    }
+
+    Write-Output $homeDir
+  register: windows_home
+  changed_when: false
+  when: (path.tar.download.directory | trim) == '~'
+
+# 002. 실제 다운로드 디렉터리 설정
+- name: "002 다운로드 경로 설정"
+  set_fact:
+    download_dir: >-
+      {{
+        (windows_home.stdout | trim)
+        if (path.tar.download.directory | trim) == '~'
+        else path.tar.download.directory
+      }}
+
+# 003. 전체 다운로드 파일 경로 설정
+- name: "003 다운로드 파일 경로 설정"
+  set_fact:
+    download_file: '{{ download_dir }}\{{ artifact_filename }}'
+
+# 004. 다운로드 경로 출력
+- name: "004 다운로드 경로 확인"
   debug:
     msg:
       - "HOST={{ inventory_hostname }}"
-      - "CHECK_MODE={{ ansible_check_mode | default(false) }}"
-      - "PATH={{ path.tar.download.directory }}"
-      - "PATH_RAW={{ path.tar.download.directory | to_json }}"
+      - "DIR={{ download_dir }}"
+      - "FILE={{ download_file }}"
 
-- name: "002 다운로드 폴더 생성"
+# 005. 다운로드 디렉터리 생성
+- name: "005 다운로드 디렉터리 생성"
   win_file:
-    path: "{{ path.tar.download.directory }}"
+    path: "{{ download_dir }}"
     state: directory
-  register: create_dir
 
-- name: "003 폴더 생성 결과"
-  debug:
-    msg:
-      - "CHANGED={{ create_dir.changed | default(false) }}"
-      - "SKIPPED={{ create_dir.skipped | default(false) }}"
-      - "FAILED={{ create_dir.failed | default(false) }}"
-      - "MESSAGE={{ create_dir.msg | default('NONE') }}"
-
-- name: "004 다운로드 폴더 확인"
+# 006. 다운로드 디렉터리 확인
+- name: "006 다운로드 디렉터리 검사"
   win_stat:
-    path: "{{ path.tar.download.directory }}"
-  register: download_dir
+    path: "{{ download_dir }}"
+  register: download_dir_stat
 
-- name: "005 검사 결과"
+# 007. 다운로드 디렉터리 유효성 검사
+- name: "007 다운로드 경로 유효성 검사"
+  assert:
+    that:
+      - download_dir_stat.stat.exists | default(false)
+      - download_dir_stat.stat.isdir | default(false)
+    fail_msg: "다운로드 디렉터리 확인 실패"
+    success_msg: "다운로드 디렉터리 정상"
+
+# 008. 이전 다운로드 파일 제거
+- name: "008 기존 다운로드 파일 제거"
+  win_file:
+    path: "{{ download_file }}"
+    state: absent
+
+# 009. 아티팩트 다운로드
+- name: "009 파일 다운로드"
+  win_get_url:
+    url: "{{ artifact_url.rstrip('/') }}/{{ artifact_filename }}"
+    dest: "{{ download_file }}"
+    url_username: "{{ artifact_id }}"
+    url_password: "{{ artifact_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+    force: yes
+    timeout: 180
+  register: download_result
+  no_log: true
+
+# 010. 다운로드 파일 검사
+- name: "010 다운로드 파일 확인"
+  win_stat:
+    path: "{{ download_file }}"
+    get_checksum: yes
+    checksum_algorithm: sha256
+  register: artifact_stat
+
+# 011. 다운로드 성공 여부 검증
+- name: "011 다운로드 유효성 검사"
+  assert:
+    that:
+      - artifact_stat.stat.exists | default(false)
+      - (artifact_stat.stat.size | default(0) | int) > 0
+    fail_msg: "아티팩트 다운로드 실패"
+    success_msg: "아티팩트 다운로드 성공"
+
+# 012. 다운로드 결과 출력
+- name: "012 다운로드 결과"
   debug:
     msg:
-      - "EXISTS={{ download_dir.stat.exists | default(false) }}"
-      - "ISDIR={{ download_dir.stat.isdir | default(false) }}"
+      - "HOST={{ inventory_hostname }}"
+      - "FILE={{ download_file }}"
+      - "SIZE={{ artifact_stat.stat.size }} bytes"
+      - "SHA256={{ artifact_stat.stat.checksum }}"
+      - "DOWNLOAD SUCCESS"
