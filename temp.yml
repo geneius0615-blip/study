@@ -1,90 +1,32 @@
-
-# ==========================================
-# imap-admin Artifact Download
-# Ansible 2.9 / Windows Server
-# ==========================================
-
-# 000. 다운로드 경로 설정
-- name: "000 다운로드 경로 설정"
-  set_fact:
-    download_directory: "{{ path.tar.download.directory }}"
-    download_file: '{{ path.tar.download.directory }}\{{ artifact_filename }}'
-
-
-- name: "001 다운로드 경로 출력"
+- name: "001 실행 환경 확인"
   debug:
     msg:
       - "HOST={{ inventory_hostname }}"
-      - "PATH={{ download_directory }}"
-      - "PATH_RAW={{ download_directory | to_json }}"
+      - "CHECK_MODE={{ ansible_check_mode | default(false) }}"
+      - "PATH={{ path.tar.download.directory }}"
+      - "PATH_RAW={{ path.tar.download.directory | to_json }}"
 
-- name: "002 다운로드 디렉터리 생성"
+- name: "002 다운로드 폴더 생성"
   win_file:
-    path: "{{ download_directory }}"
+    path: "{{ path.tar.download.directory }}"
     state: directory
   register: create_dir
 
-- name: "003 다운로드 디렉터리 확인"
+- name: "003 폴더 생성 결과"
+  debug:
+    msg:
+      - "CHANGED={{ create_dir.changed | default(false) }}"
+      - "SKIPPED={{ create_dir.skipped | default(false) }}"
+      - "FAILED={{ create_dir.failed | default(false) }}"
+      - "MESSAGE={{ create_dir.msg | default('NONE') }}"
+
+- name: "004 다운로드 폴더 확인"
   win_stat:
-    path: "{{ download_directory }}"
-    follow: yes
+    path: "{{ path.tar.download.directory }}"
   register: download_dir
 
-- name: "004 디렉터리 상세 결과"
+- name: "005 검사 결과"
   debug:
     msg:
-      - "CREATE_CHANGED={{ create_dir.changed }}"
       - "EXISTS={{ download_dir.stat.exists | default(false) }}"
       - "ISDIR={{ download_dir.stat.isdir | default(false) }}"
-      - "ACTUAL_PATH={{ download_dir.stat.path | default('UNKNOWN') }}"
-
-- name: "005 디렉터리 유효성 검사"
-  assert:
-    that:
-      - download_dir.stat.exists | default(false)
-      - download_dir.stat.isdir | default(false)
-    fail_msg: "다운로드 디렉터리 확인 실패"
-    success_msg: "다운로드 디렉터리 정상"
-
-
-# 004. 아티팩트 다운로드
-- name: "004 파일 다운로드"
-  win_get_url:
-    url: "{{ artifact_url.rstrip('/') }}/{{ artifact_filename }}"
-    dest: "{{ download_file }}"
-    url_username: "{{ artifact_id }}"
-    url_password: "{{ artifact_password }}"
-    force_basic_auth: yes
-    validate_certs: no
-    force: yes
-    timeout: 180
-  register: download_result
-  no_log: true
-
-# 005. 다운로드 파일 확인
-- name: "005 다운로드 파일 확인"
-  win_stat:
-    path: "{{ download_file }}"
-    get_checksum: yes
-    checksum_algorithm: sha256
-  register: artifact_check
-
-# 006. 다운로드 파일 검증
-- name: "006 다운로드 파일 검증"
-  assert:
-    that:
-      - artifact_check.stat.exists | default(false)
-      - not (artifact_check.stat.isdir | default(false))
-      - (artifact_check.stat.size | default(0) | int) > 0
-    fail_msg: "아티팩트 다운로드 검증 실패"
-    success_msg: "아티팩트 다운로드 파일 확인 완료"
-
-# 007. 다운로드 결과 출력
-- name: "007 다운로드 결과"
-  debug:
-    msg:
-      - "HOST={{ inventory_hostname }}"
-      - "FILE={{ download_file }}"
-      - "SIZE={{ artifact_check.stat.size }} bytes"
-      - "SHA256={{ artifact_check.stat.checksum }}"
-      - "DOWNLOAD SUCCESS"
