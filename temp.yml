@@ -1,31 +1,21 @@
-- name: Compare Git credential environment
+- name: Test Git without credential helper
   win_shell: |
-    Write-Output "HOST=$env:COMPUTERNAME"
-    Write-Output "USER=$(whoami)"
-    Write-Output "PROFILE=$env:USERPROFILE"
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "0"
 
-    Write-Output "=== HELPER ==="
-    git config --show-origin --get-all credential.helper
+    git -c credential.helper= ls-remote origin HEAD
 
-    Write-Output "=== STORE ==="
-    git config --show-origin --get credential.credentialStore
-
-    Write-Output "=== DPAPI ==="
-    $path = Join-Path $env:USERPROFILE ".gcm\dpapi_store"
-    Write-Output "DPAPI_EXISTS=$(Test-Path $path)"
-
-    Write-Output "=== GCM ENV ==="
-    Write-Output "GCM_STORE=$env:GCM_CREDENTIAL_STORE"
-
-    exit 0
+    exit $LASTEXITCODE
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_compare
+  register: git_test
   changed_when: false
   failed_when: false
 
-- name: Show Git comparison
+- name: Show Git test
   debug:
-    var: git_compare.stdout_lines
+    msg:
+      - "RC: {{ git_test.rc }}"
+      - "STDERR: {{ git_test.stderr_lines }}"
