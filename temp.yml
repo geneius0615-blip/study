@@ -1,6 +1,10 @@
-Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
-Where-Object {
-    $_.Subject -like "*인증기관이름*"
-} |
-Select-Object Subject, Issuer, Thumbprint, NotBefore, NotAfter, PSParentPath |
-Format-List
+$thumbprints = @(
+    "루트_CA_지문",
+    "중간_CA_지문"
+)
+
+foreach ($thumb in $thumbprints) {
+    Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
+    Where-Object { $_.Thumbprint -eq $thumb } |
+    Select-Object Subject, Thumbprint, PSParentPath
+}
