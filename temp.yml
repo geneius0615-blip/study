@@ -1,30 +1,28 @@
-- name: Test Git authentication
+- name: Check imap-source file lock
   win_shell: |
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "0"
+    Write-Output "=== Git Status ==="
+    git status --short --branch
 
-    git -c credential.interactive=false ls-remote origin HEAD
+    Write-Output "=== Git Index Lock ==="
+    $lock = git rev-parse --git-path index.lock
+    Write-Output "Lock path: $lock"
+    Write-Output "Lock exists: $(Test-Path $lock)"
 
-    exit $LASTEXITCODE
+    Write-Output "=== Running Processes ==="
+    Get-Process -Name git,python,java,nssm `
+      -ErrorAction SilentlyContinue |
+      Select-Object ProcessName,Id,Path |
+      Format-Table -AutoSize
+
+    exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  become: yes
-  become_method: runas
-  become_user: "{{ ansible_user }}"
-  become_flags: logon_type=interactive
-
-  vars:
-    ansible_become_password: "{{ ansible_password }}"
-
-  async: 60
-  poll: 5
-
-  register: git_test
+  register: lock_check
   changed_when: false
   failed_when: false
 
-- name: Show Git result
+- name: Show lock check
   debug:
-    var: git_test
+    var: lock_check.stdout_lines
