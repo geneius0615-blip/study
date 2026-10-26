@@ -1,11 +1,11 @@
 - name: Test Git authentication
   win_shell: |
-    whoami
-    git ls-remote origin HEAD
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "0"
 
-    if ($LASTEXITCODE -ne 0) {
-      exit $LASTEXITCODE
-    }
+    git -c credential.interactive=false ls-remote origin HEAD
+
+    exit $LASTEXITCODE
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
@@ -18,9 +18,13 @@
   vars:
     ansible_become_password: "{{ ansible_password }}"
 
+  async: 60
+  poll: 5
+
   register: git_test
   changed_when: false
+  failed_when: false
 
 - name: Show Git result
   debug:
-    var: git_test.stdout_lines
+    var: git_test
