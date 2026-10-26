@@ -1,27 +1,33 @@
-- name: Compare Git network
+- name: Check Git HTTP access
   win_shell: |
-    $url = [Uri](git remote get-url origin)
+    $url = git remote get-url origin
+    $probe = "$url/info/refs?service=git-upload-pack"
 
-    Write-Output "=== SERVER ==="
-    Write-Output $env:COMPUTERNAME
+    Write-Output "SERVER=$env:COMPUTERNAME"
 
-    Write-Output "=== DNS ==="
-    Resolve-DnsName $url.Host -Type A |
-      Where-Object { $_.Type -eq 'A' } |
-      Select-Object -ExpandProperty IPAddress
+    try {
+      $r = Invoke-WebRequest `
+        -Uri $probe `
+        -UseBasicParsing `
+        -TimeoutSec 15
 
-    Write-Output "=== PROXY ==="
-    Write-Output "HTTPS_PROXY_SET=$([bool]$env:HTTPS_PROXY)"
-    Write-Output "HTTP_PROXY_SET=$([bool]$env:HTTP_PROXY)"
-
-    exit 0
+      Write-Output "HTTP_STATUS=$($r.StatusCode)"
+    }
+    catch {
+      if ($_.Exception.Response) {
+        Write-Output "HTTP_STATUS=$([int]$_.Exception.Response.StatusCode)"
+      }
+      else {
+        Write-Output "ERROR=$($_.Exception.Message)"
+      }
+    }
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_network
+  register: git_http
   changed_when: false
 
-- name: Show Git network
+- name: Show Git HTTP result
   debug:
-    var: git_network.stdout_lines
+    var: git_http.stdout_lines
