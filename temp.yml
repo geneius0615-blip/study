@@ -1,4 +1,6 @@
-Get-Service | Where-Object {
-    $_.Name -match "imap|gateway" -or
-    $_.DisplayName -match "imap|gateway"
-} | Select-Object Name, DisplayName, Status
+Get-CimInstance Win32_Process |
+Where-Object {
+    $_.CommandLine -match "imap-gateway|imap_gateway|uvicorn"
+} |
+Select-Object ProcessId, ParentProcessId, Name, CommandLine |
+Format-List
