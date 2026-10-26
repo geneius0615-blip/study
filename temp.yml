@@ -1,33 +1,27 @@
-- name: Check Git connection
+- name: Compare Git network
   win_shell: |
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "0"
+    $url = [Uri](git remote get-url origin)
 
     Write-Output "=== SERVER ==="
     Write-Output $env:COMPUTERNAME
 
-    Write-Output "=== REMOTE ==="
-    $url = [uri](git remote get-url origin)
-    Write-Output "HOST=$($url.Host)"
-    Write-Output "PATH=$($url.AbsolutePath)"
-    Write-Output "URL_HAS_CREDENTIAL=$([bool]$url.UserInfo)"
+    Write-Output "=== DNS ==="
+    Resolve-DnsName $url.Host -Type A |
+      Where-Object { $_.Type -eq 'A' } |
+      Select-Object -ExpandProperty IPAddress
 
-    Write-Output "=== URL REWRITE ==="
-    $rewrite = git config --get-regexp '^url\..*\.insteadof$' 2>$null
-    Write-Output "REWRITE_CONFIGURED=$([bool]$rewrite)"
-
-    Write-Output "=== NO HELPER TEST ==="
-    git -c credential.helper= ls-remote origin HEAD 1>$null 2>$null
-    Write-Output "GIT_RC=$LASTEXITCODE"
+    Write-Output "=== PROXY ==="
+    Write-Output "HTTPS_PROXY_SET=$([bool]$env:HTTPS_PROXY)"
+    Write-Output "HTTP_PROXY_SET=$([bool]$env:HTTP_PROXY)"
 
     exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_check
+  register: git_network
   changed_when: false
 
-- name: Show Git check
+- name: Show Git network
   debug:
-    var: git_check.stdout_lines
+    var: git_network.stdout_lines
