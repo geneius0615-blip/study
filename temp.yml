@@ -1,28 +1,4 @@
-- name: Check imap-source file lock
-  win_shell: |
-    Write-Output "=== Git Status ==="
-    git status --short --branch
-
-    Write-Output "=== Git Index Lock ==="
-    $lock = git rev-parse --git-path index.lock
-    Write-Output "Lock path: $lock"
-    Write-Output "Lock exists: $(Test-Path $lock)"
-
-    Write-Output "=== Running Processes ==="
-    Get-Process -Name git,python,java,nssm `
-      -ErrorAction SilentlyContinue |
-      Select-Object ProcessName,Id,Path |
-      Format-Table -AutoSize
-
-    exit 0
-
-  args:
-    chdir: 'E:\digital-twin-studio\imap\source'
-
-  register: lock_check
-  changed_when: false
-  failed_when: false
-
-- name: Show lock check
-  debug:
-    var: lock_check.stdout_lines
+Get-Service | Where-Object {
+    $_.Name -match "imap|gateway" -or
+    $_.DisplayName -match "imap|gateway"
+} | Select-Object Name, DisplayName, Status
