@@ -1,3 +1,6 @@
 Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
-Select-Object Subject, Issuer, Thumbprint, NotAfter |
+Where-Object {
+    $_.Subject -like "*인증기관이름*"
+} |
+Select-Object Subject, Issuer, Thumbprint, NotBefore, NotAfter, PSParentPath |
 Format-List
