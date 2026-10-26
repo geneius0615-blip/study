@@ -1,32 +1,25 @@
-- name: Check Git HTTPS connection
+- name: Check Git HTTPS response
   win_shell: |
-    $url = [uri](git remote get-url origin)
-    $hostName = $url.DnsSafeHost
+    $url = git remote get-url origin
+    $testUrl = $url.TrimEnd('/') +
+      '/info/refs?service=git-upload-pack'
 
-    Write-Output "SERVER=$env:COMPUTERNAME"
+    curl.exe -sS -o NUL `
+      -w "HTTP=%{http_code} TLS=%{ssl_verify_result}" `
+      --connect-timeout 5 `
+      --max-time 20 `
+      "$testUrl"
 
-    Write-Output "=== TCP 443 ==="
-    Test-NetConnection `
-      -ComputerName $hostName `
-      -Port 443 |
-      Select-Object -ExpandProperty TcpTestSucceeded
-
-    Write-Output "=== GIT PROXY CONFIG ==="
-    git config --get http.proxy
-
-    Write-Output "=== WINDOWS PROXY ==="
-    $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
-    Write-Output "PROXY_BYPASSED=$($proxy.IsBypassed($url))"
-
+    Write-Output "CURL_RC=$LASTEXITCODE"
     exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_connection
+  register: git_https
   changed_when: false
   failed_when: false
 
-- name: Show Git connection
+- name: Show HTTPS result
   debug:
-    var: git_connection.stdout_lines
+    var: git_https.stdout_lines
