@@ -1,7 +1,11 @@
-Get-CimInstance Win32_Service |
-Where-Object {
-    $_.Name -like "*tomcat*" -or
-    $_.DisplayName -like "*tomcat*"
-} |
-Select-Object Name, DisplayName, State, PathName, StartName |
-Format-List
+- name: Check Ansible Git environment
+  win_shell: |
+    whoami
+    Write-Output "USERPROFILE=$env:USERPROFILE"
+    git config --show-origin --get-all credential.helper
+    git config --show-origin --get credential.credentialStore
+  register: git_env
+  failed_when: false
+
+- debug:
+    var: git_env.stdout_lines
