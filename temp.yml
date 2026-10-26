@@ -1,21 +1,33 @@
-- name: Test Git without credential helper
+- name: Check Git authentication method
   win_shell: |
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "0"
+    Write-Output "=== SERVER ==="
+    Write-Output $env:COMPUTERNAME
 
-    git -c credential.helper= ls-remote origin HEAD
+    Write-Output "=== REMOTE ==="
+    $remote = [uri](git remote get-url origin)
+    Write-Output "HOST=$($remote.Host)"
+    Write-Output "PATH=$($remote.AbsolutePath)"
+    Write-Output "URL_HAS_CREDENTIAL=$([bool]$remote.UserInfo)"
 
-    exit $LASTEXITCODE
+    Write-Output "=== GIT CONFIG ==="
+    git config --show-origin --get-all credential.helper
+    git config --show-origin --get credential.credentialStore
+
+    Write-Output "=== OTHER AUTH ==="
+    Write-Output "GIT_ASKPASS=$([bool]$env:GIT_ASKPASS)"
+    Write-Output "GIT_CONFIG_COUNT=$env:GIT_CONFIG_COUNT"
+
+    $header = git config --get-regexp '^(http(\..*)?\.extraheader)$' 2>$null
+    Write-Output "HTTP_HEADER_CONFIGURED=$([bool]$header)"
+
+    exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_test
+  register: git_auth_check
   changed_when: false
-  failed_when: false
 
-- name: Show Git test
+- name: Show Git authentication method
   debug:
-    msg:
-      - "RC: {{ git_test.rc }}"
-      - "STDERR: {{ git_test.stderr_lines }}"
+    var: git_auth_check.stdout_lines
