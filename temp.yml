@@ -1,28 +1,31 @@
-- name: Check Git remote branches
+- name: Compare Git credential environment
   win_shell: |
-    Write-Output "=== TARGET BRANCH ==="
-    Write-Output "{{ imap_repo_branch }}"
+    Write-Output "HOST=$env:COMPUTERNAME"
+    Write-Output "USER=$(whoami)"
+    Write-Output "PROFILE=$env:USERPROFILE"
 
-    Write-Output "=== CURRENT REPOSITORY ==="
-    git rev-parse --show-toplevel
+    Write-Output "=== HELPER ==="
+    git config --show-origin --get-all credential.helper
 
-    Write-Output "=== REMOTE URL ==="
-    git remote get-url origin
+    Write-Output "=== STORE ==="
+    git config --show-origin --get credential.credentialStore
 
-    Write-Output "=== REMOTE BRANCHES ==="
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "0"
+    Write-Output "=== DPAPI ==="
+    $path = Join-Path $env:USERPROFILE ".gcm\dpapi_store"
+    Write-Output "DPAPI_EXISTS=$(Test-Path $path)"
 
-    git ls-remote --heads origin
+    Write-Output "=== GCM ENV ==="
+    Write-Output "GCM_STORE=$env:GCM_CREDENTIAL_STORE"
 
     exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: branch_check
+  register: git_compare
   changed_when: false
+  failed_when: false
 
-- name: Show Git branches
+- name: Show Git comparison
   debug:
-    var: branch_check.stdout_lines
+    var: git_compare.stdout_lines
