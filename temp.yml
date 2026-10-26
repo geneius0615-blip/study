@@ -1,11 +1,26 @@
-- name: Check Ansible Git environment
+- name: Test Git authentication
   win_shell: |
     whoami
-    Write-Output "USERPROFILE=$env:USERPROFILE"
-    git config --show-origin --get-all credential.helper
-    git config --show-origin --get credential.credentialStore
-  register: git_env
-  failed_when: false
+    git ls-remote origin HEAD
 
-- debug:
-    var: git_env.stdout_lines
+    if ($LASTEXITCODE -ne 0) {
+      exit $LASTEXITCODE
+    }
+
+  args:
+    chdir: 'E:\digital-twin-studio\imap\source'
+
+  become: yes
+  become_method: runas
+  become_user: "{{ ansible_user }}"
+  become_flags: logon_type=interactive
+
+  vars:
+    ansible_become_password: "{{ ansible_password }}"
+
+  register: git_test
+  changed_when: false
+
+- name: Show Git result
+  debug:
+    var: git_test.stdout_lines
