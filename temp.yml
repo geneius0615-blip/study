@@ -1,33 +1,33 @@
-- name: Check Git authentication method
+- name: Check Git connection
   win_shell: |
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "0"
+
     Write-Output "=== SERVER ==="
     Write-Output $env:COMPUTERNAME
 
     Write-Output "=== REMOTE ==="
-    $remote = [uri](git remote get-url origin)
-    Write-Output "HOST=$($remote.Host)"
-    Write-Output "PATH=$($remote.AbsolutePath)"
-    Write-Output "URL_HAS_CREDENTIAL=$([bool]$remote.UserInfo)"
+    $url = [uri](git remote get-url origin)
+    Write-Output "HOST=$($url.Host)"
+    Write-Output "PATH=$($url.AbsolutePath)"
+    Write-Output "URL_HAS_CREDENTIAL=$([bool]$url.UserInfo)"
 
-    Write-Output "=== GIT CONFIG ==="
-    git config --show-origin --get-all credential.helper
-    git config --show-origin --get credential.credentialStore
+    Write-Output "=== URL REWRITE ==="
+    $rewrite = git config --get-regexp '^url\..*\.insteadof$' 2>$null
+    Write-Output "REWRITE_CONFIGURED=$([bool]$rewrite)"
 
-    Write-Output "=== OTHER AUTH ==="
-    Write-Output "GIT_ASKPASS=$([bool]$env:GIT_ASKPASS)"
-    Write-Output "GIT_CONFIG_COUNT=$env:GIT_CONFIG_COUNT"
-
-    $header = git config --get-regexp '^(http(\..*)?\.extraheader)$' 2>$null
-    Write-Output "HTTP_HEADER_CONFIGURED=$([bool]$header)"
+    Write-Output "=== NO HELPER TEST ==="
+    git -c credential.helper= ls-remote origin HEAD 1>$null 2>$null
+    Write-Output "GIT_RC=$LASTEXITCODE"
 
     exit 0
 
   args:
     chdir: 'E:\digital-twin-studio\imap\source'
 
-  register: git_auth_check
+  register: git_check
   changed_when: false
 
-- name: Show Git authentication method
+- name: Show Git check
   debug:
-    var: git_auth_check.stdout_lines
+    var: git_check.stdout_lines
