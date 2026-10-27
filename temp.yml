@@ -1,3 +1,15 @@
+cd E:\digital-twin-studio\imap\source
+
+$env:GCM_CREDENTIAL_STORE = "dpapi"
+$env:GCM_INTERACTIVE = "0"
+$env:GIT_TERMINAL_PROMPT = "0"
+
+git fetch --depth 1 origin main
+
+Write-Output "FETCH_RC=$LASTEXITCODE"
+
+
+
   environment:
     HOME: "{{ deploy_user_profile }}"
     USERPROFILE: "{{ deploy_user_profile }}"
