@@ -26,6 +26,36 @@
     {% endfor %}
     )
 
+    # =========================================================
+    # [추가 1] 배포 대상과 브랜치 확인
+    # =========================================================
+    Write-Output "GIT_TARGET_BRANCH=$branch"
+
+    # =========================================================
+    # [추가 2] Partial Clone 설정 확인
+    # =========================================================
+    $partial = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config --get remote.origin.promisor `
+        2>$null |
+      Out-String
+    ).Trim()
+
+    $filter = (
+      & "{{ git_executable }}" `
+        -C $sourceDir `
+        config --get remote.origin.partialclonefilter `
+        2>$null |
+      Out-String
+    ).Trim()
+
+    Write-Output "PARTIAL_CLONE=$partial"
+    Write-Output "CLONE_FILTER=$filter"
+
+    # =========================================================
+    # 기존 코드 - 변경 전 커밋 확인
+    # =========================================================
     $beforeCommit = (
       & "{{ git_executable }}" `
         -C $sourceDir `
@@ -44,9 +74,13 @@
       $beforeSparse = ""
     }
 
-    # -------------------------------------------------------------------------
+    # =========================================================
     # Fetch requested branch
-    # -------------------------------------------------------------------------
+    # =========================================================
+
+    # [추가 3] Fetch 시작 위치 출력
+    Write-Output "GIT_STAGE=FETCH"
+
     & "{{ git_executable }}" `
       -C $sourceDir `
       fetch `
@@ -55,13 +89,20 @@
       $branch
 
     if ($LASTEXITCODE -ne 0) {
+      # [추가 4] 실패 단계 출력
+      Write-Output "FAILED_AT=FETCH"
+
       Write-Error "Git fetch failed: origin/$branch"
       exit $LASTEXITCODE
     }
 
-    # -------------------------------------------------------------------------
+    # [추가 5] Fetch 성공 확인
+    Write-Output "GIT_FETCH_SUCCESS"
+
+    # =========================================================
     # Configure sparse-checkout paths
-    # -------------------------------------------------------------------------
+    # =========================================================
+
     $sparseArguments = @(
       "-C"
       $sourceDir
@@ -69,16 +110,29 @@
       "set"
     ) + $sparsePaths
 
+    # [추가 6] Sparse Checkout 시작 위치 출력
+    Write-Output "GIT_STAGE=SPARSE_CHECKOUT"
+
     & "{{ git_executable }}" @sparseArguments
 
     if ($LASTEXITCODE -ne 0) {
+      # [추가 7] 실패 단계 출력
+      Write-Output "FAILED_AT=SPARSE_CHECKOUT"
+
       Write-Error "Git sparse-checkout set failed"
       exit $LASTEXITCODE
     }
 
-    # -------------------------------------------------------------------------
+    # [추가 8] Sparse Checkout 성공 확인
+    Write-Output "GIT_SPARSE_SUCCESS"
+
+    # =========================================================
     # Create or reset local branch from fetched commit
-    # -------------------------------------------------------------------------
+    # =========================================================
+
+    # [추가 9] Branch Checkout 시작 위치 출력
+    Write-Output "GIT_STAGE=BRANCH_CHECKOUT"
+
     & "{{ git_executable }}" `
       -C $sourceDir `
       checkout `
@@ -86,9 +140,19 @@
       FETCH_HEAD
 
     if ($LASTEXITCODE -ne 0) {
+      # [추가 10] 실패 단계 출력
+      Write-Output "FAILED_AT=BRANCH_CHECKOUT"
+
       Write-Error "Git checkout failed: $branch"
       exit $LASTEXITCODE
     }
+
+    # [추가 11] Checkout 성공 확인
+    Write-Output "GIT_CHECKOUT_SUCCESS"
+
+    # =========================================================
+    # 기존 코드 - 변경 후 커밋 확인
+    # =========================================================
 
     $afterCommit = (
       & "{{ git_executable }}" `
@@ -133,13 +197,46 @@
     else {
       Write-Output "DOWNLOAD_OK"
     }
+
   environment:
     HOME: "{{ deploy_user_profile }}"
     USERPROFILE: "{{ deploy_user_profile }}"
+
   register: imap_orchestrator_download
+
+  # [변경 1] 오류가 발생해도 진단 결과를 출력하기 위해
+  #           임시로 실패 처리를 보류
+  failed_when: false
+
   changed_when:
     - "'DOWNLOAD_CHANGED' in imap_orchestrator_download.stdout"
 
+
+# =========================================================
+# [추가 12] Git 다운로드 결과 확인
+# =========================================================
+- name: Show Git download error
+  debug:
+    msg:
+      - "RC={{ imap_orchestrator_download.rc }}"
+      - "STDOUT={{ imap_orchestrator_download.stdout_lines }}"
+      - "STDERR={{ imap_orchestrator_download.stderr_lines }}"
+
+
+# =========================================================
+# [추가 13] Git 다운로드 실패 시 후속 작업 중단
+# =========================================================
+- name: Stop when Git download failed
+  fail:
+    msg: >-
+      imap-source Git download failed.
+      Check GIT_STAGE and FAILED_AT above.
+  when: imap_orchestrator_download.rc | int != 0
+
+
+# =========================================================
+# 기존 코드 - 다운로드 디렉터리 확인
+# =========================================================
 - name: Check downloaded imap source directories
   win_stat:
     path: "{{ item.path }}"
@@ -173,6 +270,10 @@
       {{ item.item.name }}={{ item.item.path }}
   with_items: "{{ imap_orchestrator_source_directory_checks.results }}"
 
+
+# =========================================================
+# 기존 코드 - Requirements 파일 확인
+# =========================================================
 - name: Check downloaded imap requirements files
   win_stat:
     path: "{{ item.path }}"
@@ -189,6 +290,10 @@
       {{ item.item.name }}={{ item.item.path }}
   with_items: "{{ imap_orchestrator_requirements_checks.results }}"
 
+
+# =========================================================
+# 기존 코드 - Wheelhouse 확인
+# =========================================================
 - name: Check wheelhouse after Git download
   win_stat:
     path: "{{ python_wheelhouse_dir }}"
@@ -201,8 +306,12 @@
       - imap_orchestrator_wheelhouse_after_download.stat.isdir
     fail_msg: >-
       Wheelhouse was not preserved:
-      {{ python_wheelhouse_dir }}
+      {{ python_wheelhouse_dir }}"
 
+
+# =========================================================
+# 기존 코드 - 다운로드 결과 출력
+# =========================================================
 - name: Show imap orchestrator download result
   debug:
     msg:
