@@ -1,24 +1,39 @@
-
-Remove-Variable pat,headers -ErrorAction SilentlyContinue
-
-try { $r = Invoke-WebRequest -Uri "https://github.samsungds.net/api/v3/repos/$owner/$repo/contents?ref=main" -Headers $headers -UseBasicParsing -ErrorAction Stop; Write-Output "REPO_ACCESS_STATUS=$($r.StatusCode)" } catch { if ($_.Exception.Response) { Write-Output "REPO_ACCESS_STATUS=$([int]$_.Exception.Response.StatusCode)" } else { Write-Output "REPO_ACCESS_ERROR=$($_.Exception.Message)" } }
-
-
 $sourceDir = "E:\digital-twin-studio\imap\source"
+$origin = (git -C $sourceDir remote get-url origin | Out-String).Trim()
+
+if (-not $origin.StartsWith("https://github.samsungds.net/")) {
+    throw "Git remote URL을 확인하세요."
+}
 
 $pat = [System.IO.File]::ReadAllText(
     "C:\ProgramData\IMAPDeploy\git-pat.txt"
 ).Trim()
 
-$origin = (git -C $sourceDir remote get-url origin).Trim()
+$gitUser = Read-Host "GitHub Enterprise Username"
 
-$uri = [Uri]$origin
-$parts = $uri.AbsolutePath.Trim('/').Split('/')
-
-$owner = $parts[$parts.Length - 2]
-$repo = $parts[$parts.Length - 1] -replace '\.git$', ''
+$basic = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
+)
 
 $headers = @{
-    Authorization = "Bearer $pat"
-    Accept = "application/vnd.github+json"
+    Authorization = "Basic $basic"
 }
+
+$url = $origin.TrimEnd('/') + "/info/refs?service=git-upload-pack"
+
+try {
+    $r = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+    Write-Output "GIT_HTTP_STATUS=$([int]$r.StatusCode)"
+    Write-Output "GIT_HTTP_CONTENT_TYPE=$($r.Headers['Content-Type'])"
+}
+catch {
+    if ($null -ne $_.Exception.Response) {
+        Write-Output "GIT_HTTP_STATUS=$([int]$_.Exception.Response.StatusCode)"
+    }
+    else {
+        Write-Output "GIT_HTTP_REQUEST_FAILED"
+        Write-Output $_.Exception.Message
+    }
+}
+
+Remove-Variable pat,basic,headers -ErrorAction SilentlyContinue
