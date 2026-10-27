@@ -1,10 +1,24 @@
 $cred = Get-Credential "PTIMAPAPW01\appuser"
 
 Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+
+    whoami
+
+    git config --show-origin --get credential.credentialStore
+
+    Write-Output "GCM_STORE=$env:GCM_CREDENTIAL_STORE"
+    Write-Output "TEMP=$env:TEMP"
+
     $env:GIT_TERMINAL_PROMPT = "0"
     $env:GCM_INTERACTIVE = "Never"
 
-    git ls-remote "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" HEAD
+    $target = Join-Path $env:TEMP (
+        "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
+    )
 
-    Write-Output "GIT_RC=$LASTEXITCODE"
+    git clone --filter=blob:none `
+        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+        $target
+
+    Write-Output "CLONE_RC=$LASTEXITCODE"
 }
