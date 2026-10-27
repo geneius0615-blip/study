@@ -1,3 +1,22 @@
+
+$secret = Read-Host "GitHub PAT" -AsSecureString
+$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+
+try {
+    $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+
+    [System.IO.File]::WriteAllText(
+        "$dir\git-pat.txt",
+        $plain,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+}
+finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    Remove-Variable plain -ErrorAction SilentlyContinue
+}
+
+
 $dir = "C:\ProgramData\IMAPDeploy"
 $account = "실제도메인\appuser"
 
