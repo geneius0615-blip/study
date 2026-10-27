@@ -1,10 +1,52 @@
-$pat = [System.IO.File]::ReadAllText("C:\ProgramData\IMAPDeploy\git-pat.txt").Trim()
+$sourceDir = "E:\digital-twin-studio\imap\source"
+$gitExe = (Get-Command git.exe -ErrorAction Stop).Source
+$patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
 
-$headers = @{
-    Authorization = "Bearer $pat"
-    Accept = "application/vnd.github+json"
+# Windows appuser가 아닌 GitHub Enterprise 계정
+$gitUser = Read-Host "GitHub Enterprise Username"
+$pat = [System.IO.File]::ReadAllText($patFile).Trim()
+
+$basic = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes(
+        ('{0}:{1}' -f $gitUser, $pat)
+    )
+)
+
+try {
+    $env:GIT_CONFIG_COUNT = "3"
+
+    $env:GIT_CONFIG_KEY_0 = "credential.helper"
+    $env:GIT_CONFIG_VALUE_0 = ""
+
+    # 기존 인증 헤더 초기화
+    $env:GIT_CONFIG_KEY_1 = "http.extraHeader"
+    $env:GIT_CONFIG_VALUE_1 = ""
+
+    # GitHub Enterprise PAT 인증
+    $env:GIT_CONFIG_KEY_2 = "http.https://github.samsungds.net/.extraHeader"
+    $env:GIT_CONFIG_VALUE_2 = "Authorization: Basic $basic"
+
+    $env:GIT_TERMINAL_PROMPT = "0"
+
+    # 저장소 접근만 테스트 (소스 변경 없음)
+    & $gitExe -C $sourceDir ls-remote --exit-code origin refs/heads/main
+
+    $gitRc = $LASTEXITCODE
+    Write-Output "GIT_AUTH_TEST_RC=$gitRc"
 }
+finally {
+    foreach ($name in @(
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+        "GIT_CONFIG_KEY_1",
+        "GIT_CONFIG_VALUE_1",
+        "GIT_CONFIG_KEY_2",
+        "GIT_CONFIG_VALUE_2",
+        "GIT_TERMINAL_PROMPT"
+    )) {
+        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
 
-try { $r = Invoke-WebRequest -Uri "https://github.samsungds.net/api/v3/user" -Headers $headers -UseBasicParsing -ErrorAction Stop; Write-Output "PAT_API_STATUS=$($r.StatusCode)" } catch { if ($_.Exception.Response) { Write-Output "PAT_API_STATUS=$([int]$_.Exception.Response.StatusCode)" } else { Write-Output "PAT_API_REQUEST_FAILED"; Write-Output $_.Exception.Message } }
-
-Remove-Variable -Name pat,headers -ErrorAction SilentlyContinue
+    Remove-Variable pat,basic -ErrorAction SilentlyContinue
+}
