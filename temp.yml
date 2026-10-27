@@ -1,32 +1,10 @@
-$patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
+$pat = [System.IO.File]::ReadAllText("C:\ProgramData\IMAPDeploy\git-pat.txt").Trim()
 
-$pat = [System.IO.File]::ReadAllText($patFile).Trim()
-
-try {
-    $headers = @{
-        Authorization = "Bearer $pat"
-        Accept = "application/vnd.github+json"
-    }
-
-    $response = Invoke-WebRequest `
-        -Uri "https://github.samsungds.net/api/v3/user" `
-        -Method Get `
-        -Headers $headers `
-        -UseBasicParsing `
-        -ErrorAction Stop
-
-    Write-Output "PAT_API_STATUS=$([int]$response.StatusCode)"
+$headers = @{
+    Authorization = "Bearer $pat"
+    Accept = "application/vnd.github+json"
 }
-catch {
-    if ($null -ne $_.Exception.Response) {
-        $status = [int]$_.Exception.Response.StatusCode
-        Write-Output "PAT_API_STATUS=$status"
-    }
-    else {
-        Write-Output "PAT_API_REQUEST_FAILED"
-        Write-Output $_.Exception.Message
-    }
-}
-finally {
-    Remove-Variable pat, headers -ErrorAction SilentlyContinue
-}
+
+try { $r = Invoke-WebRequest -Uri "https://github.samsungds.net/api/v3/user" -Headers $headers -UseBasicParsing -ErrorAction Stop; Write-Output "PAT_API_STATUS=$($r.StatusCode)" } catch { if ($_.Exception.Response) { Write-Output "PAT_API_STATUS=$([int]$_.Exception.Response.StatusCode)" } else { Write-Output "PAT_API_REQUEST_FAILED"; Write-Output $_.Exception.Message } }
+
+Remove-Variable -Name pat,headers -ErrorAction SilentlyContinue
