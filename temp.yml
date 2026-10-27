@@ -8,3 +8,22 @@
     # [추가] 인증창 대기 방지
     GCM_INTERACTIVE: "0"
     GIT_TERMINAL_PROMPT: "0"
+
+
+# ====================================
+
+  # [추가] 운영서버 Git 인증 세션 변경
+
+  # ====================================
+
+  become: "{{ inventory_hostname == '10.173.133.161' }}"
+
+  become_method: runas
+
+  become_user: "{{ ansible_user }}"
+
+  become_flags: logon_type=interactive
+
+  vars:
+
+    ansible_become_password: "{{ ansible_password }}"
