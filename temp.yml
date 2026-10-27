@@ -1,96 +1,23 @@
-
-
-- name: Check production become variables
-  debug:
-    msg:
-      - "BECOME_USER={{ imap_become_user | default('UNDEFINED') }}"
-      - "BECOME_PASSWORD_DEFINED={{ ansible_become_password is defined }}"
-      - "BECOME_FLAGS={{ ansible_become_flags | default('NOT_DEFINED') }}"
-  when: inventory_hostname == '10.173.133.161'
-
-- name: Check production Git logon session
-  ansible.windows.win_whoami:
-  become: yes
-  become_method: runas
-  become_user: "{{ imap_become_user }}"
-  become_flags: "logon_type=interactive logon_flags=with_profile"
-
-  register: git_logon_check
-  when: inventory_hostname == '10.173.133.161'
-
-- name: Show production Git logon type
-  debug:
-    msg:
-      - "LOGON_TYPE={{ git_logon_check.logon_type }}"
-      - "USER={{ imap_become_user }}"
-  when: inventory_hostname == '10.173.133.161'
-
-
-whoami
-
-$env:USERPROFILE
-
-git -C E:\digital-twin-studio\imap\source config --show-origin --get credential.credentialStore
-
-Test-Path "$env:USERPROFILE\.gcm\dpapi_store"
-
-
-- name: Check production Git logon session
-  win_whoami:
-  become: yes
-  become_method: runas
-  become_user: "{{ ansible_user }}"
-  become_flags: logon_type=interactive
-  vars:
-    ansible_become_password: "{{ ansible_password }}"
-  register: git_logon_check
-  when: inventory_hostname == '10.173.133.161'
-
-- name: Show production Git logon type
-  debug:
-    msg: "LOGON_TYPE={{ git_logon_check.logon_type }}"
-  when: inventory_hostname == '10.173.133.161'
-
-
-
-cd E:\digital-twin-studio\imap\source
-
-$env:GCM_CREDENTIAL_STORE = "dpapi"
-$env:GCM_INTERACTIVE = "0"
-$env:GIT_TERMINAL_PROMPT = "0"
-
-git fetch --depth 1 origin main
-
-Write-Output "FETCH_RC=$LASTEXITCODE"
-
-
-
   environment:
     HOME: "{{ deploy_user_profile }}"
     USERPROFILE: "{{ deploy_user_profile }}"
 
-    # [추가] Windows Credential Manager 대신 DPAPI 사용
-    GCM_CREDENTIAL_STORE: "dpapi"
+    # 운영서버에만 PAT 인증 적용
+    GIT_CONFIG_COUNT: "{{ '2' if inventory_hostname == '10.173.133.161' else '0' }}"
 
-    # [추가] 인증창 대기 방지
-    GCM_INTERACTIVE: "0"
+    # wincredman / dpapi 사용 차단
+    GIT_CONFIG_KEY_0: "credential.helper"
+    GIT_CONFIG_VALUE_0: ""
+
+    # GitHub PAT 인증
+    GIT_CONFIG_KEY_1: "http.https://github.samsungds.net/.extraHeader"
+    GIT_CONFIG_VALUE_1: >-
+      {{ 'Authorization: Basic ' ~
+         ((imap_git_username ~ ':' ~ imap_git_pat) | b64encode)
+         if inventory_hostname == '10.173.133.161'
+         else '' }}
+
     GIT_TERMINAL_PROMPT: "0"
 
-
-# ====================================
-
-  # [추가] 운영서버 Git 인증 세션 변경
-
-  # ====================================
-
-  become: "{{ inventory_hostname == '10.173.133.161' }}"
-
-  become_method: runas
-
-  become_user: "{{ ansible_user }}"
-
-  become_flags: logon_type=interactive
-
-  vars:
-
-    ansible_become_password: "{{ ansible_password }}"
+  register: imap_orchestrator_download
+  no_log: "{{ inventory_hostname == '10.173.133.161' }}"
