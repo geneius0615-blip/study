@@ -1,24 +1,26 @@
-$cred = Get-Credential "PTIMAPAPW01\appuser"
+git config --global credential.credentialStore dpapi
 
-Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+git config --global --get credential.credentialStore
 
-    whoami
 
-    git config --show-origin --get credential.credentialStore
+$gitUser = Read-Host "GitHub 사용자 ID"
+$securePat = Read-Host "GitHub PAT" -AsSecureString
 
-    Write-Output "GCM_STORE=$env:GCM_CREDENTIAL_STORE"
-    Write-Output "TEMP=$env:TEMP"
+$pat = [PSCredential]::new(
+    $gitUser, $securePat
+).GetNetworkCredential().Password
 
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "Never"
+try {
+    @(
+        "protocol=https"
+        "host=github.samsungds.net"
+        "username=$gitUser"
+        "password=$pat"
+        ""
+    ) | git credential approve
 
-    $target = Join-Path $env:TEMP (
-        "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
-    )
-
-    git clone --filter=blob:none `
-        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-        $target
-
-    Write-Output "CLONE_RC=$LASTEXITCODE"
+    Write-Output "SAVE_RC=$LASTEXITCODE"
+}
+finally {
+    Remove-Variable pat, securePat -ErrorAction SilentlyContinue
 }
