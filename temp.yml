@@ -1,83 +1,64 @@
-# 운영서버에만 PAT 적용
-$isProd = "{{ inventory_hostname }}" -eq "10.173.133.161"
-$fetchRc = 1
-
-Get-Command git.exe | Select-Object -ExpandProperty Source
-
-
+# 기본 설정
 $sourceDir = "E:\digital-twin-studio\imap\source"
 $branch = "main"
-$gitExe = (Get-Command git.exe).Source
+$gitExe = (Get-Command git.exe -ErrorAction Stop).Source
+$patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
 
-Write-Output "SOURCE_DIR=$sourceDir"
-Write-Output "SOURCE_EXISTS=$(Test-Path -LiteralPath $sourceDir)"
-Write-Output "GIT_EXISTS=$(Test-Path -LiteralPath (Join-Path $sourceDir '.git'))"
+# PAT 파일 확인
+if (-not (Test-Path -LiteralPath $patFile -PathType Leaf)) {
+    throw "PAT_FILE_NOT_FOUND"
+}
 
-& $gitExe -C $sourceDir status --short
+# PAT 읽기
+$pat = [System.IO.File]::ReadAllText($patFile).Trim()
 
-Write-Output "GIT_RC=$LASTEXITCODE"
+if ([string]::IsNullOrWhiteSpace($pat)) {
+    throw "PAT_FILE_EMPTY"
+}
 
+# Git 인증 헤더 생성
+$auth = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes("x-access-token:$pat")
+)
 
 try {
-    if ($isProd) {
-        $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
+    # 기존 Windows Credential Manager 사용 차단
+    $env:GIT_CONFIG_COUNT = "2"
+    $env:GIT_CONFIG_KEY_0 = "credential.helper"
+    $env:GIT_CONFIG_VALUE_0 = ""
 
-        if (-not (Test-Path -LiteralPath $patFile -PathType Leaf)) {
-            throw "Git PAT file not found"
-        }
+    # PAT 인증 설정
+    $env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
+    $env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $auth"
 
-        $pat = [System.IO.File]::ReadAllText($patFile).Trim()
+    $env:GIT_TERMINAL_PROMPT = "0"
 
-        if ([string]::IsNullOrWhiteSpace($pat)) {
-            throw "Git PAT file is empty"
-        }
-
-        $auth = [Convert]::ToBase64String(
-            [Text.Encoding]::UTF8.GetBytes("x-access-token:$pat")
-        )
-
-        $env:GIT_CONFIG_COUNT = "2"
-
-        $env:GIT_CONFIG_KEY_0 = "credential.helper"
-        $env:GIT_CONFIG_VALUE_0 = ""
-
-        $env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
-        $env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $auth"
-
-        $env:GIT_TERMINAL_PROMPT = "0"
-    }
-
-    & "{{ git_executable }}" `
-        -C $sourceDir `
-        fetch `
-        --depth 1 `
-        origin `
-        $branch
+    # Git Fetch - 한 줄로 실행
+    & $gitExe -C $sourceDir fetch --depth 1 origin $branch
 
     $fetchRc = $LASTEXITCODE
-}
-finally {
-    if ($isProd) {
-        foreach ($name in @(
-            "GIT_CONFIG_COUNT",
-            "GIT_CONFIG_KEY_0",
-            "GIT_CONFIG_VALUE_0",
-            "GIT_CONFIG_KEY_1",
-            "GIT_CONFIG_VALUE_1",
-            "GIT_TERMINAL_PROMPT"
-        )) {
-            Remove-Item ("Env:\" + $name) -ErrorAction SilentlyContinue
-        }
 
-        Remove-Variable pat,auth -ErrorAction SilentlyContinue
+    Write-Output "GIT_FETCH_RC=$fetchRc"
+
+    if ($fetchRc -eq 0) {
+        Write-Output "GIT_FETCH_SUCCESS"
+    }
+    else {
+        Write-Output "FAILED_AT=FETCH"
     }
 }
+finally {
+    # 인증 환경변수 정리
+    foreach ($name in @(
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_KEY_0",
+        "GIT_CONFIG_VALUE_0",
+        "GIT_CONFIG_KEY_1",
+        "GIT_CONFIG_VALUE_1",
+        "GIT_TERMINAL_PROMPT"
+    )) {
+        Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
 
-Write-Output "GIT_FETCH_RC=$fetchRc"
-
-if ($fetchRc -ne 0) {
-    Write-Output "FAILED_AT=FETCH"
-    exit $fetchRc
+    Remove-Variable pat, auth -ErrorAction SilentlyContinue
 }
-
-Write-Output "GIT_FETCH_SUCCESS"
