@@ -1,3 +1,22 @@
+
+- name: Check production Git logon session
+  win_whoami:
+  become: yes
+  become_method: runas
+  become_user: "{{ ansible_user }}"
+  become_flags: logon_type=interactive
+  vars:
+    ansible_become_password: "{{ ansible_password }}"
+  register: git_logon_check
+  when: inventory_hostname == '10.173.133.161'
+
+- name: Show production Git logon type
+  debug:
+    msg: "LOGON_TYPE={{ git_logon_check.logon_type }}"
+  when: inventory_hostname == '10.173.133.161'
+
+
+
 cd E:\digital-twin-studio\imap\source
 
 $env:GCM_CREDENTIAL_STORE = "dpapi"
