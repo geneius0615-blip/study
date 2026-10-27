@@ -1,4 +1,12 @@
 
+$file = "$dir\git-pat.txt"
+
+icacls.exe $file /inheritance:r
+icacls.exe $file /grant:r "${account}:R" '*S-1-5-18:F' '*S-1-5-32-544:F'
+
+icacls.exe $file
+
+
 $secret = Read-Host "GitHub PAT" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
 
