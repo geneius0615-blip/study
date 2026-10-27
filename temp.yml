@@ -1,24 +1,230 @@
-$gitOutput = & $gitExe -C $env:TEMP ls-remote --exit-code $origin refs/heads/main 2>&1
+- name: Download imap orchestrator sparse source
+  win_shell: |
+    # ==========================================
+    # 1. 기본 변수
+    # ==========================================
+    $sourceDir = "{{ imap_source_dir }}"
+    $branch = "{{ imap_repo_branch }}"
+    $gitExe = "{{ git_executable }}"
 
-$rc = $LASTEXITCODE
+    $isProd = "{{ inventory_hostname }}" -eq "10.173.133.161"
 
-foreach ($line in $gitOutput) {
+    $sparseFile = Join-Path $sourceDir ".git\info\sparse-checkout"
 
-    $msg = [string]$line
+    $sparsePaths = @(
+    {% for sparse_path in imap_sparse_paths %}
+      "{{ sparse_path }}"
+    {% endfor %}
+    )
 
-    # PAT가 존재할 때만 마스킹
-    if (-not [string]::IsNullOrEmpty($pat)) {
-        $msg = $msg.Replace($pat, "[REDACTED]")
+    # 변경 전 상태 확인
+    $beforeCommit = (
+        & $gitExe -C $sourceDir rev-parse HEAD 2>$null |
+        Out-String
+    ).Trim()
+
+    if (Test-Path -LiteralPath $sparseFile) {
+        $beforeSparse = Get-Content -LiteralPath $sparseFile -Raw
+    }
+    else {
+        $beforeSparse = ""
     }
 
-    # Basic 인증값이 존재할 때만 마스킹
-    if (-not [string]::IsNullOrEmpty($basic)) {
-        $msg = $msg.Replace($basic, "[REDACTED]")
+    # ==========================================
+    # 2. 운영서버 PAT 인증 후 Git Fetch
+    # ==========================================
+    $fetchRc = 1
+
+    try {
+        if ($isProd) {
+
+            $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
+
+            if (-not (Test-Path -LiteralPath $patFile -PathType Leaf)) {
+                throw "Git PAT file not found"
+            }
+
+            $pat = [System.IO.File]::ReadAllText($patFile).Trim()
+
+            if ([string]::IsNullOrWhiteSpace($pat)) {
+                throw "Git PAT file is empty"
+            }
+
+            $gitUser = "{{ imap_git_username }}"
+
+            $basic = [Convert]::ToBase64String(
+                [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
+            )
+
+            # 기존 HTTP 헤더 초기화
+            $env:GIT_CONFIG_COUNT = "3"
+            $env:GIT_CONFIG_KEY_0 = "http.extraHeader"
+            $env:GIT_CONFIG_VALUE_0 = ""
+
+            # PAT 인증 헤더
+            $env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
+            $env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $basic"
+
+            # Windows Credential Manager 비활성화
+            $env:GIT_CONFIG_KEY_2 = "credential.helper"
+            $env:GIT_CONFIG_VALUE_2 = ""
+
+            $env:GIT_TERMINAL_PROMPT = "0"
+        }
+
+        # Git Fetch 실행
+        & $gitExe -C $sourceDir fetch --depth 1 origin $branch
+
+        $fetchRc = $LASTEXITCODE
+    }
+    finally {
+        # PAT 인증정보 환경변수 정리
+        if ($isProd) {
+
+            foreach ($name in @(
+                "GIT_CONFIG_COUNT",
+                "GIT_CONFIG_KEY_0",
+                "GIT_CONFIG_VALUE_0",
+                "GIT_CONFIG_KEY_1",
+                "GIT_CONFIG_VALUE_1",
+                "GIT_CONFIG_KEY_2",
+                "GIT_CONFIG_VALUE_2",
+                "GIT_TERMINAL_PROMPT"
+            )) {
+                Remove-Item ("Env:" + $name) -ErrorAction SilentlyContinue
+            }
+
+            Remove-Variable pat,basic -ErrorAction SilentlyContinue
+        }
     }
 
-    if ($msg -match 'fatal:|error:|Authentication failed|SSL|certificate|schannel') {
-        Write-Output $msg
-    }
-}
+    Write-Output "GIT_FETCH_RC=$fetchRc"
 
-Write-Output "CLEAN_GIT_AUTH_RC=$rc"
+    if ($fetchRc -ne 0) {
+        Write-Output "FAILED_AT=FETCH"
+        exit $fetchRc
+    }
+
+    Write-Output "GIT_FETCH_SUCCESS"
+
+    # ==========================================
+    # 3. Sparse Checkout
+    # ==========================================
+    $sparseArgs = @(
+        "-C",
+        $sourceDir,
+        "sparse-checkout",
+        "set"
+    ) + $sparsePaths
+
+    & $gitExe @sparseArgs
+
+    $sparseRc = $LASTEXITCODE
+
+    Write-Output "GIT_SPARSE_RC=$sparseRc"
+
+    if ($sparseRc -ne 0) {
+        Write-Output "FAILED_AT=SPARSE"
+        exit $sparseRc
+    }
+
+    Write-Output "GIT_SPARSE_SUCCESS"
+
+    # ==========================================
+    # 4. 브랜치 Checkout
+    # ==========================================
+    & $gitExe -C $sourceDir checkout -B $branch FETCH_HEAD
+
+    $checkoutRc = $LASTEXITCODE
+
+    Write-Output "GIT_CHECKOUT_RC=$checkoutRc"
+
+    if ($checkoutRc -ne 0) {
+        Write-Output "FAILED_AT=CHECKOUT"
+        exit $checkoutRc
+    }
+
+    Write-Output "GIT_CHECKOUT_SUCCESS"
+
+    # ==========================================
+    # 5. 다운로드 결과 검증
+    # ==========================================
+    $afterCommit = (
+        & $gitExe -C $sourceDir rev-parse HEAD |
+        Out-String
+    ).Trim()
+
+    $headRc = $LASTEXITCODE
+
+    if ($headRc -ne 0 -or [string]::IsNullOrWhiteSpace($afterCommit)) {
+        Write-Output "FAILED_AT=VERIFY_HEAD"
+        exit 1
+    }
+
+    $fetchCommit = (
+        & $gitExe -C $sourceDir rev-parse FETCH_HEAD |
+        Out-String
+    ).Trim()
+
+    $fetchHeadRc = $LASTEXITCODE
+
+    if ($fetchHeadRc -ne 0 -or $afterCommit -ne $fetchCommit) {
+        Write-Output "FAILED_AT=COMMIT_MISMATCH"
+        exit 1
+    }
+
+    if (-not (Test-Path -LiteralPath $sparseFile)) {
+        Write-Output "FAILED_AT=VERIFY_SPARSE"
+        exit 1
+    }
+
+    $afterSparse = Get-Content -LiteralPath $sparseFile -Raw
+
+    # ==========================================
+    # 6. 정상 완료
+    # ==========================================
+    if (
+        $beforeCommit -ne $afterCommit -or
+        $beforeSparse -ne $afterSparse
+    ) {
+        Write-Output "DOWNLOAD_CHANGED"
+    }
+    else {
+        Write-Output "DOWNLOAD_OK"
+    }
+
+    Write-Output "GIT_DOWNLOAD_COMPLETED"
+    exit 0
+
+  environment:
+    HOME: "{{ deploy_user_profile }}"
+    USERPROFILE: "{{ deploy_user_profile }}"
+
+  register: imap_orchestrator_download
+
+  failed_when: false
+
+  changed_when:
+    - "'DOWNLOAD_CHANGED' in imap_orchestrator_download.stdout"
+
+  no_log: "{{ inventory_hostname == '10.173.133.161' }}"
+
+
+# ==========================================
+# 7. 안전한 결과 출력
+# ==========================================
+- name: Show safe Git download result
+  debug:
+    msg:
+      - "RC={{ imap_orchestrator_download.rc }}"
+      - "FETCH={{ imap_orchestrator_download.stdout | regex_search('GIT_FETCH_RC=[0-9]+') | default('NOT_FOUND', true) }}"
+      - "FAILED_STAGE={{ imap_orchestrator_download.stdout | regex_search('FAILED_AT=[A-Z_]+') | default('NONE', true) }}"
+
+
+# ==========================================
+# 8. 실패 시 배포 중단
+# ==========================================
+- name: Fail when Git download failed
+  fail:
+    msg: "Git download failed. RC={{ imap_orchestrator_download.rc }}"
+  when: imap_orchestrator_download.rc | int != 0
