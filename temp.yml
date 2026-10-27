@@ -1,1 +1,67 @@
-      - "ORIGIN_RC={{ imap_orchestrator_download.stdout | regex_search('ORIGIN_RC=[0-9]+') | default('NOT_FOUND', true) }}"
+# ================================================
+# 운영서버 Git origin 진단
+# ================================================
+- name: Diagnose production Git origin
+  win_shell: |
+    $ErrorActionPreference = "Continue"
+
+    $sourceDir = "{{ imap_source_dir }}"
+    $gitExe = "{{ git_executable }}"
+
+    # 1. 디렉터리 확인
+    Write-Output "SOURCE_EXISTS=$(Test-Path -LiteralPath $sourceDir -PathType Container)"
+
+    $gitDir = Join-Path $sourceDir ".git"
+    Write-Output "GIT_EXISTS=$(Test-Path -LiteralPath $gitDir)"
+
+    # 2. origin 조회
+    $originOutput = & $gitExe -C $sourceDir remote get-url origin 2>&1
+    $originRc = $LASTEXITCODE
+
+    Write-Output "ORIGIN_RC=$originRc"
+
+    # 3. 오류 종류만 출력 (원격 URL이나 토큰은 출력하지 않음)
+    if ($originRc -ne 0) {
+
+        $err = ($originOutput | Out-String)
+
+        if ($err -match "cannot change to") {
+            Write-Output "ORIGIN_REASON=INVALID_PATH"
+        }
+        elseif ($err -match "not a git repository") {
+            Write-Output "ORIGIN_REASON=NOT_GIT_REPOSITORY"
+        }
+        elseif ($err -match "dubious ownership|safe.directory") {
+            Write-Output "ORIGIN_REASON=GIT_OWNERSHIP"
+        }
+        elseif ($err -match "config|invalid key|missing key") {
+            Write-Output "ORIGIN_REASON=GIT_CONFIG"
+        }
+        elseif ($err -match "No such remote") {
+            Write-Output "ORIGIN_REASON=REMOTE_NOT_FOUND"
+        }
+        else {
+            Write-Output "ORIGIN_REASON=OTHER"
+        }
+    }
+    else {
+        Write-Output "ORIGIN_CHECK_SUCCESS"
+    }
+
+  environment:
+    HOME: "{{ deploy_user_profile }}"
+    USERPROFILE: "{{ deploy_user_profile }}"
+    GIT_CONFIG_COUNT: "0"
+
+  register: git_origin_diag
+  changed_when: false
+  when: inventory_hostname == '10.173.133.161'
+
+
+# ================================================
+# 진단 결과 출력
+# ================================================
+- name: Show production Git origin diagnosis
+  debug:
+    msg: "{{ git_origin_diag.stdout_lines }}"
+  when: inventory_hostname == '10.173.133.161'
