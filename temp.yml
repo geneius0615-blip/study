@@ -1,3 +1,14 @@
+
+
+- name: Show safe Git download result
+  debug:
+    msg:
+      - "RC={{ imap_orchestrator_download.rc }}"
+      - "AUTH_CHECK={{ imap_orchestrator_download.stdout | regex_search('GIT_AUTH_PRECHECK_RC=[0-9]+') | default('NOT_RUN', true) }}"
+      - "FETCH={{ imap_orchestrator_download.stdout | regex_search('GIT_FETCH_RC=[0-9]+') | default('NOT_FOUND', true) }}"
+      - "FAILED_STAGE={{ imap_orchestrator_download.stdout | regex_search('FAILED_AT=[A-Z_]+') | default('NONE', true) }}"
+
+
 # 운영서버는 PAT 인증을 먼저 검사
 if ($isProd) {
 
