@@ -1,9 +1,6 @@
 $sourceDir = "E:\digital-twin-studio\imap\source"
-$origin = (git -C $sourceDir remote get-url origin | Out-String).Trim()
-
-if (-not $origin.StartsWith("https://github.samsungds.net/")) {
-    throw "Git remote URL을 확인하세요."
-}
+$gitExe = (Get-Command git.exe).Source
+$origin = (& $gitExe -C $sourceDir remote get-url origin).Trim()
 
 $pat = [System.IO.File]::ReadAllText(
     "C:\ProgramData\IMAPDeploy\git-pat.txt"
@@ -15,25 +12,24 @@ $basic = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
 )
 
-$headers = @{
-    Authorization = "Basic $basic"
-}
+$env:GIT_CONFIG_COUNT = "3"
 
-$url = $origin.TrimEnd('/') + "/info/refs?service=git-upload-pack"
+# 기존 HTTP 인증 헤더 초기화
+$env:GIT_CONFIG_KEY_0 = "http.extraHeader"
+$env:GIT_CONFIG_VALUE_0 = ""
 
-try {
-    $r = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
-    Write-Output "GIT_HTTP_STATUS=$([int]$r.StatusCode)"
-    Write-Output "GIT_HTTP_CONTENT_TYPE=$($r.Headers['Content-Type'])"
-}
-catch {
-    if ($null -ne $_.Exception.Response) {
-        Write-Output "GIT_HTTP_STATUS=$([int]$_.Exception.Response.StatusCode)"
-    }
-    else {
-        Write-Output "GIT_HTTP_REQUEST_FAILED"
-        Write-Output $_.Exception.Message
-    }
-}
+# PAT 인증 헤더
+$env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
+$env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $basic"
 
-Remove-Variable pat,basic,headers -ErrorAction SilentlyContinue
+# Windows Credential Manager 사용 차단
+$env:GIT_CONFIG_KEY_2 = "credential.helper"
+$env:GIT_CONFIG_VALUE_2 = ""
+
+$env:GIT_TERMINAL_PROMPT = "0"
+
+# 기존 저장소의 로컬 Git 설정을 제외하고 테스트
+& $gitExe -C $env:TEMP ls-remote --exit-code $origin refs/heads/main
+
+$rc = $LASTEXITCODE
+Write-Output "CLEAN_GIT_AUTH_RC=$rc"
