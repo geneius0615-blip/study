@@ -1,13 +1,9 @@
-New-Item -ItemType Directory -Path C:\Temp\GitCA -Force
+# 루트 CA 설치
+Import-Certificate `
+  -FilePath "C:\Temp\GitCA\root.cer" `
+  -CertStoreLocation "Cert:\LocalMachine\Root"
 
-# 루트 CA
-$root = Get-Item "Cert:\LocalMachine\Root\루트CA지문"
-
-Export-Certificate -Cert $root `
-  -FilePath "C:\Temp\GitCA\root.cer"
-
-# 중간 CA
-$intermediate = Get-Item "Cert:\LocalMachine\CA\중간CA지문"
-
-Export-Certificate -Cert $intermediate `
-  -FilePath "C:\Temp\GitCA\intermediate.cer"
+# 중간 CA 설치
+Import-Certificate `
+  -FilePath "C:\Temp\GitCA\intermediate.cer" `
+  -CertStoreLocation "Cert:\LocalMachine\CA"
