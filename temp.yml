@@ -1,46 +1,38 @@
-$fetchRc = 1
-$gitStage = "START"
-
-Write-Output "GIT_STAGE=START"
-
-try {
-
-
-
-# PAT 파일 확인하기 직전
-$gitStage = "PAT_FILE"
-
-# PAT 파일 읽기 직전
-$gitStage = "READ_PAT"
-
-# origin URL 조회 직전
+# ==========================================
+# origin URL 조회
+# ==========================================
 $gitStage = "READ_ORIGIN"
 
-# ls-remote 실행 직전
-$gitStage = "AUTH_PRECHECK"
+$originOutput = & $gitExe -C $sourceDir remote get-url origin 2>$null
+$originRc = $LASTEXITCODE
 
-# git fetch 실행 직전
-$gitStage = "FETCH"
+Write-Output "ORIGIN_RC=$originRc"
 
-
-    $fetchRc = $LASTEXITCODE
+# 1. Git 명령 실패 확인
+if ($originRc -ne 0) {
+    $gitStage = "READ_ORIGIN_COMMAND"
+    throw "Git origin command failed"
 }
-catch {
-    Write-Output "FAILED_AT=$gitStage"
-    Write-Output "ERROR_TYPE=$($_.Exception.GetType().Name)"
-    $fetchRc = 1
+
+# 2. URL 값 확인
+$originUrl = [string]($originOutput | Select-Object -First 1)
+
+if ([string]::IsNullOrWhiteSpace($originUrl)) {
+    $gitStage = "READ_ORIGIN_EMPTY"
+    throw "Git origin URL is empty"
 }
-finally {
-    # 기존 환경변수 정리 코드 그대로 유지
 
+$originUrl = $originUrl.Trim()
 
+# 3. GitHub Enterprise 주소인지 확인
+if (-not $originUrl.StartsWith(
+    "https://github.samsungds.net/",
+    [System.StringComparison]::OrdinalIgnoreCase
+)) {
+    $gitStage = "READ_ORIGIN_HOST"
+    throw "Unexpected Git origin host"
+}
 
-- name: Show safe Git download result
-  debug:
-    msg:
-      - "RC={{ imap_orchestrator_download.rc }}"
-      - "STAGE={{ imap_orchestrator_download.stdout | regex_search('GIT_STAGE=[A-Z_]+') | default('NOT_FOUND', true) }}"
-      - "AUTH_CHECK={{ imap_orchestrator_download.stdout | regex_search('GIT_AUTH_PRECHECK_RC=[0-9]+') | default('NOT_RUN', true) }}"
-      - "FETCH={{ imap_orchestrator_download.stdout | regex_search('GIT_FETCH_RC=[0-9]+') | default('NOT_FOUND', true) }}"
-      - "FAILED_STAGE={{ imap_orchestrator_download.stdout | regex_search('FAILED_AT=[A-Z_]+') | default('NONE', true) }}"
-      - "ERROR_TYPE={{ imap_orchestrator_download.stdout | regex_search('ERROR_TYPE=[A-Za-z]+') | default('NONE', true) }}"
+Write-Output "ORIGIN_CHECK_SUCCESS"
+
+# 이 아래부터 기존 AUTH_PRECHECK 코드 유지
