@@ -1,4 +1,14 @@
 
+
+- name: Check production become variables
+  debug:
+    msg:
+      - "BECOME_USER={{ imap_become_user | default('UNDEFINED') }}"
+      - "BECOME_PASSWORD_DEFINED={{ ansible_become_password is defined }}"
+      - "BECOME_FLAGS={{ ansible_become_flags | default('NOT_DEFINED') }}"
+  when: inventory_hostname == '10.173.133.161'
+
+
 whoami
 
 $env:USERPROFILE
