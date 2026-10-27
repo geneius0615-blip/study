@@ -1,42 +1,15 @@
-
-"GIT_CONFIG_COUNT","GIT_CONFIG_KEY_0","GIT_CONFIG_VALUE_0","GIT_CONFIG_KEY_1","GIT_CONFIG_VALUE_1","GIT_CONFIG_KEY_2","GIT_CONFIG_VALUE_2","GIT_TERMINAL_PROMPT" |
-    ForEach-Object { Remove-Item "Env:$_" -ErrorAction SilentlyContinue }
-
-Remove-Variable pat,basic -ErrorAction SilentlyContinue
-
-
-$sourceDir = "E:\digital-twin-studio\imap\source"
-$gitExe = (Get-Command git.exe).Source
-$origin = (& $gitExe -C $sourceDir remote get-url origin).Trim()
-
-$pat = [System.IO.File]::ReadAllText(
-    "C:\ProgramData\IMAPDeploy\git-pat.txt"
-).Trim()
-
-$gitUser = Read-Host "GitHub Enterprise Username"
-
-$basic = [Convert]::ToBase64String(
-    [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
-)
-
-$env:GIT_CONFIG_COUNT = "3"
-
-# 기존 HTTP 인증 헤더 초기화
-$env:GIT_CONFIG_KEY_0 = "http.extraHeader"
-$env:GIT_CONFIG_VALUE_0 = ""
-
-# PAT 인증 헤더
-$env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
-$env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $basic"
-
-# Windows Credential Manager 사용 차단
-$env:GIT_CONFIG_KEY_2 = "credential.helper"
-$env:GIT_CONFIG_VALUE_2 = ""
-
-$env:GIT_TERMINAL_PROMPT = "0"
-
-# 기존 저장소의 로컬 Git 설정을 제외하고 테스트
-& $gitExe -C $env:TEMP ls-remote --exit-code $origin refs/heads/main
+$gitOutput = & $gitExe -C $env:TEMP ls-remote --exit-code $origin refs/heads/main 2>&1
 
 $rc = $LASTEXITCODE
+
+foreach ($line in $gitOutput) {
+    $msg = $line.ToString()
+    $msg = $msg.Replace($pat, "[REDACTED]")
+    $msg = $msg.Replace($basic, "[REDACTED]")
+
+    if ($msg -match 'fatal:|error:|Authentication failed|SSL|certificate') {
+        Write-Output $msg
+    }
+}
+
 Write-Output "CLEAN_GIT_AUTH_RC=$rc"
