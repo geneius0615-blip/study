@@ -1,5 +1,7 @@
-git clone --filter=blob:none --quiet `
-"https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-"C:\Users\appuser\AppData\Local\Temp\ifcopenshell-test"
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "Never"
+
+git ls-remote `
+"https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" HEAD
 
 echo $LASTEXITCODE
