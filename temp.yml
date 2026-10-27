@@ -1,9 +1,11 @@
-# 루트 CA 설치
-Import-Certificate `
-  -FilePath "C:\Temp\GitCA\root.cer" `
-  -CertStoreLocation "Cert:\LocalMachine\Root"
+cd E:\digital-twin-studio\imap\source
 
-# 중간 CA 설치
-Import-Certificate `
-  -FilePath "C:\Temp\GitCA\intermediate.cer" `
-  -CertStoreLocation "Cert:\LocalMachine\CA"
+Remove-Item Env:\GIT_SSL_NO_VERIFY -ErrorAction SilentlyContinue
+
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "0"
+
+git -c http.sslBackend=schannel `
+    -c http.sslVerify=true `
+    -c credential.helper= `
+    ls-remote origin HEAD
