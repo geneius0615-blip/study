@@ -1,3 +1,10 @@
-git config --global --get credential.helper
-git config --global --get http.sslBackend
-git config --global --get http.sslVerify
+$cred = Get-Credential "PTIMAPAPW01\appuser"
+
+Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "Never"
+
+    git ls-remote "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" HEAD
+
+    Write-Output "GIT_RC=$LASTEXITCODE"
+}
