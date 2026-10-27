@@ -1,10 +1,13 @@
-$thumbprints = @(
-    "루트_CA_지문",
-    "중간_CA_지문"
-)
+New-Item -ItemType Directory -Path C:\Temp\GitCA -Force
 
-foreach ($thumb in $thumbprints) {
-    Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
-    Where-Object { $_.Thumbprint -eq $thumb } |
-    Select-Object Subject, Thumbprint, PSParentPath
-}
+# 루트 CA
+$root = Get-Item "Cert:\LocalMachine\Root\루트CA지문"
+
+Export-Certificate -Cert $root `
+  -FilePath "C:\Temp\GitCA\root.cer"
+
+# 중간 CA
+$intermediate = Get-Item "Cert:\LocalMachine\CA\중간CA지문"
+
+Export-Certificate -Cert $intermediate `
+  -FilePath "C:\Temp\GitCA\intermediate.cer"
