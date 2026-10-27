@@ -1,11 +1,11 @@
 cd E:\digital-twin-studio\imap\source
 
+# 이전 테스트에서 제한했던 인증 입력 복원
+Remove-Item Env:\GIT_TERMINAL_PROMPT -ErrorAction SilentlyContinue
+Remove-Item Env:\GCM_INTERACTIVE -ErrorAction SilentlyContinue
 Remove-Item Env:\GIT_SSL_NO_VERIFY -ErrorAction SilentlyContinue
 
-$env:GIT_TERMINAL_PROMPT = "0"
-$env:GCM_INTERACTIVE = "0"
-
+# 기존 Credential Helper 사용
 git -c http.sslBackend=schannel `
     -c http.sslVerify=true `
-    -c credential.helper= `
     ls-remote origin HEAD
