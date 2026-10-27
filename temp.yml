@@ -1,7 +1,3 @@
-$env:GIT_TERMINAL_PROMPT = "0"
-$env:GCM_INTERACTIVE = "Never"
-
-git ls-remote `
-"https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" HEAD
-
-echo $LASTEXITCODE
+git config --global --get credential.helper
+git config --global --get http.sslBackend
+git config --global --get http.sslVerify
