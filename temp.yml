@@ -1,4 +1,6 @@
 
+Remove-Variable pat,headers -ErrorAction SilentlyContinue
+
 try { $r = Invoke-WebRequest -Uri "https://github.samsungds.net/api/v3/repos/$owner/$repo/contents?ref=main" -Headers $headers -UseBasicParsing -ErrorAction Stop; Write-Output "REPO_ACCESS_STATUS=$($r.StatusCode)" } catch { if ($_.Exception.Response) { Write-Output "REPO_ACCESS_STATUS=$([int]$_.Exception.Response.StatusCode)" } else { Write-Output "REPO_ACCESS_ERROR=$($_.Exception.Message)" } }
 
 
