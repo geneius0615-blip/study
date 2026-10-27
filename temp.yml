@@ -1,34 +1,67 @@
-
-$file = "$dir\git-pat.txt"
-
-icacls.exe $file /inheritance:r
-icacls.exe $file /grant:r "${account}:R" '*S-1-5-18:F' '*S-1-5-32-544:F'
-
-icacls.exe $file
-
-
-$secret = Read-Host "GitHub PAT" -AsSecureString
-$bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+# 운영서버에만 PAT 적용
+$isProd = "{{ inventory_hostname }}" -eq "10.173.133.161"
+$fetchRc = 1
 
 try {
-    $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    if ($isProd) {
+        $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
 
-    [System.IO.File]::WriteAllText(
-        "$dir\git-pat.txt",
-        $plain,
-        (New-Object System.Text.UTF8Encoding($false))
-    )
+        if (-not (Test-Path -LiteralPath $patFile -PathType Leaf)) {
+            throw "Git PAT file not found"
+        }
+
+        $pat = [System.IO.File]::ReadAllText($patFile).Trim()
+
+        if ([string]::IsNullOrWhiteSpace($pat)) {
+            throw "Git PAT file is empty"
+        }
+
+        $auth = [Convert]::ToBase64String(
+            [Text.Encoding]::UTF8.GetBytes("x-access-token:$pat")
+        )
+
+        $env:GIT_CONFIG_COUNT = "2"
+
+        $env:GIT_CONFIG_KEY_0 = "credential.helper"
+        $env:GIT_CONFIG_VALUE_0 = ""
+
+        $env:GIT_CONFIG_KEY_1 = "http.https://github.samsungds.net/.extraHeader"
+        $env:GIT_CONFIG_VALUE_1 = "Authorization: Basic $auth"
+
+        $env:GIT_TERMINAL_PROMPT = "0"
+    }
+
+    & "{{ git_executable }}" `
+        -C $sourceDir `
+        fetch `
+        --depth 1 `
+        origin `
+        $branch
+
+    $fetchRc = $LASTEXITCODE
 }
 finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    Remove-Variable plain -ErrorAction SilentlyContinue
+    if ($isProd) {
+        foreach ($name in @(
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_KEY_0",
+            "GIT_CONFIG_VALUE_0",
+            "GIT_CONFIG_KEY_1",
+            "GIT_CONFIG_VALUE_1",
+            "GIT_TERMINAL_PROMPT"
+        )) {
+            Remove-Item ("Env:\" + $name) -ErrorAction SilentlyContinue
+        }
+
+        Remove-Variable pat,auth -ErrorAction SilentlyContinue
+    }
 }
 
+Write-Output "GIT_FETCH_RC=$fetchRc"
 
-$dir = "C:\ProgramData\IMAPDeploy"
-$account = "실제도메인\appuser"
+if ($fetchRc -ne 0) {
+    Write-Output "FAILED_AT=FETCH"
+    exit $fetchRc
+}
 
-New-Item -ItemType Directory -Path $dir -Force | Out-Null
-
-icacls.exe $dir /inheritance:r
-icacls.exe $dir /grant:r "${account}:(OI)(CI)RX" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
+Write-Output "GIT_FETCH_SUCCESS"
