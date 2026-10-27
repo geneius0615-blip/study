@@ -1,23 +1,7 @@
-  environment:
-    HOME: "{{ deploy_user_profile }}"
-    USERPROFILE: "{{ deploy_user_profile }}"
+$dir = "C:\ProgramData\IMAPDeploy"
+$account = "실제도메인\appuser"
 
-    # 운영서버에만 PAT 인증 적용
-    GIT_CONFIG_COUNT: "{{ '2' if inventory_hostname == '10.173.133.161' else '0' }}"
+New-Item -ItemType Directory -Path $dir -Force | Out-Null
 
-    # wincredman / dpapi 사용 차단
-    GIT_CONFIG_KEY_0: "credential.helper"
-    GIT_CONFIG_VALUE_0: ""
-
-    # GitHub PAT 인증
-    GIT_CONFIG_KEY_1: "http.https://github.samsungds.net/.extraHeader"
-    GIT_CONFIG_VALUE_1: >-
-      {{ 'Authorization: Basic ' ~
-         ((imap_git_username ~ ':' ~ imap_git_pat) | b64encode)
-         if inventory_hostname == '10.173.133.161'
-         else '' }}
-
-    GIT_TERMINAL_PROMPT: "0"
-
-  register: imap_orchestrator_download
-  no_log: "{{ inventory_hostname == '10.173.133.161' }}"
+icacls.exe $dir /inheritance:r
+icacls.exe $dir /grant:r "${account}:(OI)(CI)RX" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
