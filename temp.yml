@@ -4,6 +4,20 @@ $fetchRc = 1
 
 Get-Command git.exe | Select-Object -ExpandProperty Source
 
+
+$sourceDir = "E:\digital-twin-studio\imap\source"
+$branch = "main"
+$gitExe = (Get-Command git.exe).Source
+
+Write-Output "SOURCE_DIR=$sourceDir"
+Write-Output "SOURCE_EXISTS=$(Test-Path -LiteralPath $sourceDir)"
+Write-Output "GIT_EXISTS=$(Test-Path -LiteralPath (Join-Path $sourceDir '.git'))"
+
+& $gitExe -C $sourceDir status --short
+
+Write-Output "GIT_RC=$LASTEXITCODE"
+
+
 try {
     if ($isProd) {
         $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
