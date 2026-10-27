@@ -1,25 +1,7 @@
-- name: Download imap orchestrator sparse source
-  win_shell: |
-    Write-Output "SCRIPT_STARTED"
-
-    $sourceDir = "{{ imap_source_dir }}"
-    $branch = "{{ imap_repo_branch }}"
-    $gitExe = "{{ git_executable }}"
-
-    # 아래 기존 코드 그대로 유지
-
-
 - name: Show safe Git download result
   debug:
     msg:
       - "RC={{ imap_orchestrator_download.rc }}"
-
       - "SCRIPT_STARTED={{ 'SCRIPT_STARTED' in (imap_orchestrator_download.stdout | default('')) }}"
-
-      - "MARKERS={{ (imap_orchestrator_download.stdout | default('')) | regex_findall('(?:GIT_STAGE|ORIGIN_RC|GIT_AUTH_PRECHECK_RC|GIT_FETCH_RC|FAILED_AT|ERROR_TYPE)=[A-Za-z0-9_]+') }}"
-
       - "PARSER_ERROR={{ 'ParserError' in (imap_orchestrator_download.stderr | default('')) }}"
-
-      - "GIT_CONFIG_ERROR={{ 'missing config' in (imap_orchestrator_download.stderr | default('') | lower) }}"
-
-      - "GIT_FATAL={{ 'fatal:' in (imap_orchestrator_download.stderr | default('')) }}"
+      - "PARSER_DETAILS={{ (imap_orchestrator_download.stderr_lines | default([]))[:12] }}"
