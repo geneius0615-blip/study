@@ -1,57 +1,46 @@
+$fetchRc = 1
+$gitStage = "START"
+
+Write-Output "GIT_STAGE=START"
+
+try {
+
+
+
+# PAT 파일 확인하기 직전
+$gitStage = "PAT_FILE"
+
+# PAT 파일 읽기 직전
+$gitStage = "READ_PAT"
+
+# origin URL 조회 직전
+$gitStage = "READ_ORIGIN"
+
+# ls-remote 실행 직전
+$gitStage = "AUTH_PRECHECK"
+
+# git fetch 실행 직전
+$gitStage = "FETCH"
+
+
+    $fetchRc = $LASTEXITCODE
+}
+catch {
+    Write-Output "FAILED_AT=$gitStage"
+    Write-Output "ERROR_TYPE=$($_.Exception.GetType().Name)"
+    $fetchRc = 1
+}
+finally {
+    # 기존 환경변수 정리 코드 그대로 유지
+
 
 
 - name: Show safe Git download result
   debug:
     msg:
       - "RC={{ imap_orchestrator_download.rc }}"
+      - "STAGE={{ imap_orchestrator_download.stdout | regex_search('GIT_STAGE=[A-Z_]+') | default('NOT_FOUND', true) }}"
       - "AUTH_CHECK={{ imap_orchestrator_download.stdout | regex_search('GIT_AUTH_PRECHECK_RC=[0-9]+') | default('NOT_RUN', true) }}"
       - "FETCH={{ imap_orchestrator_download.stdout | regex_search('GIT_FETCH_RC=[0-9]+') | default('NOT_FOUND', true) }}"
       - "FAILED_STAGE={{ imap_orchestrator_download.stdout | regex_search('FAILED_AT=[A-Z_]+') | default('NONE', true) }}"
-
-
-# 운영서버는 PAT 인증을 먼저 검사
-if ($isProd) {
-
-    # 기존 origin의 실제 URL 확인
-    $originUrl = (
-        & $gitExe -C $sourceDir remote get-url origin |
-        Out-String
-    ).Trim()
-
-    if ($LASTEXITCODE -ne 0 -or
-        [string]::IsNullOrWhiteSpace($originUrl)) {
-        throw "Git origin URL not found"
-    }
-
-    if (-not $originUrl.StartsWith("https://github.samsungds.net/")) {
-        throw "Unexpected Git origin host"
-    }
-
-    # 기존 저장소 설정의 영향을 줄인 인증 검사
-    & $gitExe -C $env:TEMP ls-remote --exit-code `
-        $originUrl "refs/heads/$branch" | Out-Null
-
-    $authRc = $LASTEXITCODE
-
-    Write-Output "GIT_AUTH_PRECHECK_RC=$authRc"
-
-    if ($authRc -eq 0) {
-
-        # origin 별칭 대신 실제 URL로 Fetch
-        & $gitExe -C $sourceDir fetch --depth 1 $originUrl $branch
-        $fetchRc = $LASTEXITCODE
-
-    }
-    else {
-        $fetchRc = $authRc
-        Write-Output "FAILED_AT=AUTH_PRECHECK"
-    }
-
-}
-else {
-
-    # 개발서버는 기존 방식 유지
-    & $gitExe -C $sourceDir fetch --depth 1 origin $branch
-    $fetchRc = $LASTEXITCODE
-
-}
+      - "ERROR_TYPE={{ imap_orchestrator_download.stdout | regex_search('ERROR_TYPE=[A-Za-z]+') | default('NONE', true) }}"
