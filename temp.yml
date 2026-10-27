@@ -3,11 +3,20 @@ $gitOutput = & $gitExe -C $env:TEMP ls-remote --exit-code $origin refs/heads/mai
 $rc = $LASTEXITCODE
 
 foreach ($line in $gitOutput) {
-    $msg = $line.ToString()
-    $msg = $msg.Replace($pat, "[REDACTED]")
-    $msg = $msg.Replace($basic, "[REDACTED]")
 
-    if ($msg -match 'fatal:|error:|Authentication failed|SSL|certificate') {
+    $msg = [string]$line
+
+    # PAT가 존재할 때만 마스킹
+    if (-not [string]::IsNullOrEmpty($pat)) {
+        $msg = $msg.Replace($pat, "[REDACTED]")
+    }
+
+    # Basic 인증값이 존재할 때만 마스킹
+    if (-not [string]::IsNullOrEmpty($basic)) {
+        $msg = $msg.Replace($basic, "[REDACTED]")
+    }
+
+    if ($msg -match 'fatal:|error:|Authentication failed|SSL|certificate|schannel') {
         Write-Output $msg
     }
 }
