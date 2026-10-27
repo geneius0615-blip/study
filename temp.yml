@@ -1,16 +1,10 @@
-cd E:\digital-twin-studio\imap\source
+  environment:
+    HOME: "{{ deploy_user_profile }}"
+    USERPROFILE: "{{ deploy_user_profile }}"
 
-# 실제 Git 저장소 위치
-git rev-parse --show-toplevel
+    # [추가] Windows Credential Manager 대신 DPAPI 사용
+    GCM_CREDENTIAL_STORE: "dpapi"
 
-# 현재 브랜치
-git branch --show-current
-
-# 실제 브랜치에 존재하는 파일 목록
-git ls-tree -r --name-only HEAD | Select-Object -First 20
-
-# Sparse Checkout 설정
-git sparse-checkout list
-
-# 현재 로컬 폴더의 파일 확인
-Get-ChildItem -Force
+    # [추가] 인증창 대기 방지
+    GCM_INTERACTIVE: "0"
+    GIT_TERMINAL_PROMPT: "0"
