@@ -2,6 +2,8 @@
 $isProd = "{{ inventory_hostname }}" -eq "10.173.133.161"
 $fetchRc = 1
 
+Get-Command git.exe | Select-Object -ExpandProperty Source
+
 try {
     if ($isProd) {
         $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
