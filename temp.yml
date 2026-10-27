@@ -1,67 +1,48 @@
-# ================================================
-# 운영서버 Git origin 진단
-# ================================================
-- name: Diagnose production Git origin
-  win_shell: |
-    $ErrorActionPreference = "Continue"
+# ==========================================
+# PAT 인증 설정 - 수정
+# ==========================================
 
-    $sourceDir = "{{ imap_source_dir }}"
-    $gitExe = "{{ git_executable }}"
+# Git 설정은 인증 헤더 하나만 환경변수로 전달
+$env:GIT_CONFIG_COUNT = "1"
 
-    # 1. 디렉터리 확인
-    Write-Output "SOURCE_EXISTS=$(Test-Path -LiteralPath $sourceDir -PathType Container)"
+$env:GIT_CONFIG_KEY_0 = "http.https://github.samsungds.net/.extraHeader"
+$env:GIT_CONFIG_VALUE_0 = "Authorization: Basic $basic"
 
-    $gitDir = Join-Path $sourceDir ".git"
-    Write-Output "GIT_EXISTS=$(Test-Path -LiteralPath $gitDir)"
+$env:GIT_TERMINAL_PROMPT = "0"
 
-    # 2. origin 조회
-    $originOutput = & $gitExe -C $sourceDir remote get-url origin 2>&1
-    $originRc = $LASTEXITCODE
 
-    Write-Output "ORIGIN_RC=$originRc"
+$gitStage = "AUTH_PRECHECK"
 
-    # 3. 오류 종류만 출력 (원격 URL이나 토큰은 출력하지 않음)
-    if ($originRc -ne 0) {
+& $gitExe -c "credential.helper=" -C $env:TEMP ls-remote --exit-code $originUrl "refs/heads/$branch" | Out-Null
 
-        $err = ($originOutput | Out-String)
+$authRc = $LASTEXITCODE
 
-        if ($err -match "cannot change to") {
-            Write-Output "ORIGIN_REASON=INVALID_PATH"
+Write-Output "GIT_AUTH_PRECHECK_RC=$authRc"
+
+if ($authRc -eq 0) {
+
+    $gitStage = "FETCH"
+
+    & $gitExe -c "credential.helper=" -C $sourceDir fetch --depth 1 $originUrl $branch
+
+    $fetchRc = $LASTEXITCODE
+}
+else {
+    $fetchRc = $authRc
+}
+
+
+finally {
+    if ($isProd) {
+        foreach ($name in @(
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_KEY_0",
+            "GIT_CONFIG_VALUE_0",
+            "GIT_TERMINAL_PROMPT"
+        )) {
+            Remove-Item ("Env:" + $name) -ErrorAction SilentlyContinue
         }
-        elseif ($err -match "not a git repository") {
-            Write-Output "ORIGIN_REASON=NOT_GIT_REPOSITORY"
-        }
-        elseif ($err -match "dubious ownership|safe.directory") {
-            Write-Output "ORIGIN_REASON=GIT_OWNERSHIP"
-        }
-        elseif ($err -match "config|invalid key|missing key") {
-            Write-Output "ORIGIN_REASON=GIT_CONFIG"
-        }
-        elseif ($err -match "No such remote") {
-            Write-Output "ORIGIN_REASON=REMOTE_NOT_FOUND"
-        }
-        else {
-            Write-Output "ORIGIN_REASON=OTHER"
-        }
+
+        Remove-Variable pat,basic -ErrorAction SilentlyContinue
     }
-    else {
-        Write-Output "ORIGIN_CHECK_SUCCESS"
-    }
-
-  environment:
-    HOME: "{{ deploy_user_profile }}"
-    USERPROFILE: "{{ deploy_user_profile }}"
-    GIT_CONFIG_COUNT: "0"
-
-  register: git_origin_diag
-  changed_when: false
-  when: inventory_hostname == '10.173.133.161'
-
-
-# ================================================
-# 진단 결과 출력
-# ================================================
-- name: Show production Git origin diagnosis
-  debug:
-    msg: "{{ git_origin_diag.stdout_lines }}"
-  when: inventory_hostname == '10.173.133.161'
+}
