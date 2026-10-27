@@ -1,4 +1,13 @@
 
+whoami
+
+$env:USERPROFILE
+
+git -C E:\digital-twin-studio\imap\source config --show-origin --get credential.credentialStore
+
+Test-Path "$env:USERPROFILE\.gcm\dpapi_store"
+
+
 - name: Check production Git logon session
   win_whoami:
   become: yes
