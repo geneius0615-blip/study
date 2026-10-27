@@ -1,16 +1,22 @@
-- name: Show Git download error
-  debug:
-    var: imap_orchestrator_download.stdout_lines
+# [추가] Checkout 이후 커밋 검증 시작
+Write-Output "GIT_STAGE=VERIFY_HEAD"
 
-- name: Show Git stderr
-  debug:
-    var: imap_orchestrator_download.stderr_lines
+$afterCommit = & "{{ git_executable }}" `
+  -C $sourceDir `
+  rev-parse `
+  HEAD
 
-- name: Show Git return code
-  debug:
-    var: imap_orchestrator_download.rc
+# [추가] Git 종료 코드를 즉시 저장
+$headRc = $LASTEXITCODE
 
-- name: Stop when Git download failed
-  fail:
-    msg: "imap-source Git download failed"
-  when: imap_orchestrator_download.rc | int != 0
+Write-Output "VERIFY_HEAD_RC=$headRc"
+
+if ($headRc -ne 0) {
+  Write-Output "FAILED_AT=VERIFY_HEAD"
+  Write-Error "Unable to read checked-out commit"
+  exit $headRc
+}
+
+$afterCommit = ($afterCommit | Out-String).Trim()
+
+Write-Output "GIT_HEAD_SUCCESS"
