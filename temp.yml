@@ -1,5 +1,5 @@
 git clone --filter=blob:none --quiet `
-"https://github.samsungds.net/digital-twin-sudio/ifcopenshell.git" `
-"$env:TEMP\ifcopenshell-test"
+"https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+"C:\Users\appuser\AppData\Local\Temp\ifcopenshell-test"
 
 echo $LASTEXITCODE
