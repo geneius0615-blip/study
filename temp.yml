@@ -1,3 +1,10 @@
+
+"GIT_CONFIG_COUNT","GIT_CONFIG_KEY_0","GIT_CONFIG_VALUE_0","GIT_CONFIG_KEY_1","GIT_CONFIG_VALUE_1","GIT_CONFIG_KEY_2","GIT_CONFIG_VALUE_2","GIT_TERMINAL_PROMPT" |
+    ForEach-Object { Remove-Item "Env:$_" -ErrorAction SilentlyContinue }
+
+Remove-Variable pat,basic -ErrorAction SilentlyContinue
+
+
 $sourceDir = "E:\digital-twin-studio\imap\source"
 $gitExe = (Get-Command git.exe).Source
 $origin = (& $gitExe -C $sourceDir remote get-url origin).Trim()
