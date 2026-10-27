@@ -8,6 +8,23 @@
       - "BECOME_FLAGS={{ ansible_become_flags | default('NOT_DEFINED') }}"
   when: inventory_hostname == '10.173.133.161'
 
+- name: Check production Git logon session
+  ansible.windows.win_whoami:
+  become: yes
+  become_method: runas
+  become_user: "{{ imap_become_user }}"
+  become_flags: "logon_type=interactive logon_flags=with_profile"
+
+  register: git_logon_check
+  when: inventory_hostname == '10.173.133.161'
+
+- name: Show production Git logon type
+  debug:
+    msg:
+      - "LOGON_TYPE={{ git_logon_check.logon_type }}"
+      - "USER={{ imap_become_user }}"
+  when: inventory_hostname == '10.173.133.161'
+
 
 whoami
 
