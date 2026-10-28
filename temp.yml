@@ -1,10 +1,21 @@
-cd /d E:\Tools\tomcat\bin
+$gitUser = Read-Host "GitHub 사용자 ID"
+$securePat = Read-Host "GitHub PAT" -AsSecureString
 
-set "CATALINA_HOME=E:\Tools\tomcat"
-set "CATALINA_BASE=E:\Tools\tomcat"
-set "JAVA_HOME=E:\Java\jdk-17"
-set "JRE_HOME=%JAVA_HOME%"
+$pat = [PSCredential]::new(
+    $gitUser, $securePat
+).GetNetworkCredential().Password
 
-service.bat install Tomcat9-IMAP
+try {
+    @(
+        "protocol=https"
+        "host=github.samsungds.net"
+        "username=$gitUser"
+        "password=$pat"
+        ""
+    ) | git credential approve
 
-
+    Write-Output "SAVE_RC=$LASTEXITCODE"
+}
+finally {
+    Remove-Variable pat, securePat -ErrorAction SilentlyContinue
+}
