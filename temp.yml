@@ -1,15 +1,12 @@
-- name: Check production server
+- name: Show safe Git download result
   debug:
-    msg: "HOST={{ inventory_hostname }}"
-  when: inventory_hostname in ['운영1_IP', '운영2_IP']
-
-- name: Download IMAP source
-  win_shell: |
-    $serverIp = "{{ inventory_hostname }}"
-
-    $prodIps = @("운영1_IP", "운영2_IP")
-    $isProd = $prodIps -contains $serverIp
-
-    Write-Output "IS_PROD=$isProd"
-
-    # 기존 PAT 및 Git 다운로드 코드
+    msg: >-
+      {{
+        git_download_result.stdout_lines
+        | default([])
+        | select(
+            'match',
+            '^(IS_PROD|PAT_CONFIGURED|AUTH_PRECHECK_RC|FETCH_RC|FAILED_STAGE|RC)='
+          )
+        | list
+      }}
