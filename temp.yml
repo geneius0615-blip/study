@@ -1,11 +1,4 @@
-$target = Join-Path $env:TEMP (
-    "imap-openssl-test-" + [guid]::NewGuid().ToString("N")
-)
-
-git -c http.sslBackend=openssl `
-    -c http.sslVerify=true `
-    clone --filter=blob:none `
-    "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-    $target
-
-Write-Output "CLONE_RC=$LASTEXITCODE"
+Get-ChildItem C:\Certs -Recurse -File `
+  -Include *.pem,*.cer,*.crt `
+  -ErrorAction SilentlyContinue |
+Select-Object FullName
