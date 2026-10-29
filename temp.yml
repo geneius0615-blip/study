@@ -1,11 +1,5 @@
-New-Item -ItemType Directory `
-    -Path "C:\ProgramData\IMAPDeploy" `
-    -Force
+Test-Path "C:\ProgramData\IMAPDeploy\git-pat.txt" -PathType Leaf
 
+(Get-Item "C:\ProgramData\IMAPDeploy\git-pat.txt").Length
 
-
-Test-Path "C:\ProgramData\IMAPDeploy"
-
-
-
-.=
+icacls "C:\ProgramData\IMAPDeploy\git-pat.txt"
