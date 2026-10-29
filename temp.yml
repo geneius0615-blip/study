@@ -1,14 +1,18 @@
+catch {
+    $resultRc = 1
+
+    # 실패한 단계와 예외 유형만 출력
+    Write-Output "FAILED_STAGE=$gitStage"
+    Write-Output "ERROR_TYPE=$($_.Exception.GetType().Name)"
+}
+
+
+
 - name: Show safe Git download result
   debug:
-    msg: >-
-      {{
-        git_download_result.stdout_lines
-        | default([])
-        | map('trim')
-        | select(
-            'match',
-            '^(IS_PROD=(True|False)|PAT_CONFIGURED=(True|False)|AUTH_PRECHECK_RC=(-?[0-9]+|not_run|not_found)|FETCH_RC=(-?[0-9]+|not_run|not_found)|FAILED_STAGE=[A-Za-z_]+|RC=-?[0-9]+)$'
-          )
-        | list
-      }}
+    msg:
+      - "TASK_RC={{ git_download_result.rc | default('NO_RC') }}"
+      - "FAILED_STAGE={{ git_download_result.stdout_lines | default([]) | select('match', '^FAILED_STAGE=(INIT|PAT_FILE|READ_PAT|READ_ORIGIN|AUTH_PRECHECK|FETCH|CHECKOUT|none)$') | list }}"
+      - "ERROR_TYPE={{ git_download_result.stdout_lines | default([]) | select('match', '^ERROR_TYPE=[A-Za-z]+Exception$') | list }}"
+      - "STDOUT_COUNT={{ git_download_result.stdout_lines | default([]) | length }}"
   no_log: false
