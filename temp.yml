@@ -1,5 +1,9 @@
-Test-Path "C:\ProgramData\IMAPDeploy\git-pat.txt" -PathType Leaf
-
-(Get-Item "C:\ProgramData\IMAPDeploy\git-pat.txt").Length
-
-icacls "C:\ProgramData\IMAPDeploy\git-pat.txt"
+- name: Show safe Git download result
+  debug:
+    msg:
+      - "TASK_RC={{ git_download_result.rc | default('NO_RC') }}"
+      - "FAILED_STAGE={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^FAILED_STAGE=[A-Za-z_]+$') | list }}"
+      - "AUTH_PRECHECK_RC={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^AUTH_PRECHECK_RC=(-?[0-9]+|not_run|not_found)$') | list }}"
+      - "FETCH_RC={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^FETCH_RC=(-?[0-9]+|not_run|not_found)$') | list }}"
+      - "IS_PROD={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^IS_PROD=(True|False)$') | list }}"
+  no_log: false
