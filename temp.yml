@@ -1,9 +1,21 @@
-whoami
+$cred = Get-Credential "PTIMAPAPW01\appuser"
 
-git config --global --get credential.credentialStore
+Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
 
-$env:USERPROFILE
+    Write-Output "USER=$(whoami)"
+    Write-Output "PROFILE=$env:USERPROFILE"
 
-$env:GCM_CREDENTIAL_STORE
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "Never"
 
-$env:GCM_DPAPI_STORE_PATH
+    $target = Join-Path $env:TEMP (
+        "imap-core-test-" + [guid]::NewGuid().ToString("N")
+    )
+
+    git -c http.sslBackend=schannel `
+        clone --filter=blob:none `
+        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+        $target
+
+    Write-Output "CLONE_RC=$LASTEXITCODE"
+}
