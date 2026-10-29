@@ -1,10 +1,14 @@
-Get-ChildItem C:\Certs -Recurse -File `
-  -Include *.pem,*.cer,*.crt `
-  -ErrorAction SilentlyContinue |
-Select-Object FullName
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "Never"
 
+$target = Join-Path $env:TEMP (
+    "imap-git-test-" + [guid]::NewGuid().ToString("N")
+)
 
-Get-ChildItem "C:\Program Files\Git" `
-  -Recurse -File -Filter "*.pem" `
-  -ErrorAction SilentlyContinue |
-Select-Object FullName
+git -c http.sslBackend=schannel `
+    -c http.sslVerify=true `
+    clone --filter=blob:none `
+    "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+    $target
+
+Write-Output "CLONE_RC=$LASTEXITCODE"
