@@ -1,27 +1,41 @@
 $gitStage = "AUTH_PRECHECK"
 
-$authOutput = @(
-    & $gitExe @gitAuthArgs ls-remote --exit-code `
-        $originUrl "refs/heads/$branch" 2>&1
-)
+Write-Output "AUTH_MARK=BEFORE"
 
-$authRc = $LASTEXITCODE
+$oldErrorPreference = $ErrorActionPreference
+
+try {
+    $ErrorActionPreference = "Continue"
+
+    $authOutput = @(
+        & $gitExe @gitAuthArgs ls-remote --exit-code `
+            $originUrl "refs/heads/$branch" 2>&1
+    )
+
+    $authRc = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $oldErrorPreference
+}
+
+Write-Output "AUTH_MARK=AFTER"
+
 $authText = $authOutput | Out-String
 
-$authErrorClass = if ($authText -match '401|Authentication failed|could not read Username') {
-    "AUTH_FAILED"
+if ($authText -match '401|Authentication failed|could not read Username') {
+    $authErrorClass = "AUTH_FAILED"
 }
 elseif ($authText -match '403|Forbidden') {
-    "ACCESS_DENIED"
+    $authErrorClass = "ACCESS_DENIED"
 }
 elseif ($authText -match '404|Repository not found') {
-    "REPOSITORY_NOT_FOUND_OR_DENIED"
+    $authErrorClass = "REPOSITORY_NOT_FOUND"
 }
 elseif ($authText -match 'schannel|SSL certificate|TLS') {
-    "TLS_ERROR"
+    $authErrorClass = "TLS_ERROR"
 }
 else {
-    "OTHER"
+    $authErrorClass = "OTHER"
 }
 
 Write-Output "AUTH_RC=$authRc"
@@ -30,18 +44,3 @@ Write-Output "AUTH_ERROR_CLASS=$authErrorClass"
 if ($authRc -ne 0) {
     throw "AUTH_PRECHECK_FAILED"
 }
-
-
-
-
-- name: Show safe Git download result
-  debug:
-    msg:
-      - "AUTH_ERROR_CLASS={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^AUTH_ERROR_CLASS=[A-Z_]+$') | list }}"
-  no_log: false
-
-
-
-
-
-
