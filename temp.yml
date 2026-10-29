@@ -1,26 +1,47 @@
-# PAT 인증 헤더가 실제 Git 설정에 적용됐는지 확인
-$effectiveHeader = @(
-    & $gitExe config --get-urlmatch `
-        http.extraHeader $originUrl 2>$null
+$gitStage = "AUTH_PRECHECK"
+
+$authOutput = @(
+    & $gitExe @gitAuthArgs ls-remote --exit-code `
+        $originUrl "refs/heads/$branch" 2>&1
 )
-
-$headerApplied = (
-    $effectiveHeader -contains "Authorization: Basic $basic"
-)
-
-Write-Output "HEADER_APPLIED=$headerApplied"
-
-Remove-Variable effectiveHeader -ErrorAction SilentlyContinue
-
 
 $authRc = $LASTEXITCODE
+$authText = $authOutput | Out-String
 
-Write-Output "AUTH_CHECK=$authRc"
+$authErrorClass = if ($authText -match '401|Authentication failed|could not read Username') {
+    "AUTH_FAILED"
+}
+elseif ($authText -match '403|Forbidden') {
+    "ACCESS_DENIED"
+}
+elseif ($authText -match '404|Repository not found') {
+    "REPOSITORY_NOT_FOUND_OR_DENIED"
+}
+elseif ($authText -match 'schannel|SSL certificate|TLS') {
+    "TLS_ERROR"
+}
+else {
+    "OTHER"
+}
+
+Write-Output "AUTH_RC=$authRc"
+Write-Output "AUTH_ERROR_CLASS=$authErrorClass"
 
 if ($authRc -ne 0) {
-    $gitStage = "AUTH_PRECHECK"
     throw "AUTH_PRECHECK_FAILED"
 }
 
 
-- "HEADER_APPLIED={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^HEADER_APPLIED=(True|False)$') | list }}"
+
+
+- name: Show safe Git download result
+  debug:
+    msg:
+      - "AUTH_ERROR_CLASS={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^AUTH_ERROR_CLASS=[A-Z_]+$') | list }}"
+  no_log: false
+
+
+
+
+
+
