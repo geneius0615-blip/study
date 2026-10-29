@@ -2,3 +2,9 @@ Get-ChildItem C:\Certs -Recurse -File `
   -Include *.pem,*.cer,*.crt `
   -ErrorAction SilentlyContinue |
 Select-Object FullName
+
+
+Get-ChildItem "C:\Program Files\Git" `
+  -Recurse -File -Filter "*.pem" `
+  -ErrorAction SilentlyContinue |
+Select-Object FullName
