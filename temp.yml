@@ -1,1 +1,21 @@
-$isProd = "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}" -eq "true"
+$gitUser = Read-Host "GitHub 사용자 ID"
+$securePat = Read-Host "GitHub PAT" -AsSecureString
+
+$pat = [PSCredential]::new(
+    $gitUser, $securePat
+).GetNetworkCredential().Password
+
+try {
+    @(
+        "protocol=https"
+        "host=github.samsungds.net"
+        "username=$gitUser"
+        "password=$pat"
+        ""
+    ) | git credential approve
+
+    Write-Output "SAVE_RC=$LASTEXITCODE"
+}
+finally {
+    Remove-Variable pat, securePat -ErrorAction SilentlyContinue
+}
