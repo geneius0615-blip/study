@@ -1,17 +1,12 @@
-$cred = Get-Credential "운영2_서버명\appuser"
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "0"
 
-Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+$target = Join-Path $env:TEMP (
+    "ifcopenshell-check-" + [guid]::NewGuid().ToString("N")
+)
 
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "0"
+git clone --filter=blob:none `
+    "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+    $target
 
-    $target = Join-Path $env:TEMP (
-        "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
-    )
-
-    git clone --filter=blob:none `
-        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-        $target
-
-    Write-Output "CLONE_RC=$LASTEXITCODE"
-}
+Write-Output "CLONE_RC=$LASTEXITCODE"
