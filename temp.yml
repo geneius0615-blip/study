@@ -1,19 +1,21 @@
+# 실제 PAT 헤더 설정 확인
+$patReady = -not [string]::IsNullOrWhiteSpace($basic)
 
-$patConfigured = $false
-$authRc = "not_run"
-$fetchRc = "not_run"
-$gitStage = "INIT"
+$headerReady = (
+    $env:GIT_CONFIG_COUNT -eq "1" -and
+    $env:GIT_CONFIG_KEY_0 -eq "http.https://github.samsungds.net/.extraHeader" -and
+    $env:GIT_CONFIG_VALUE_0 -eq "Authorization: Basic $basic" -and
+    $patReady
+)
 
-
-
-# ★ 여기에 추가 ★
+$remoteHost = try {
+    ([uri]$originUrl).Host
+} catch {
+    "INVALID_URL"
+}
 
 Write-Output "IS_PROD=$isProd"
-
-Write-Output "PAT_CONFIGURED=$patConfigured"
-
-Write-Output "AUTH_PRECHECK_RC=$authRc"
-
-Write-Output "FETCH_RC=$fetchRc"
-
-Write-Output "FAILED_STAGE=$gitStage"
+Write-Output "PAT_READY=$patReady"
+Write-Output "HEADER_READY=$headerReady"
+Write-Output "ORIGIN_HOST=$remoteHost"
+Write-Output "GIT_AUTH_ARGS_COUNT=$($gitAuthArgs.Count)"
