@@ -1,8 +1,14 @@
-- name: Download imap.gateway sparse source
-  win_shell: |
-    # 기존 PowerShell 코드 전체 그대로 유지
-
-  register: git_download_result
-  no_log: true
-  failed_when: false
-  changed_when: "'download_changed' in (git_download_result.stdout | default(''))"
+- name: Show safe Git download result
+  debug:
+    msg: >-
+      {{
+        git_download_result.stdout_lines
+        | default([])
+        | map('trim')
+        | select(
+            'match',
+            '^(IS_PROD=(True|False)|PAT_CONFIGURED=(True|False)|AUTH_PRECHECK_RC=(-?[0-9]+|not_run|not_found)|FETCH_RC=(-?[0-9]+|not_run|not_found)|FAILED_STAGE=[A-Za-z_]+|RC=-?[0-9]+)$'
+          )
+        | list
+      }}
+  no_log: false
