@@ -1,14 +1,1 @@
-Write-Output "DIAG_POINT=START"
-
-$gitStage = "AUTH_PRECHECK"
-Write-Output "DIAG_POINT=BEFORE_AUTH"
-
-Write-Output "DIAG_POINT=AFTER_AUTH"
-
-- name: Show safe Git download result
-  debug:
-    msg:
-      - "TASK_RC={{ git_download_result.rc | default('NO_RC') }}"
-      - "DIAG_POINTS={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^DIAG_POINT=(START|BEFORE_AUTH|AFTER_AUTH)$') | list }}"
-      - "STDOUT_COUNT={{ git_download_result.stdout_lines | default([]) | length }}"
-  no_log: false
+$isProd = "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}" -eq "true"
