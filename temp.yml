@@ -1,3 +1,11 @@
+
+$patConfigured = $false
+$authRc = "not_run"
+$fetchRc = "not_run"
+$gitStage = "INIT"
+
+
+
 # ★ 여기에 추가 ★
 
 Write-Output "IS_PROD=$isProd"
