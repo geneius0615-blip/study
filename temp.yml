@@ -1,28 +1,8 @@
-# ① 다운로드 실행 전
-- name: Check gateway download conditions
-  debug:
-    msg:
-      - "HOST={{ inventory_hostname }}"
-      - "PROD_MATCH={{ inventory_hostname in ['운영1_IP', '운영2_IP'] }}"
-      - "BRANCH={{ imap_repo_branch | default('UNDEFINED') }}"
-  no_log: false
-
-
-# ② 기존 Git 다운로드 Task (그대로 유지)
 - name: Download imap.gateway sparse source
   win_shell: |
-    # 현재 사용 중인 PowerShell 코드
+    # 기존 PowerShell 코드 전체 그대로 유지
+
   register: git_download_result
   no_log: true
   failed_when: false
-
-
-# ③ 다운로드 실행 후
-- name: Check gateway download execution
-  debug:
-    msg:
-      - "REGISTERED={{ git_download_result is defined }}"
-      - "RC={{ (git_download_result | default({})).rc | default('NO_RC') }}"
-      - "SKIPPED={{ (git_download_result | default({})).skipped | default(false) }}"
-      - "STDOUT_COUNT={{ (git_download_result | default({})).stdout_lines | default([]) | length }}"
-  no_log: false
+  changed_when: "'download_changed' in (git_download_result.stdout | default(''))"
