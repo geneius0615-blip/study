@@ -1,12 +1,22 @@
-$env:GIT_TERMINAL_PROMPT = "0"
-$env:GCM_INTERACTIVE = "0"
+$cred = Get-Credential "$env:COMPUTERNAME\appuser"
 
-$target = Join-Path $env:TEMP (
-    "ifcopenshell-check-" + [guid]::NewGuid().ToString("N")
-)
+Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
 
-git clone --filter=blob:none `
-    "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-    $target
+    Write-Output "USER=$(whoami)"
+    Write-Output "PROFILE=$env:USERPROFILE"
 
-Write-Output "CLONE_RC=$LASTEXITCODE"
+    git config --global --get credential.credentialStore
+
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "0"
+
+    $target = Join-Path $env:TEMP (
+        "ifcopenshell-winrm-" + [guid]::NewGuid().ToString("N")
+    )
+
+    git clone --filter=blob:none `
+        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+        $target
+
+    Write-Output "CLONE_RC=$LASTEXITCODE"
+}
