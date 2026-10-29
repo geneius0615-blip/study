@@ -1,19 +1,9 @@
-$cred = Get-Credential "appuser"
+whoami
 
-Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+git config --global --get credential.credentialStore
 
-    $env:GIT_TERMINAL_PROMPT = "0"
-    $env:GCM_INTERACTIVE = "Never"
+$env:USERPROFILE
 
-    $target = Join-Path $env:TEMP (
-        "imap-winrm-" + [guid]::NewGuid().ToString("N")
-    )
+$env:GCM_CREDENTIAL_STORE
 
-    git -c http.sslBackend=schannel `
-        -c http.sslVerify=true `
-        clone --filter=blob:none `
-        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-        $target
-
-    Write-Output "CLONE_RC=$LASTEXITCODE"
-}
+$env:GCM_DPAPI_STORE_PATH
