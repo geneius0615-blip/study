@@ -1,14 +1,16 @@
-- name: Check IMAP pip execution environment
-  win_shell: |
-    whoami
-    Write-Output "PROFILE=$env:USERPROFILE"
-    Write-Output "TEMP=$env:TEMP"
-    Write-Output "GCM_STORE=$env:GCM_CREDENTIAL_STORE"
-    Write-Output "GIT_CONFIG_GLOBAL=$env:GIT_CONFIG_GLOBAL"
-    (Get-Command git).Source
-    git config --global --get credential.credentialStore
-  register: pip_env_check
+finally {
+    if ($isProd) {
 
-- name: Show IMAP pip environment
-  debug:
-    var: pip_env_check.stdout_lines
+        for ($i = 0; $i -lt 3; $i++) {
+            Remove-Item "Env:\GIT_CONFIG_KEY_$i" `
+                -ErrorAction SilentlyContinue
+
+            Remove-Item "Env:\GIT_CONFIG_VALUE_$i" `
+                -ErrorAction SilentlyContinue
+        }
+
+        Remove-Item Env:\GIT_CONFIG_COUNT -ErrorAction SilentlyContinue
+        Remove-Item Env:\GIT_TERMINAL_PROMPT -ErrorAction SilentlyContinue
+        Remove-Item Env:\GCM_INTERACTIVE -ErrorAction SilentlyContinue
+    }
+}
