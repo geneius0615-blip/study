@@ -1,21 +1,17 @@
-$gitUser = Read-Host "GitHub 사용자 ID"
-$securePat = Read-Host "GitHub PAT" -AsSecureString
+$cred = Get-Credential "운영2_서버명\appuser"
 
-$pat = [PSCredential]::new(
-    $gitUser, $securePat
-).GetNetworkCredential().Password
+Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
 
-try {
-    @(
-        "protocol=https"
-        "host=github.samsungds.net"
-        "username=$gitUser"
-        "password=$pat"
-        ""
-    ) | git credential approve
+    $env:GIT_TERMINAL_PROMPT = "0"
+    $env:GCM_INTERACTIVE = "0"
 
-    Write-Output "SAVE_RC=$LASTEXITCODE"
-}
-finally {
-    Remove-Variable pat, securePat -ErrorAction SilentlyContinue
+    $target = Join-Path $env:TEMP (
+        "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
+    )
+
+    git clone --filter=blob:none `
+        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
+        $target
+
+    Write-Output "CLONE_RC=$LASTEXITCODE"
 }
