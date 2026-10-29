@@ -1,21 +1,6 @@
-# 실제 PAT 헤더 설정 확인
-$patReady = -not [string]::IsNullOrWhiteSpace($basic)
-
-$headerReady = (
-    $env:GIT_CONFIG_COUNT -eq "1" -and
-    $env:GIT_CONFIG_KEY_0 -eq "http.https://github.samsungds.net/.extraHeader" -and
-    $env:GIT_CONFIG_VALUE_0 -eq "Authorization: Basic $basic" -and
-    $patReady
+$prodIps = @(
+    "운영1_IP",
+    "운영2_IP"
 )
 
-$remoteHost = try {
-    ([uri]$originUrl).Host
-} catch {
-    "INVALID_URL"
-}
-
-Write-Output "IS_PROD=$isProd"
-Write-Output "PAT_READY=$patReady"
-Write-Output "HEADER_READY=$headerReady"
-Write-Output "ORIGIN_HOST=$remoteHost"
-Write-Output "GIT_AUTH_ARGS_COUNT=$($gitAuthArgs.Count)"
+$isProd = $prodIps -contains $serverIp
