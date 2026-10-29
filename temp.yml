@@ -2,6 +2,25 @@
   debug:
     msg:
       - "TASK_RC={{ git_download_result.rc | default('NO_RC') }}"
+
+      - >-
+        FAILED_STAGE={{
+          (git_download_result.stdout | default(''))
+          | regex_findall('(?i)FAILED_STAGE\s*=\s*(?:\[\s*FAILED_STAGE\s*=\s*)?(PAT_FILE|READ_PAT|READ_ORIGIN|AUTH_PRECHECK|FETCH|CHECKOUT|INIT|NONE)')
+        }}
+
+      - >-
+        AUTH_RC={{
+          (git_download_result.stdout | default(''))
+          | regex_findall('(?i)AUTH_(?:CHECK|PRECHECK_RC)\s*=\s*(?:\[\s*AUTH_(?:CHECK|PRECHECK_RC)\s*=\s*)?(-?[0-9]+|not_run|not_found)')
+        }}
+
+      - >-
+        FETCH_RC={{
+          (git_download_result.stdout | default(''))
+          | regex_findall('(?i)FETCH(?:_RC)?\s*=\s*(?:\[\s*FETCH(?:_RC)?\s*=\s*)?(-?[0-9]+|not_run|not_found)')
+        }}
+
       - "STDOUT_COUNT={{ git_download_result.stdout_lines | default([]) | length }}"
-      - "SAFE_MARKERS={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^(IS_PROD=(True|False)|PAT_CONFIGURED=(True|False)|AUTH_CHECK=(not_run|not_found|-?[0-9]+)|AUTH_PRECHECK_RC=(not_run|not_found|-?[0-9]+)|FETCH=(not_run|not_found|-?[0-9]+)|FETCH_RC=(not_run|not_found|-?[0-9]+)|FAILED_STAGE=[A-Za-z0-9_]+|RC=-?[0-9]+)$') | list }}"
+
   no_log: false
