@@ -1,12 +1,7 @@
 - name: Show safe Git download result
   debug:
-    msg: >-
-      {{
-        git_download_result.stdout_lines
-        | default([])
-        | select(
-            'match',
-            '^(IS_PROD|PAT_CONFIGURED|AUTH_PRECHECK_RC|FETCH_RC|FAILED_STAGE|RC)='
-          )
-        | list
-      }}
+    msg:
+      - "RC={{ git_download_result.rc | default('undefined') }}"
+      - "STDOUT_COUNT={{ git_download_result.stdout_lines | default([]) | length }}"
+      - "STDERR_COUNT={{ git_download_result.stderr_lines | default([]) | length }}"
+      - "SKIPPED={{ git_download_result.skipped | default(false) }}"
