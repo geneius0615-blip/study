@@ -21,3 +21,6 @@ if ($authRc -ne 0) {
     $gitStage = "AUTH_PRECHECK"
     throw "AUTH_PRECHECK_FAILED"
 }
+
+
+- "HEADER_APPLIED={{ git_download_result.stdout_lines | default([]) | map('trim') | select('match', '^HEADER_APPLIED=(True|False)$') | list }}"
