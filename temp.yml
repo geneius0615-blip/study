@@ -1,31 +1,4 @@
-$procs = @(Get-CimInstance Win32_Process)
-
-$procs |
-Where-Object {
-    $_.Name -in @('python.exe', 'git.exe')
-} |
-ForEach-Object {
-    $p = $_
-    $parent = $procs |
-        Where-Object { $_.ProcessId -eq $p.ParentProcessId } |
-        Select-Object -First 1
-
-    $role = if ($p.CommandLine -match '\b-m\s+pip\b') {
-        'PIP'
-    }
-    elseif ($p.CommandLine -match '\bclone\b') {
-        'GIT_CLONE'
-    }
-    else {
-        'OTHER'
-    }
-
-    [PSCustomObject]@{
-        Process = $p.Name
-        PID = $p.ProcessId
-        ParentPID = $p.ParentProcessId
-        ParentName = $parent.Name
-        Role = $role
-        SessionId = $p.SessionId
-    }
-} | Format-Table -AutoSize
+Get-CimInstance Win32_Process -Filter "Name='git.exe'" |
+    Sort-Object CreationDate |
+    Select-Object ProcessId, ParentProcessId, CreationDate, ExecutablePath |
+    Format-Table -AutoSize
