@@ -1,3 +1,12 @@
+
+- name: Check Windows credential variables
+  debug:
+    msg:
+      - "ANSIBLE_PASSWORD={{ ansible_password is defined }}"
+      - "ANSIBLE_SSH_PASS={{ ansible_ssh_pass is defined }}"
+  when: inventory_hostname == '운영1_IP'
+
+
 - name: Test production runas session
   win_whoami:
   become: yes
