@@ -1,20 +1,15 @@
-$env:GIT_CONFIG_COUNT = "1"
+$cloneDir = Join-Path $env:TEMP (
+    "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
+)
 
-Remove-Item Env:\GIT_CONFIG_KEY_1 -ErrorAction SilentlyContinue
-Remove-Item Env:\GIT_CONFIG_VALUE_1 -ErrorAction SilentlyContinue
-
-
-
-& git ls-remote `
+& git clone --filter=blob:none --quiet `
     "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-    HEAD 1>$null 2>$null
+    $cloneDir 1>$null 2>$null
 
-$gitRc = $LASTEXITCODE
+$cloneRc = $LASTEXITCODE
 
-Write-Output "IFCOPENSHELL_PRECHECK_RC=$gitRc"
+Write-Output "IFCOPENSHELL_CLONE_RC=$cloneRc"
 
-if ($gitRc -ne 0) {
-    throw "IFCOPENSHELL_AUTH_PRECHECK_FAILED"
+if (Test-Path $cloneDir) {
+    Remove-Item $cloneDir -Recurse -Force
 }
-
-# 기존 pip install 명령은 이 아래에 유지
