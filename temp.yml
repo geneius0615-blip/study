@@ -1,22 +1,29 @@
-$cred = Get-Credential "$env:COMPUTERNAME\appuser"
+# 운영 서버 여부
+$isProd = "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}" -eq "true"
 
-Invoke-Command -ComputerName localhost -Credential $cred -ScriptBlock {
+if ($isProd) {
 
-    Write-Output "USER=$(whoami)"
-    Write-Output "PROFILE=$env:USERPROFILE"
+    # 기존 운영 서버의 PAT 파일
+    $pat = (Get-Content "C:\ProgramData\IMAPDeploy\git-pat.txt" -Raw).Trim()
 
-    git config --global --get credential.credentialStore
+    # GitHub 인증 헤더 생성
+    $auth = "x-access-token:$pat"
+    $basic = [Convert]::ToBase64String(
+        [System.Text.Encoding]::UTF8.GetBytes($auth)
+    )
+
+    # pip 내부에서 실행되는 Git에도 PAT 적용
+    $env:GIT_CONFIG_COUNT = "2"
+
+    $env:GIT_CONFIG_KEY_0 = "http.https://github.samsungds.net/.extraHeader"
+    $env:GIT_CONFIG_VALUE_0 = "Authorization: Basic $basic"
+
+    # DPAPI Credential Helper 사용 방지
+    $env:GIT_CONFIG_KEY_1 = "credential.helper"
+    $env:GIT_CONFIG_VALUE_1 = ""
 
     $env:GIT_TERMINAL_PROMPT = "0"
     $env:GCM_INTERACTIVE = "0"
-
-    $target = Join-Path $env:TEMP (
-        "ifcopenshell-winrm-" + [guid]::NewGuid().ToString("N")
-    )
-
-    git clone --filter=blob:none `
-        "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-        $target
-
-    Write-Output "CLONE_RC=$LASTEXITCODE"
 }
+
+# 바로 아래에서 기존 pip install 명령 실행
