@@ -6,3 +6,14 @@
   become_flags: logon_type=interactive
   register: runas_test
   when: inventory_hostname == '운영1_IP'
+
+
+- name: Show production runas result
+  debug:
+    msg:
+      - "LOGON_TYPE={{ runas_test.logon_type | default('UNKNOWN') }}"
+      - "USER={{ runas_test.account.account_name | default('UNKNOWN') }}"
+  when:
+    - inventory_hostname == '운영1_IP'
+    - runas_test is defined
+    - not (runas_test.skipped | default(false))
