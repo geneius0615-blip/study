@@ -10,3 +10,12 @@ Select-Object ProcessId, CreationDate, ExecutablePath |
 Format-Table -AutoSize
 
 Write-Output "STALE_COUNT=$($stale.Count)"
+
+
+$stale | ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction Continue
+}
+
+
+
+Get-Process git -ErrorAction SilentlyContinue
