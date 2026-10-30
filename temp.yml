@@ -1,13 +1,20 @@
-whoami
+Get-CimInstance Win32_Process |
+Where-Object {
+    $_.Name -in @(
+        'wsmprovhost.exe',
+        'python.exe',
+        'git.exe',
+        'git-remote-https.exe'
+    )
+} |
+ForEach-Object {
+    $owner = $_.GetOwner()
 
-$env:USERPROFILE
-
-where.exe git
-
-git config --show-origin --get-all credential.helper
-
-git config --show-origin --get credential.credentialStore
-
-$env:GCM_CREDENTIAL_STORE
-
-Test-Path "$env:USERPROFILE\.gcm\dpapi_store"
+    [PSCustomObject]@{
+        Process = $_.Name
+        PID = $_.ProcessId
+        ParentPID = $_.ParentProcessId
+        User = "$($owner.Domain)\$($owner.User)"
+        SessionId = $_.SessionId
+    }
+} | Format-Table -AutoSize
