@@ -1,165 +1,103 @@
----
-# =============================================================================
-# Python
-# =============================================================================
+imap_requirements_with_pat_ps: |
+  function Invoke-ImapRequirementsInstall {
+      param(
+          [string]$Python,
+          [string]$Wheelhouse,
+          [string]$RequirementsFile,
+          [string]$Production
+      )
 
-python_executable: C:\Users\appuser\AppData\Local\Programs\Python\Python311\python.exe
-python_required_version: "3.11"
+      $tempConfig = $null
+      $envNames = @(
+          "GIT_CONFIG_GLOBAL",
+          "GIT_CONFIG_COUNT",
+          "GIT_CONFIG_KEY_0",
+          "GIT_CONFIG_VALUE_0",
+          "GIT_TERMINAL_PROMPT",
+          "GCM_INTERACTIVE"
+      )
 
-# =============================================================================
-# Git
-# =============================================================================
+      $savedEnv = @{}
+      foreach ($name in $envNames) {
+          $savedEnv[$name] = [Environment]::GetEnvironmentVariable(
+              $name, "Process"
+          )
+      }
 
-git_executable: git.exe
+      try {
+          if ($Production -eq "true") {
 
-# Git 명령 실행 계정의 사용자 프로필
-# _netrc 파일은 이 경로 아래에 존재
-deploy_user_profile: C:\Users\appuser
+              $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
 
-# 실제 모노레포 Git 주소 유지
-imap_repo_url: https://실제-Git-주소/imap.git
-imap_repo_branch: main
+              if (-not (Test-Path -LiteralPath $patFile)) {
+                  throw "GIT_PAT_FILE_NOT_FOUND"
+              }
 
-# =============================================================================
-# IMAP monorepo source
-# =============================================================================
+              $pat = [IO.File]::ReadAllText($patFile).Trim()
 
-imap_source_dir: E:\digital-twin-studio\imap\source
-imap_apps_dir: E:\digital-twin-studio\imap\source\apps
-imap_packages_dir: E:\digital-twin-studio\imap\source\packages
-imap_scripts_dir: E:\digital-twin-studio\imap\source\scripts
+              if ([string]::IsNullOrWhiteSpace($pat)) {
+                  throw "GIT_PAT_EMPTY"
+              }
 
-# sparse-checkout으로 가져올 Git 내부 상대 경로
-imap_sparse_paths:
-  - apps/imap-orchestrator
-  - packages/imap-shared
-  - packages/imap-core
-  - packages/imap-plugin
-  - packages/imap-command
-  - scripts
+              $gitUser = "{{ imap_git_username }}"
 
-# =============================================================================
-# Application source
-# =============================================================================
+              $basic = [Convert]::ToBase64String(
+                  [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
+              )
 
-imap_orchestrator_source_dir: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
+              $originalConfig = $savedEnv["GIT_CONFIG_GLOBAL"]
 
-# =============================================================================
-# Package sources
-# =============================================================================
+              if (-not $originalConfig) {
+                  $originalConfig = Join-Path $env:USERPROFILE ".gitconfig"
+              }
 
-imap_shared_source_dir: E:\digital-twin-studio\imap\source\packages\imap-shared
-imap_core_source_dir: E:\digital-twin-studio\imap\source\packages\imap-core
-imap_plugin_source_dir: E:\digital-twin-studio\imap\source\packages\imap-plugin
-imap_command_source_dir: E:\digital-twin-studio\imap\source\packages\imap-command
+              $tempConfig = Join-Path $env:TEMP (
+                  "imap-git-" + [guid]::NewGuid().ToString("N") + ".config"
+              )
 
-# =============================================================================
-# Requirements files
-# =============================================================================
+              $lines = @()
 
-imap_orchestrator_requirements_file: E:\digital-twin-studio\imap\source\apps\imap-orchestrator\requirements.txt
-imap_shared_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-shared\requirements.txt
-imap_core_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-core\requirements.txt
-imap_plugin_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-plugin\requirements.txt
-imap_command_requirements_file: E:\digital-twin-studio\imap\source\packages\imap-command\requirements.txt
+              if (Test-Path -LiteralPath $originalConfig) {
+                  $configPath = $originalConfig.Replace('\', '/')
+                  $lines += "[include]"
+                  $lines += "    path = `"$configPath`""
+              }
 
-imap_requirements_files:
-  - name: imap-shared
-    path: "{{ imap_shared_requirements_file }}"
+              $lines += "[credential]"
+              $lines += "    helper ="
 
-  - name: imap-core
-    path: "{{ imap_core_requirements_file }}"
+              [IO.File]::WriteAllLines(
+                  $tempConfig,
+                  [string[]]$lines,
+                  [Text.UTF8Encoding]::new($false)
+              )
 
-  - name: imap-plugin
-    path: "{{ imap_plugin_requirements_file }}"
+              $env:GIT_CONFIG_GLOBAL = $tempConfig
+              $env:GIT_CONFIG_COUNT = "1"
 
-  - name: imap-command
-    path: "{{ imap_command_requirements_file }}"
+              $env:GIT_CONFIG_KEY_0 = "http.https://github.samsungds.net/.extraHeader"
+              $env:GIT_CONFIG_VALUE_0 = "Authorization: Basic $basic"
 
-  - name: imap-orchestrator
-    path: "{{ imap_orchestrator_requirements_file }}"
+              $env:GIT_TERMINAL_PROMPT = "0"
+              $env:GCM_INTERACTIVE = "0"
+          }
 
-# =============================================================================
-# Wheelhouse
-# =============================================================================
+          & $Python -X utf8 -m pip install --find-links $Wheelhouse -r $RequirementsFile | Out-Host
 
-python_wheelhouse_dir: E:\digital-twin-studio\imap\source\wheelhouse
+          return [int]$LASTEXITCODE
+      }
+      finally {
+          foreach ($name in $envNames) {
+              [Environment]::SetEnvironmentVariable(
+                  $name, $savedEnv[$name], "Process"
+              )
+          }
 
-# =============================================================================
-# IMAP orchestrator runtime
-# =============================================================================
+          if ($tempConfig) {
+              Remove-Item -LiteralPath $tempConfig `
+                  -Force -ErrorAction SilentlyContinue
+          }
 
-imap_orchestrator_home: E:\Deploy\Python\imap-orchestrator
-imap_orchestrator_venv_dir: E:\Deploy\Python\imap-orchestrator\.venv
-imap_orchestrator_logs_dir: E:\Deploy\Python\imap-orchestrator\logs
-
-# =============================================================================
-# Python source paths
-# =============================================================================
-
-# orchestrator의 실제 Python 패키지는 src 아래에 존재
-imap_orchestrator_python_path: "{{ imap_orchestrator_source_dir }}\\src"
-
-# 내부 패키지는 각 저장소의 src 디렉터리를 import 경로로 사용
-imap_shared_python_path: "{{ imap_shared_source_dir }}\\src"
-imap_core_python_path: "{{ imap_core_source_dir }}\\src"
-imap_plugin_python_path: "{{ imap_plugin_source_dir }}\\src"
-imap_command_python_path: "{{ imap_command_source_dir }}\\src"
-
-# Git에서 받은 소스 경로를 PYTHONPATH로 참조
-imap_orchestrator_python_paths:
-  - "{{ imap_orchestrator_python_path }}"
-  - "{{ imap_shared_python_path }}"
-  - "{{ imap_core_python_path }}"
-  - "{{ imap_plugin_python_path }}"
-  - "{{ imap_command_python_path }}"
-
-# install_check 단계에서 확인할 내부 Python 모듈
-imap_orchestrator_import_modules:
-  - imap_orchestrator
-  - imap_shared
-  - imap_core
-  - imap_plugin
-  - imap_command
-
-# =============================================================================
-# IMAP orchestrator run batch
-# =============================================================================
-
-# orchestrator 실행을 담당하는 배치 파일
-# Python 및 run.py 실행은 이 배치 파일 내부에서 처리
-imap_orchestrator_run_batch: E:\digital-twin-studio\imap\source\scripts\run.bat
-
-# =============================================================================
-# IMAP orchestrator service environment
-# =============================================================================
-
-# NSSM이 서비스 시작 시 cmd.exe에 주입
-# run.bat 내부에서는 %MY_MODE%로 사용
-imap_orchestrator_my_mode: dev
-
-# =============================================================================
-# Windows service
-# =============================================================================
-
-# 실제 서버의 NSSM 절대 경로
-nssm_executable: 'E:\Tools\nssm\nssm.exe'
-
-imap_orchestrator_service_name: imap-orchestrator
-
-# NSSM은 cmd.exe를 실행하고 cmd.exe가 run.bat를 호출
-imap_orchestrator_service_application: C:\Windows\System32\cmd.exe
-
-# cmd.exe와 run.bat의 작업 디렉터리
-imap_orchestrator_service_app_directory: E:\digital-twin-studio\imap\source\apps\imap-orchestrator
-
-# 서비스 로그
-imap_orchestrator_stdout_log: E:\Deploy\Python\imap-orchestrator\logs\imap-orchestrator-stdout.log
-imap_orchestrator_stderr_log: E:\Deploy\Python\imap-orchestrator\logs\imap-orchestrator-stderr.log
-
-# =============================================================================
-# Network and health check
-# =============================================================================
-
-imap_orchestrator_port: 8000
-imap_orchestrator_healthcheck_url: http://127.0.0.1:8000/health
+          Remove-Variable pat,basic -ErrorAction SilentlyContinue
+      }
+  }
