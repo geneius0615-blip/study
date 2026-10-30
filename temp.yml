@@ -1,15 +1,14 @@
-$cloneDir = Join-Path $env:TEMP (
-    "ifcopenshell-test-" + [guid]::NewGuid().ToString("N")
-)
+Write-Output "PYTHON=$python"
+Write-Output "REQUIREMENTS=$requirementFile"
 
-& git clone --filter=blob:none --quiet `
-    "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git" `
-    $cloneDir 1>$null 2>$null
+Get-Content -LiteralPath $requirementFile |
+    Where-Object { $_ -match 'ifcopenshell' } |
+    ForEach-Object {
+        $safeLine = $_ -replace '(?i)(https?://)[^/\s@]+@', '$1***@'
+        Write-Output "IFCOPENSHELL_REQ=$safeLine"
+    }
 
-$cloneRc = $LASTEXITCODE
+# 기존 설치 명령
+& $python -X utf8 -m pip install --find-links $wheelhouse -r $requirementFile
 
-Write-Output "IFCOPENSHELL_CLONE_RC=$cloneRc"
-
-if (Test-Path $cloneDir) {
-    Remove-Item $cloneDir -Recurse -Force
-}
+Write-Output "PIP_RC=$LASTEXITCODE"
