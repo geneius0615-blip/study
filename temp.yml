@@ -1,22 +1,13 @@
-$testCode = @'
-import subprocess
-import tempfile
-import shutil
+whoami
 
-url = "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git"
-target = tempfile.mkdtemp(prefix="imap-git-check-")
+$env:USERPROFILE
 
-shutil.rmtree(target)
+where.exe git
 
-try:
-    result = subprocess.run(
-        ["git", "clone", "--filter=blob:none", "--quiet", url, target],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    print("PYTHON_GIT_CLONE_RC=" + str(result.returncode))
-finally:
-    shutil.rmtree(target, ignore_errors=True)
-'@
+git config --show-origin --get-all credential.helper
 
-& $python -c $testCode
+git config --show-origin --get credential.credentialStore
+
+$env:GCM_CREDENTIAL_STORE
+
+Test-Path "$env:USERPROFILE\.gcm\dpapi_store"
