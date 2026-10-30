@@ -1,27 +1,2 @@
-$stale = @(
-    Get-CimInstance Win32_Process -Filter "Name='git.exe'" |
-    Where-Object {
-        $_.CreationDate -lt [datetime]'2026-10-28'
-    }
-)
-
-$stale |
-Select-Object ProcessId, CreationDate, ExecutablePath |
-Format-Table -AutoSize
-
-Write-Output "STALE_COUNT=$($stale.Count)"
-
-
-$stale | ForEach-Object {
-    Stop-Process -Id $_.ProcessId -Force -ErrorAction Continue
-}
-
-
-
-Get-Process git -ErrorAction SilentlyContinue
-
-
-Get-CimInstance Win32_Process -Filter "Name='git.exe'" |
-    Sort-Object CreationDate |
-    Select-Object ProcessId, ParentProcessId, CreationDate, ExecutablePath |
-    Format-Table -AutoSize
+Get-CimInstance Win32_Service -Filter "Name='seclogon'" |
+    Select-Object Name, State, StartMode
