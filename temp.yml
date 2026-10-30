@@ -8,13 +8,15 @@ Where-Object {
     )
 } |
 ForEach-Object {
-    $owner = $_.GetOwner()
+
+    $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwner
 
     [PSCustomObject]@{
-        Process = $_.Name
-        PID = $_.ProcessId
+        Process   = $_.Name
+        PID       = $_.ProcessId
         ParentPID = $_.ParentProcessId
-        User = "$($owner.Domain)\$($owner.User)"
+        User      = "$($owner.Domain)\$($owner.User)"
         SessionId = $_.SessionId
     }
+
 } | Format-Table -AutoSize
