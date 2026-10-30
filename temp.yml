@@ -1,14 +1,22 @@
-Write-Output "PYTHON=$python"
-Write-Output "REQUIREMENTS=$requirementFile"
+$testCode = @'
+import subprocess
+import tempfile
+import shutil
 
-Get-Content -LiteralPath $requirementFile |
-    Where-Object { $_ -match 'ifcopenshell' } |
-    ForEach-Object {
-        $safeLine = $_ -replace '(?i)(https?://)[^/\s@]+@', '$1***@'
-        Write-Output "IFCOPENSHELL_REQ=$safeLine"
-    }
+url = "https://github.samsungds.net/digital-twin-studio/ifcopenshell.git"
+target = tempfile.mkdtemp(prefix="imap-git-check-")
 
-# 기존 설치 명령
-& $python -X utf8 -m pip install --find-links $wheelhouse -r $requirementFile
+shutil.rmtree(target)
 
-Write-Output "PIP_RC=$LASTEXITCODE"
+try:
+    result = subprocess.run(
+        ["git", "clone", "--filter=blob:none", "--quiet", url, target],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    print("PYTHON_GIT_CLONE_RC=" + str(result.returncode))
+finally:
+    shutil.rmtree(target, ignore_errors=True)
+'@
+
+& $python -c $testCode
