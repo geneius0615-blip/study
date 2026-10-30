@@ -1,2 +1,8 @@
-Get-CimInstance Win32_Service -Filter "Name='seclogon'" |
-    Select-Object Name, State, StartMode
+- name: Test production runas session
+  win_whoami:
+  become: yes
+  become_method: runas
+  become_user: '.\appuser'
+  become_flags: logon_type=interactive
+  register: runas_test
+  when: inventory_hostname == '운영1_IP'
