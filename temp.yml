@@ -1,100 +1,13 @@
-$isProd = "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}" -eq "true"
+{{ imap_requirements_with_pat_ps }}
 
-$gitConfigTemp = $null
-$originalGlobal = $env:GIT_CONFIG_GLOBAL
+$pipRc = Invoke-ImapRequirementsInstall `
+    -Python $python `
+    -Wheelhouse $wheelhouse `
+    -RequirementsFile $requirementsFile `
+    -Production "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}"
 
-try {
-    if ($isProd) {
+Write-Output "REQUIREMENTS_PIP_RC=$pipRc"
 
-        # 기존 PAT 파일
-        $patFile = "C:\ProgramData\IMAPDeploy\git-pat.txt"
-
-        if (-not (Test-Path -LiteralPath $patFile)) {
-            throw "GIT_PAT_FILE_NOT_FOUND"
-        }
-
-        $pat = (Get-Content -LiteralPath $patFile -Raw).Trim()
-        if (-not $pat) {
-            throw "GIT_PAT_EMPTY"
-        }
-
-        # 정상 다운로드 Task와 동일한 Git 계정 사용
-        $gitUser = "{{ imap_git_username }}"
-
-        $basic = [Convert]::ToBase64String(
-            [Text.Encoding]::UTF8.GetBytes("${gitUser}:$pat")
-        )
-
-        # 기존 Git 사용자 설정 보존
-        $globalConfig = $originalGlobal
-
-        if (-not $globalConfig) {
-            $globalConfig = Join-Path $env:USERPROFILE ".gitconfig"
-        }
-
-        # 임시 Git 설정 파일: Credential Helper만 초기화
-        $gitConfigTemp = Join-Path $env:TEMP (
-            "imap-git-" + [guid]::NewGuid().ToString("N") + ".config"
-        )
-
-        $configLines = @()
-
-        if (Test-Path -LiteralPath $globalConfig) {
-            $configLines += "[include]"
-            $configLines += "    path = $($globalConfig.Replace('\', '/'))"
-        }
-
-        $configLines += "[credential]"
-        $configLines += "    helper ="
-
-        [IO.File]::WriteAllLines(
-            $gitConfigTemp,
-            $configLines,
-            [Text.UTF8Encoding]::new($false)
-        )
-
-        $env:GIT_CONFIG_GLOBAL = $gitConfigTemp
-
-        # pip 내부 Git에 PAT 헤더 전달
-        $env:GIT_CONFIG_COUNT = "1"
-        $env:GIT_CONFIG_KEY_0 = "http.https://github.samsungds.net/.extraHeader"
-        $env:GIT_CONFIG_VALUE_0 = "Authorization: Basic $basic"
-
-        $env:GIT_TERMINAL_PROMPT = "0"
-        $env:GCM_INTERACTIVE = "0"
-
-        Write-Output "GIT_PAT_READY=True"
-    }
-
-    # 기존 pip 설치
-    & $python -X utf8 -m pip install --find-links $wheelhouse -r $requirementsFile
-
-    $pipRc = $LASTEXITCODE
-
-    Write-Output "REQUIREMENTS_PIP_RC=$pipRc"
-
-    if ($pipRc -ne 0) {
-        throw "REQUIREMENTS_INSTALL_FAILED RC=$pipRc"
-    }
-}
-finally {
-    # 임시 Git 설정 삭제
-    if ($gitConfigTemp) {
-        Remove-Item -LiteralPath $gitConfigTemp -Force -ErrorAction SilentlyContinue
-    }
-
-    if ($isProd) {
-        if ($originalGlobal) {
-            $env:GIT_CONFIG_GLOBAL = $originalGlobal
-        }
-        else {
-            Remove-Item Env:\GIT_CONFIG_GLOBAL -ErrorAction SilentlyContinue
-        }
-
-        Remove-Item Env:\GIT_CONFIG_COUNT -ErrorAction SilentlyContinue
-        Remove-Item Env:\GIT_CONFIG_KEY_0 -ErrorAction SilentlyContinue
-        Remove-Item Env:\GIT_CONFIG_VALUE_0 -ErrorAction SilentlyContinue
-
-        Remove-Variable pat,basic -ErrorAction SilentlyContinue
-    }
+if ($pipRc -ne 0) {
+    throw "REQUIREMENTS_INSTALL_FAILED RC=$pipRc"
 }
