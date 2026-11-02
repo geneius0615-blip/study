@@ -1,157 +1,24 @@
-
-@echo off
-setlocal EnableExtensions DisableDelayedExpansion
-
-REM =====================================
-REM IMAP GIT UPDATE + SONARQUBE SCANNER
-REM =====================================
-
-REM Java 21
-set "JAVA_HOME=E:\Tools\jdk-21"
-set "PATH=%JAVA_HOME%\bin;%PATH%"
-
-REM SonarScanner
-set "SCANNER=E:\Tools\sonar-scanner\bin\sonar-scanner.bat"
-
-REM SonarQube
-set "SONAR_HOST=http://127.0.0.1:9000/sonar-qube"
-set "SONAR_TOKEN=여기에_실제_토큰"
-
-REM Network
-set "NO_PROXY=127.0.0.1,localhost"
-set "GIT_TERMINAL_PROMPT=0"
-
-REM Check scanner
-if not exist "%SCANNER%" (
-    echo ERROR: SonarScanner not found.
-    exit /b 1
-)
-
-REM =====================================
-REM Select project
-REM =====================================
-
-if /I "%~1"=="imap-client" goto CLIENT
-if /I "%~1"=="imap-admin" goto ADMIN
-if /I "%~1"=="imap-edge" goto EDGE
-if /I "%~1"=="imap-source" goto SOURCE
-
-if not "%~1"=="" (
-    echo ERROR: Unknown project %~1
-    exit /b 1
-)
-
-goto ALL
-
-:CLIENT
-call :SCAN imap-client dev
-exit /b %ERRORLEVEL%
-
-:ADMIN
-call :SCAN imap-admin dev
-exit /b %ERRORLEVEL%
-
-:EDGE
-call :SCAN imap-edge dev
-exit /b %ERRORLEVEL%
-
-:SOURCE
-call :SCAN imap-source develop
-exit /b %ERRORLEVEL%
-
-REM =====================================
-REM All projects
-REM =====================================
-
-:ALL
-set "FAILED=0"
-
-call :SCAN imap-client dev
-if errorlevel 1 set /a FAILED+=1
-
-call :SCAN imap-admin dev
-if errorlevel 1 set /a FAILED+=1
-
-call :SCAN imap-edge dev
-if errorlevel 1 set /a FAILED+=1
-
-call :SCAN imap-source develop
-if errorlevel 1 set /a FAILED+=1
-
+REM Git Update
 echo.
-echo =====================================
-echo IMAP ALL SCAN COMPLETED
-echo FAILED PROJECTS: %FAILED%
-echo =====================================
+echo [STEP 1] Git Update
+echo SOURCE=%SOURCE_DIR%
+echo BRANCH=%BRANCH%
 
-if not "%FAILED%"=="0" (
-    echo Some project scans failed.
-    pause
-    exit /b 1
-)
-
-exit /b 0
-
-REM =====================================
-REM Git Update + Sonar Scan
-REM =====================================
-
-:SCAN
-
-set "PROJECT=%~1"
-set "BRANCH=%~2"
-set "SOURCE_DIR=E:\source\%~1"
-set "CURRENT_BRANCH="
-
-echo.
-echo =====================================
-echo PROJECT : %PROJECT%
-echo BRANCH  : %BRANCH%
-echo =====================================
-
-REM Check repository
-git -C "%SOURCE_DIR%" rev-parse --is-inside-work-tree >nul 2>&1
+pushd "%SOURCE_DIR%"
 if errorlevel 1 (
-    echo ERROR: Git repository not found.
-    exit /b 2
-)
-
-REM Check branch
-for /f "delims=" %%B in ('git -C "%SOURCE_DIR%" branch --show-current') do set "CURRENT_BRANCH=%%B"
-
-if /I not "%CURRENT_BRANCH%"=="%BRANCH%" (
-    echo ERROR: Incorrect Git branch.
-    echo Expected: %BRANCH%
-    echo Current : %CURRENT_BRANCH%
-    exit /b 3
-)
-
-REM Git Pull
-echo [STEP 1] Git Update...
-
-git -C "%SOURCE_DIR%" pull --ff-only origin "%BRANCH%"
-
-if errorlevel 1 (
-    echo ERROR: Git Update Failed.
+    echo ERROR: Source directory not found.
     exit /b 4
 )
 
-REM SonarScanner
-echo.
-echo [STEP 2] SonarQube Analysis...
+git pull --ff-only origin "%BRANCH%"
 
-cd /d "%SOURCE_DIR%"
-if errorlevel 1 exit /b 5
+set "GIT_RC=%ERRORLEVEL%"
 
-call "%SCANNER%" ^
- -Dsonar.projectKey=%PROJECT% ^
- -Dsonar.sources=. ^
- -Dsonar.host.url=%SONAR_HOST%
+popd
 
-set "RC=%ERRORLEVEL%"
+if not "%GIT_RC%"=="0" (
+    echo ERROR: Git Update Failed. RC=%GIT_RC%
+    exit /b 4
+)
 
-echo.
-echo PROJECT: %PROJECT%
-echo EXIT_CODE=%RC%
-
-exit /b %RC%
+echo Git Update SUCCESS
