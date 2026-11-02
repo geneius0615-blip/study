@@ -1,4 +1,1 @@
-git -C E:\source\imap-client rev-parse --is-inside-work-tree
-git -C E:\source\imap-admin rev-parse --is-inside-work-tree
-git -C E:\source\imap-edge rev-parse --is-inside-work-tree
-git -C E:\source\imap-source rev-parse --is-inside-work-tree
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=1234' | Select-Object ProcessId,ExecutablePath,CommandLine | Format-List"
