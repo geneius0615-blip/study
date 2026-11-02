@@ -1,225 +1,69 @@
 
 @echo off
-setlocal EnableExtensions DisableDelayedExpansion
+setlocal
 
-REM ==========================================
-REM SONARQUBE START / SKIP / FORCE RESTART
-REM ==========================================
-
-REM SonarQube Paths
-set "SONAR_HOME=E:\Tools\sonarqube"
-set "SONAR_BIN=%SONAR_HOME%\bin\windows-x86-64"
-
-REM Java 21
+set "SONAR_BIN=E:\Tools\sonarqube\bin\windows-x86-64"
 set "JAVA_HOME=E:\Tools\jdk-21"
 set "SONAR_JAVA_PATH=%JAVA_HOME%\bin\java.exe"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
-REM SonarQube URL
-set "SONAR_URL=http://127.0.0.1:9000/sonar-qube"
-set "STATUS_URL=%SONAR_URL%/api/system/status"
+if not exist "%SONAR_BIN%\StartSonar.bat" goto ERROR
+
+echo ============================
+echo SONARQUBE MANAGER
+echo ============================
+
+REM Check port 9000
+netstat -ano -p tcp | findstr /C:":9000 " | findstr "LISTENING" >nul
+
+if errorlevel 1 goto START_SONAR
 
 echo.
-echo ==========================================
-echo          SONARQUBE MANAGER
-echo ==========================================
+echo Port 9000 is running.
+echo [1] SKIP
+echo [2] RESTART
 echo.
 
-REM ==========================================
-REM 1. Check installation
-REM ==========================================
-
-if not exist "%SONAR_BIN%\StartSonar.bat" goto FAILED
-
-if not exist "%SONAR_JAVA_PATH%" goto FAILED
-
-REM ==========================================
-REM 2. Check current status
-REM ==========================================
-
-call :CHECK_READY
-if not errorlevel 1 goto RUNNING
-
-call :CHECK_PORT
-if not errorlevel 1 goto RUNNING
-
-REM Check if SonarQube is still starting
-call :CHECK_MAIN
-if not errorlevel 1 goto WAIT_READY
-
-goto START_SONAR
-
-
-REM ==========================================
-REM 3. Already running
-REM ==========================================
-
-:RUNNING
-
-echo SonarQube process or port detected.
-echo.
-echo [1] SKIP - Keep current process
-echo [2] RESTART - Force stop and restart
-echo.
-
-choice /C 12 /N /M "Select [1/2]: "
+choice /C 12 /N /M "Select: "
 
 if errorlevel 2 goto RESTART
 
-REM SKIP - immediately exit
-echo.
-echo SonarQube SKIPPED.
-goto SUCCESS
-
-
-REM ==========================================
-REM 4. Force restart
-REM ==========================================
-
-:RESTART
-
-echo.
-echo [STEP 1] Stopping SonarQube...
-
-REM Identify and verify SonarQube process.
-REM Prefer the main process if identifiable.
-REM Never kill an unrelated port owner.
-
-powershell.exe -NoProfile -NonInteractive -Command "$h='%SONAR_HOME%'; $ids=@(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if($ids.Count -ne 1){Write-Host 'ERROR: Port PID not found or ambiguous';exit 1}; $p=Get-CimInstance Win32_Process -Filter ('ProcessId='+$ids[0]); if(-not $p -or $p.Name -ne 'java.exe' -or $p.CommandLine -notlike ('*'+$h+'*')){Write-Host 'ERROR: Port owner is not verified SonarQube';exit 1}; $roots=@(Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'java.exe' -and $_.CommandLine -like '*org.sonar.application.App*' -and $_.CommandLine -like ('*'+$h+'*')}); $target=$p.ProcessId; if($roots.Count -eq 1){$target=$roots[0].ProcessId}; Write-Host ('Stopping PID: '+$target); & taskkill.exe /PID $target /T /F; exit $LASTEXITCODE"
-
-if errorlevel 1 goto FAILED
-
-echo Waiting for shutdown...
-
-set /a STOP_COUNT=0
-
-:WAIT_STOP
-
-call :CHECK_PORT
-if not errorlevel 1 goto STILL_STOPPING
-
-call :CHECK_MAIN
-if not errorlevel 1 goto STILL_STOPPING
-
-goto START_SONAR
-
-:STILL_STOPPING
-
-set /a STOP_COUNT+=1
-
-if %STOP_COUNT% GEQ 30 goto FAILED
-
-timeout /t 2 /nobreak >nul
-goto WAIT_STOP
-
-
-REM ==========================================
-REM 5. Start SonarQube
-REM ==========================================
-
-:START_SONAR
-
-echo.
-echo [STEP 2] Starting SonarQube...
-
-REM Launch separate hidden CMD process
-
-powershell.exe -NoProfile -NonInteractive -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c call StartSonar.bat' -WorkingDirectory '%SONAR_BIN%' -WindowStyle Hidden"
-
-if errorlevel 1 goto FAILED
-
-goto WAIT_READY
-
-
-REM ==========================================
-REM 6. Check readiness
-REM ==========================================
-
-:WAIT_READY
-
-echo.
-echo [STEP 3] Checking SonarQube readiness...
-
-set /a READY_COUNT=0
-
-:READY_LOOP
-
-call :CHECK_READY
-if not errorlevel 1 goto SUCCESS
-
-set /a READY_COUNT+=1
-
-echo Checking... %READY_COUNT% / 60
-
-if %READY_COUNT% GEQ 60 goto FAILED
-
-timeout /t 3 /nobreak >nul
-
-goto READY_LOOP
-
-
-REM ==========================================
-REM CHECK SERVER STATUS
-REM ==========================================
-
-:CHECK_READY
-
-curl.exe --noproxy "*" -fsS --max-time 5 "%STATUS_URL%" 2>nul | findstr /C:"UP" >nul
-
-exit /b %ERRORLEVEL%
-
-
-REM ==========================================
-REM CHECK PORT 9000
-REM ==========================================
-
-:CHECK_PORT
-
-powershell.exe -NoProfile -NonInteractive -Command "if(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue){exit 0};exit 1" >nul 2>&1
-
-exit /b %ERRORLEVEL%
-
-
-REM ==========================================
-REM CHECK SONARQUBE MAIN PROCESS
-REM ==========================================
-
-:CHECK_MAIN
-
-powershell.exe -NoProfile -NonInteractive -Command "$h='%SONAR_HOME%'; $p=Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'java.exe' -and $_.CommandLine -like '*org.sonar.application.App*' -and $_.CommandLine -like ('*'+$h+'*')}; if($p){exit 0};exit 1" >nul 2>&1
-
-exit /b %ERRORLEVEL%
-
-
-REM ==========================================
-REM SUCCESS - CLOSE CMD
-REM ==========================================
-
-:SUCCESS
-
-echo.
-echo ==========================================
-echo          SONARQUBE COMPLETED
-echo ==========================================
-echo.
-
+echo SKIPPED
 exit /b 0
 
-
-REM ==========================================
-REM FAILED - KEEP CMD OPEN
-REM ==========================================
-
-:FAILED
-
+:RESTART
 echo.
-echo ==========================================
-echo          SONARQUBE FAILED
-echo ==========================================
-echo.
-echo Check SonarQube logs:
-echo %SONAR_HOME%\logs
-echo.
+echo Stopping SonarQube...
 
+REM Kill only one identified SonarQube main process
+powershell -NoProfile -Command "$p=@(Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'java.exe' -and $_.CommandLine -like '*org.sonar.application.App*'}); if($p.Count -ne 1){exit 1}; & taskkill.exe /PID $($p[0].ProcessId) /T /F; exit $LASTEXITCODE"
+
+if errorlevel 1 goto ERROR
+
+REM Wait briefly for port release
+for /L %%I in (1,1,10) do (
+    netstat -ano -p tcp | findstr /C:":9000 " | findstr "LISTENING" >nul
+    if errorlevel 1 goto START_SONAR
+    timeout /t 1 /nobreak >nul
+)
+
+echo ERROR: Port 9000 still occupied.
+goto ERROR
+
+:START_SONAR
+echo.
+echo Starting SonarQube...
+
+start "SonarQube" /MIN /D "%SONAR_BIN%" cmd.exe /c "call StartSonar.bat"
+
+if errorlevel 1 goto ERROR
+
+echo Startup command submitted.
+exit /b 0
+
+:ERROR
+echo.
+echo ERROR: SonarQube operation failed.
+echo Check E:\Tools\sonarqube\logs
 pause
 exit /b 1
