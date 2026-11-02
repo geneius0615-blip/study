@@ -2,3 +2,15 @@ curl.exe --noproxy "*" -sS -o NUL -w "HTTP=%{http_code} REDIRECT=%{redirect_url}
 
 
 curl.exe --noproxy "*" -sS http://127.0.0.1:9000/sonar-qube/batch/index
+
+
+cd /d E:\source\imap-client
+
+set NO_PROXY=127.0.0.1,localhost
+set no_proxy=127.0.0.1,localhost
+
+sonar-scanner.bat -X ^
+  -Dsonar.projectKey=imap-client ^
+  -Dsonar.sources=. ^
+  -Dsonar.host.url=http://127.0.0.1:9000/sonar-qube ^
+  -Dsonar.token=발급받은토큰
