@@ -1,1 +1,4 @@
 curl.exe --noproxy "*" -sS -o NUL -w "HTTP=%{http_code} REDIRECT=%{redirect_url} TYPE=%{content_type}" http://127.0.0.1:9000/sonar-qube/batch/index
+
+
+curl.exe --noproxy "*" -sS http://127.0.0.1:9000/sonar-qube/batch/index
