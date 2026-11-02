@@ -1,16 +1,1 @@
-
-
-powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'java.exe' -and $_.CommandLine -match 'sonar|elastic' } | Select-Object ProcessId,ParentProcessId,CommandLine | Format-List"
-
-powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\es.log' -Tail 50"
-
-set "JAVA_HOME=E:\Tools\jdk-21"
-set "SONAR_JAVA_PATH=E:\Tools\jdk-21\bin\java.exe"
-set "PATH=%JAVA_HOME%\bin;%PATH%"
-
-
-dir "E:\Tools\sonarqube\bin\windows-x86-64\StartSonar.bat"
-
-"E:\Tools\jdk-21\bin\jps.exe" -l
-
-netstat -ano -p tcp | findstr ":9000" | findstr "LISTENING"
+powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\sonar.log' -Tail 40"
