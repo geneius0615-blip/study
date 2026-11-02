@@ -1,4 +1,3 @@
-git -C E:\source\imap-client branch --show-current
-git -C E:\source\imap-admin branch --show-current
-git -C E:\source\imap-edge branch --show-current
-git -C E:\source\imap-source branch --show-current
+@echo off
+call "%~dp0scan-imap-all.bat" imap-client
+if errorlevel 1 pause
