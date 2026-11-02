@@ -1,1 +1,1 @@
-powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\sonar.log' -Tail 40"
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'java.exe' -and $_.CommandLine -match 'sonarqube|elasticsearch' } | Select-Object ProcessId,CommandLine"
