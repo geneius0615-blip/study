@@ -2,22 +2,26 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 
-REM ====================================
-REM SONARQUBE START / RESTART MANAGER
-REM ====================================
+REM ========================================
+REM SONARQUBE START / FORCE RESTART
+REM ========================================
 
-set "SONAR_BIN=E:\Tools\sonarqube\bin\windows-x86-64"
+set "SONAR_HOME=E:\Tools\sonarqube"
+set "SONAR_BIN=%SONAR_HOME%\bin\windows-x86-64"
+
+REM Java 21
 set "JAVA_HOME=E:\Tools\jdk-21"
 set "SONAR_JAVA_PATH=%JAVA_HOME%\bin\java.exe"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
+REM SonarQube URL
 set "SONAR_URL=http://127.0.0.1:9000/sonar-qube"
 set "STATUS_URL=%SONAR_URL%/api/system/status"
 
 echo.
-echo ====================================
+echo ========================================
 echo SONARQUBE MANAGER
-echo ====================================
+echo ========================================
 
 REM Check installation
 if not exist "%SONAR_BIN%\StartSonar.bat" (
@@ -25,18 +29,22 @@ if not exist "%SONAR_BIN%\StartSonar.bat" (
     goto FAILED
 )
 
-REM Check current status
-call :CHECK_UP
+if not exist "%SONAR_JAVA_PATH%" (
+    echo ERROR: Java 21 not found
+    goto FAILED
+)
 
-if not errorlevel 1 goto RUNNING
+REM Detect SonarQube main process
+call :GET_SONAR_PID
 
-REM Check port before starting
-call :CHECK_PORT
+if defined SONAR_PID goto RUNNING
 
+REM Do not kill unrelated processes on port 9000
+call :PORT_BUSY
 if not errorlevel 1 (
-    echo Port 9000 is occupied.
-    echo SonarQube may still be starting.
-    goto WAIT_READY
+    echo ERROR: Port 9000 is occupied.
+    echo SonarQube main process was not identified.
+    goto FAILED
 )
 
 goto START_SONAR
@@ -44,10 +52,10 @@ goto START_SONAR
 :RUNNING
 
 echo.
-echo Current Status: RUNNING
+echo SonarQube Process PID: %SONAR_PID%
 echo.
 echo [1] SKIP
-echo [2] RESTART
+echo [2] FORCE RESTART
 echo.
 
 choice /C 12 /N /M "Select [1/2]: "
@@ -55,95 +63,121 @@ choice /C 12 /N /M "Select [1/2]: "
 if errorlevel 2 goto RESTART
 
 echo.
-echo SonarQube already running. SKIPPED.
-goto SUCCESS
+echo Existing SonarQube process retained.
+goto WAIT_READY
 
 :RESTART
 
 echo.
-echo ====================================
-echo SONARQUBE RESTART
-echo ====================================
-echo.
-echo Stop SonarQube in its running console
-echo by pressing Ctrl+C.
-echo.
-echo Press any key after shutdown finishes.
-pause >nul
+echo [STEP 1] Stopping SonarQube...
 
-REM Prevent restart while port is occupied
-call :CHECK_PORT
+REM Kill only the identified SonarQube process tree
+taskkill /PID %SONAR_PID% /T /F
 
-if not errorlevel 1 (
-    echo ERROR: Port 9000 is still in use.
-    echo Complete the shutdown first.
+if errorlevel 1 (
+    echo ERROR: Failed to terminate SonarQube.
     goto FAILED
 )
 
-goto START_SONAR
+REM Wait for process and port to be released
+echo Waiting for shutdown...
+
+for /L %%I in (1,1,30) do (
+    call :GET_SONAR_PID
+    call :PORT_BUSY
+
+    if errorlevel 1 if not defined SONAR_PID goto START_SONAR
+
+    timeout /t 2 /nobreak >nul
+)
+
+echo ERROR: Port 9000 or SonarQube process still active.
+goto FAILED
 
 :START_SONAR
 
 echo.
-echo Starting SonarQube...
+echo [STEP 2] Starting SonarQube...
 
-start "SonarQube Console" /D "%SONAR_BIN%" cmd.exe /k "call StartSonar.bat"
+REM Launch hidden background CMD
+powershell.exe -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c call StartSonar.bat' -WorkingDirectory '%SONAR_BIN%' -WindowStyle Hidden"
+
+if errorlevel 1 (
+    echo ERROR: Failed to launch SonarQube.
+    goto FAILED
+)
 
 :WAIT_READY
 
 echo.
-echo Checking SonarQube readiness...
+echo [STEP 3] Checking SonarQube readiness...
 
-set /a RETRY=0
+for /L %%I in (1,1,60) do (
+    call :CHECK_UP
+    if not errorlevel 1 goto SUCCESS
 
-:CHECK_LOOP
-
-call :CHECK_UP
-
-if not errorlevel 1 goto SUCCESS
-
-set /a RETRY+=1
-
-if %RETRY% GEQ 36 (
-    echo ERROR: SonarQube is not ready.
-    goto FAILED
+    timeout /t 3 /nobreak >nul
 )
 
-timeout /t 5 /nobreak >nul
+echo ERROR: SonarQube did not reach UP status.
+goto FAILED
 
-goto CHECK_LOOP
-
+REM ========================================
+REM Check SonarQube API
+REM ========================================
 :CHECK_UP
 
-curl.exe --noproxy "*" -fsS --max-time 5 ^
+curl.exe --noproxy "*" -fsS --max-time 3 ^
  "%STATUS_URL%" 2>nul | findstr /C:"UP" >nul
 
 exit /b %ERRORLEVEL%
 
-:CHECK_PORT
+REM ========================================
+REM Check port 9000
+REM ========================================
+:PORT_BUSY
 
-netstat -ano -p tcp | findstr /C:":9000 " | findstr "LISTENING" >nul
+powershell.exe -NoProfile -Command "if(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}" >nul 2>&1
 
 exit /b %ERRORLEVEL%
 
+REM ========================================
+REM Find SonarQube main Java PID
+REM ========================================
+:GET_SONAR_PID
+
+set "SONAR_PID="
+
+for /f "usebackq delims=" %%P in (`powershell.exe -NoProfile -Command "$home='%SONAR_HOME%'; $ids=@(); foreach($p in (Get-CimInstance Win32_Process)){if($p.Name -eq 'java.exe' -and $p.CommandLine -like '*org.sonar.application.App*' -and $p.CommandLine -like ('*'+$home+'*')){$ids += $p.ProcessId}}; if($ids.Count -eq 1){$ids[0]}"`) do set "SONAR_PID=%%P"
+
+exit /b 0
+
+REM ========================================
+REM Success - close launcher automatically
+REM ========================================
 :SUCCESS
 
 echo.
-echo ====================================
+echo ========================================
 echo SONARQUBE READY
-echo ====================================
+echo ========================================
 echo URL: %SONAR_URL%
 echo.
-pause
+
+REM No pause: close CMD when double-clicked
 exit /b 0
 
+REM ========================================
+REM Failed - keep CMD open
+REM ========================================
 :FAILED
 
 echo.
-echo ====================================
+echo ========================================
 echo SONARQUBE FAILED
-echo ====================================
-echo Check console and SonarQube logs.
+echo ========================================
+echo Check logs:
+echo %SONAR_HOME%\logs
 echo.
 pause
 exit /b 1
