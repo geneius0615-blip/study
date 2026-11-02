@@ -1,4 +1,4 @@
-
+powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\es.log' -Tail 50"
 
 set "JAVA_HOME=E:\Tools\jdk-21"
 set "SONAR_JAVA_PATH=E:\Tools\jdk-21\bin\java.exe"
