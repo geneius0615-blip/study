@@ -1,3 +1,7 @@
+
+
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'java.exe' -and $_.CommandLine -match 'sonar|elastic' } | Select-Object ProcessId,ParentProcessId,CommandLine | Format-List"
+
 powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\es.log' -Tail 50"
 
 set "JAVA_HOME=E:\Tools\jdk-21"
