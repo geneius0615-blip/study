@@ -4,7 +4,7 @@ sonar-scanner.bat ^
   -Dsonar.host.url=http://127.0.0.1:9000 ^
   -Dsonar.token=발급받은토큰
 
-
+curl.exe -sS -D - -o NUL http://127.0.0.1:9000/sonar-qube/batch/index
 
 cd /d E:\digital-twin-studio\imap\source
 
