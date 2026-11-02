@@ -1,4 +1,4 @@
-
+icacls "E:\Tools\sonarqube\data"
 powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('java.exe','javaw.exe') -and $_.CommandLine -match 'sonarqube|elasticsearch' } | Select-Object ProcessId,CommandLine | Format-List"
 
 
