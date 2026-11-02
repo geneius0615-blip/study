@@ -2,183 +2,224 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 
-REM =========================================
-REM SONARQUBE START / SKIP / RESTART
-REM =========================================
+REM ==========================================
+REM SONARQUBE START / SKIP / FORCE RESTART
+REM ==========================================
 
+REM SonarQube Paths
 set "SONAR_HOME=E:\Tools\sonarqube"
 set "SONAR_BIN=%SONAR_HOME%\bin\windows-x86-64"
 
+REM Java 21
 set "JAVA_HOME=E:\Tools\jdk-21"
 set "SONAR_JAVA_PATH=%JAVA_HOME%\bin\java.exe"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
-set "STATUS_URL=http://127.0.0.1:9000/sonar-qube/api/system/status"
+REM SonarQube URL
+set "SONAR_URL=http://127.0.0.1:9000/sonar-qube"
+set "STATUS_URL=%SONAR_URL%/api/system/status"
 
 echo.
-echo ==============================
-echo SONARQUBE MANAGER
-echo ==============================
+echo ==========================================
+echo          SONARQUBE MANAGER
+echo ==========================================
+echo.
 
-REM Check files
+REM ==========================================
+REM 1. Check installation
+REM ==========================================
+
 if not exist "%SONAR_BIN%\StartSonar.bat" goto FAILED
+
 if not exist "%SONAR_JAVA_PATH%" goto FAILED
 
-REM Check existing process
-call :GET_PID
+REM ==========================================
+REM 2. Check current status
+REM ==========================================
 
-if errorlevel 1 goto NOT_RUNNING
-goto RUNNING
+call :CHECK_READY
+if not errorlevel 1 goto RUNNING
 
-:NOT_RUNNING
-call :PORT_BUSY
+call :CHECK_PORT
+if not errorlevel 1 goto RUNNING
 
-if not errorlevel 1 (
-    echo ERROR: Port 9000 is occupied.
-    echo SonarQube PID not identified.
-    goto FAILED
-)
+REM Check if SonarQube is still starting
+call :CHECK_MAIN
+if not errorlevel 1 goto WAIT_READY
 
 goto START_SONAR
 
+
+REM ==========================================
+REM 3. Already running
+REM ==========================================
+
 :RUNNING
+
+echo SonarQube process or port detected.
 echo.
-echo SonarQube PID: %SONAR_PID%
-echo.
-echo [1] SKIP
-echo [2] FORCE RESTART
+echo [1] SKIP - Keep current process
+echo [2] RESTART - Force stop and restart
 echo.
 
-choice /C 12 /N /M "Select: "
+choice /C 12 /N /M "Select [1/2]: "
 
 if errorlevel 2 goto RESTART
 
-echo SonarQube already running.
-goto WAIT_READY
+REM SKIP - immediately exit
+echo.
+echo SonarQube SKIPPED.
+goto SUCCESS
+
+
+REM ==========================================
+REM 4. Force restart
+REM ==========================================
 
 :RESTART
+
 echo.
-echo [STEP 1] Stop SonarQube
-echo PID: %SONAR_PID%
+echo [STEP 1] Stopping SonarQube...
 
-REM Verify process before force killing
-call :VERIFY_PID
-if errorlevel 1 (
-    echo ERROR: PID verification failed.
-    goto FAILED
-)
+REM Identify and verify SonarQube process.
+REM Prefer the main process if identifiable.
+REM Never kill an unrelated port owner.
 
-taskkill /PID %SONAR_PID% /T /F
+powershell.exe -NoProfile -NonInteractive -Command "$h='%SONAR_HOME%'; $ids=@(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if($ids.Count -ne 1){Write-Host 'ERROR: Port PID not found or ambiguous';exit 1}; $p=Get-CimInstance Win32_Process -Filter ('ProcessId='+$ids[0]); if(-not $p -or $p.Name -ne 'java.exe' -or $p.CommandLine -notlike ('*'+$h+'*')){Write-Host 'ERROR: Port owner is not verified SonarQube';exit 1}; $roots=@(Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'java.exe' -and $_.CommandLine -like '*org.sonar.application.App*' -and $_.CommandLine -like ('*'+$h+'*')}); $target=$p.ProcessId; if($roots.Count -eq 1){$target=$roots[0].ProcessId}; Write-Host ('Stopping PID: '+$target); & taskkill.exe /PID $target /T /F; exit $LASTEXITCODE"
+
 if errorlevel 1 goto FAILED
+
+echo Waiting for shutdown...
 
 set /a STOP_COUNT=0
 
 :WAIT_STOP
-call :GET_PID
+
+call :CHECK_PORT
 if not errorlevel 1 goto STILL_STOPPING
 
-call :PORT_BUSY
-if errorlevel 1 goto START_SONAR
+call :CHECK_MAIN
+if not errorlevel 1 goto STILL_STOPPING
+
+goto START_SONAR
 
 :STILL_STOPPING
+
 set /a STOP_COUNT+=1
 
-if %STOP_COUNT% GEQ 30 (
-    echo ERROR: Shutdown incomplete.
-    goto FAILED
-)
+if %STOP_COUNT% GEQ 30 goto FAILED
 
 timeout /t 2 /nobreak >nul
 goto WAIT_STOP
 
-:START_SONAR
-echo.
-echo [STEP 2] Start SonarQube
 
-powershell.exe -NoProfile -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c call StartSonar.bat' -WorkingDirectory '%SONAR_BIN%' -WindowStyle Hidden"
+REM ==========================================
+REM 5. Start SonarQube
+REM ==========================================
+
+:START_SONAR
+
+echo.
+echo [STEP 2] Starting SonarQube...
+
+REM Launch separate hidden CMD process
+
+powershell.exe -NoProfile -NonInteractive -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c call StartSonar.bat' -WorkingDirectory '%SONAR_BIN%' -WindowStyle Hidden"
 
 if errorlevel 1 goto FAILED
 
+goto WAIT_READY
+
+
+REM ==========================================
+REM 6. Check readiness
+REM ==========================================
+
 :WAIT_READY
+
 echo.
-echo [STEP 3] Check readiness
+echo [STEP 3] Checking SonarQube readiness...
 
 set /a READY_COUNT=0
 
 :READY_LOOP
-call :CHECK_UP
+
+call :CHECK_READY
 if not errorlevel 1 goto SUCCESS
 
 set /a READY_COUNT+=1
 
-if %READY_COUNT% GEQ 60 (
-    echo ERROR: SonarQube not ready.
-    goto FAILED
-)
+echo Checking... %READY_COUNT% / 60
+
+if %READY_COUNT% GEQ 60 goto FAILED
 
 timeout /t 3 /nobreak >nul
+
 goto READY_LOOP
 
-REM =========================================
-REM FIND SONARQUBE PID
-REM =========================================
-:GET_PID
-set "SONAR_PID="
-set "PID_COUNT=0"
 
-for /f "tokens=1,2" %%A in ('jps -l') do (
-    if "%%B"=="org.sonar.application.App" (
-        set "SONAR_PID=%%A"
-        set /a PID_COUNT+=1 >nul
-    )
-)
-
-if not "%PID_COUNT%"=="1" (
-    set "SONAR_PID="
-    exit /b 1
-)
-
-exit /b 0
-
-REM =========================================
-REM VERIFY TARGET PID
-REM =========================================
-:VERIFY_PID
-powershell.exe -NoProfile -Command "$p=Get-CimInstance Win32_Process -Filter 'ProcessId=%SONAR_PID%' -ErrorAction SilentlyContinue; if($p -and $p.Name -eq 'java.exe' -and $p.CommandLine -like '*E:\Tools\sonarqube*' -and $p.CommandLine -like '*org.sonar.application.App*'){exit 0};exit 1" >nul 2>&1
-
-exit /b %ERRORLEVEL%
-
-REM =========================================
-REM CHECK PORT 9000
-REM =========================================
-:PORT_BUSY
-powershell.exe -NoProfile -Command "if(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue){exit 0};exit 1" >nul 2>&1
-
-exit /b %ERRORLEVEL%
-
-REM =========================================
+REM ==========================================
 REM CHECK SERVER STATUS
-REM =========================================
-:CHECK_UP
-powershell.exe -NoProfile -Command "$s = & curl.exe --noproxy '*' -fsS --max-time 3 '%STATUS_URL%' 2>$null; if($LASTEXITCODE -ne 0){exit 1};try{if(($s | ConvertFrom-Json).status -eq 'UP'){exit 0}}catch{};exit 1" >nul 2>&1
+REM ==========================================
+
+:CHECK_READY
+
+curl.exe --noproxy "*" -fsS --max-time 5 "%STATUS_URL%" 2>nul | findstr /C:"UP" >nul
 
 exit /b %ERRORLEVEL%
+
+
+REM ==========================================
+REM CHECK PORT 9000
+REM ==========================================
+
+:CHECK_PORT
+
+powershell.exe -NoProfile -NonInteractive -Command "if(Get-NetTCPConnection -LocalPort 9000 -State Listen -ErrorAction SilentlyContinue){exit 0};exit 1" >nul 2>&1
+
+exit /b %ERRORLEVEL%
+
+
+REM ==========================================
+REM CHECK SONARQUBE MAIN PROCESS
+REM ==========================================
+
+:CHECK_MAIN
+
+powershell.exe -NoProfile -NonInteractive -Command "$h='%SONAR_HOME%'; $p=Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'java.exe' -and $_.CommandLine -like '*org.sonar.application.App*' -and $_.CommandLine -like ('*'+$h+'*')}; if($p){exit 0};exit 1" >nul 2>&1
+
+exit /b %ERRORLEVEL%
+
+
+REM ==========================================
+REM SUCCESS - CLOSE CMD
+REM ==========================================
 
 :SUCCESS
+
 echo.
-echo ==============================
-echo SONARQUBE READY
-echo ==============================
+echo ==========================================
+echo          SONARQUBE COMPLETED
+echo ==========================================
 echo.
+
 exit /b 0
 
+
+REM ==========================================
+REM FAILED - KEEP CMD OPEN
+REM ==========================================
+
 :FAILED
+
 echo.
-echo ==============================
-echo SONARQUBE FAILED
-echo ==============================
-echo Check logs:
+echo ==========================================
+echo          SONARQUBE FAILED
+echo ==========================================
+echo.
+echo Check SonarQube logs:
 echo %SONAR_HOME%\logs
 echo.
+
 pause
 exit /b 1
