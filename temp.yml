@@ -1,7 +1,8 @@
-set "JAVA_HOME=E:\Tools\jdk-21"
-set "PATH=%JAVA_HOME%\bin;%PATH%"
+cd /d E:\source\imap-client
 
-set "HTTP_PROXY="
-set "HTTPS_PROXY="
-set "ALL_PROXY="
-set "NO_PROXY=127.0.0.1,localhost"
+
+sonar-scanner.bat -X ^
+  -Dsonar.projectKey=imap-client ^
+  -Dsonar.sources=. ^
+  -Dsonar.host.url=http://127.0.0.1:9000/sonar-qube ^
+  -Dsonar.token=발급받은토큰
