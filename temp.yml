@@ -1,11 +1,12 @@
+set "JAVA_HOME=E:\Tools\jdk-21"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+
+
 cd /d E:\source\imap-client
-echo SCAN_START
-sonar-scanner.bat -X
-echo SCAN_END
-echo EXIT_CODE=%ERRORLEVEL%
 
 
-sonar-scanner.bat -X > E:\source\sonar-debug.log 2>&1
-
-
-type E:\source\sonar-debug.log
+"E:\Tools\sonar-scanner\bin\sonar-scanner.bat" -X ^
+  -Dsonar.projectKey=imap-client ^
+  -Dsonar.sources=. ^
+  -Dsonar.host.url=http://127.0.0.1:9000/sonar-qube ^
+  -Dsonar.token=발급받은토큰
