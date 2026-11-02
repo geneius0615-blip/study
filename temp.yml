@@ -1,23 +1,35 @@
+REM =====================================
 REM Git Update
+REM =====================================
+
 echo.
 echo [STEP 1] Git Update
+echo PROJECT=%PROJECT%
 echo SOURCE=%SOURCE_DIR%
 echo BRANCH=%BRANCH%
 
 pushd "%SOURCE_DIR%"
-if errorlevel 1 (
-    echo ERROR: Source directory not found.
-    exit /b 4
-)
+if errorlevel 1 exit /b 4
+
+echo Current Directory:
+cd
+
+echo Current Branch:
+git branch --show-current
+
+echo Git Update Starting...
 
 git pull --ff-only origin "%BRANCH%"
 
 set "GIT_RC=%ERRORLEVEL%"
 
+echo.
+echo GIT_RESULT=%GIT_RC%
+
 popd
 
 if not "%GIT_RC%"=="0" (
-    echo ERROR: Git Update Failed. RC=%GIT_RC%
+    echo ERROR: Git Update Failed RC=%GIT_RC%
     exit /b 4
 )
 
