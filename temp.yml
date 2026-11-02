@@ -1,4 +1,4 @@
-
+echo test > "E:\Tools\sonarqube\data\write-test.tmp"
 
 findstr /I "sonar.path.data" "E:\Tools\sonarqube\conf\sonar.properties"
 
