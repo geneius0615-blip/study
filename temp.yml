@@ -1,13 +1,5 @@
-{{ imap_requirements_with_pat_ps }}
-
-$pipRc = Invoke-ImapRequirementsInstall `
-    -Python $python `
-    -Wheelhouse $wheelhouse `
-    -RequirementsFile $requirementsFile `
-    -Production "{{ 'true' if inventory_hostname in imap_prod_hosts else 'false' }}"
-
-Write-Output "REQUIREMENTS_PIP_RC=$pipRc"
-
-if ($pipRc -ne 0) {
-    throw "REQUIREMENTS_INSTALL_FAILED RC=$pipRc"
-}
+sonar-scanner.bat ^
+  -Dsonar.projectKey=imap-source ^
+  -Dsonar.sources=. ^
+  -Dsonar.host.url=http://127.0.0.1:9000 ^
+  -Dsonar.token=발급받은토큰
