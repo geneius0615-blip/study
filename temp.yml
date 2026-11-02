@@ -3,3 +3,6 @@ echo SCAN_START
 sonar-scanner.bat -X
 echo SCAN_END
 echo EXIT_CODE=%ERRORLEVEL%
+
+
+sonar-scanner.bat -X > E:\source\sonar-debug.log 2>&1
