@@ -1,8 +1,5 @@
 cd /d E:\source\imap-client
-
-
-sonar-scanner.bat -X ^
-  -Dsonar.projectKey=imap-client ^
-  -Dsonar.sources=. ^
-  -Dsonar.host.url=http://127.0.0.1:9000/sonar-qube ^
-  -Dsonar.token=발급받은토큰
+echo SCAN_START
+sonar-scanner.bat -X
+echo SCAN_END
+echo EXIT_CODE=%ERRORLEVEL%
