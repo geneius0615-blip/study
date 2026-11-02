@@ -1,3 +1,10 @@
+
+
+set "JAVA_HOME=E:\Tools\jdk-21"
+set "SONAR_JAVA_PATH=E:\Tools\jdk-21\bin\java.exe"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+
+
 dir "E:\Tools\sonarqube\bin\windows-x86-64\StartSonar.bat"
 
 "E:\Tools\jdk-21\bin\jps.exe" -l
