@@ -5,3 +5,8 @@ set HTTPS_PROXY=
 set ALL_PROXY=
 set SONAR_SCANNER_PROXY_HOST=
 set NO_PROXY=127.0.0.1,localhost
+
+
+
+set "JAVA_HOME=E:\Tools\jdk-21"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
