@@ -1,1 +1,5 @@
+dir "E:\Tools\sonarqube\bin\windows-x86-64\StartSonar.bat"
+
+"E:\Tools\jdk-21\bin\jps.exe" -l
+
 netstat -ano -p tcp | findstr ":9000" | findstr "LISTENING"
