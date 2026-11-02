@@ -1,1 +1,4 @@
-git clone -b dev --single-branch "실제_imap-client_Git_URL" "E:\source\imap-client"
+git -C E:\source\imap-client branch --show-current
+git -C E:\source\imap-admin branch --show-current
+git -C E:\source\imap-edge branch --show-current
+git -C E:\source\imap-source branch --show-current
