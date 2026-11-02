@@ -1,4 +1,4 @@
-
+"E:\Tools\jdk-21\bin\jps.exe" -lv
 
 powershell -NoProfile -Command "Get-Content 'E:\Tools\sonarqube\logs\es.log' -Tail 100"
 
