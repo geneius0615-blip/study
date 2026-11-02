@@ -3,3 +3,11 @@ sonar-scanner.bat ^
   -Dsonar.sources=. ^
   -Dsonar.host.url=http://127.0.0.1:9000 ^
   -Dsonar.token=발급받은토큰
+
+
+
+cd /d E:\digital-twin-studio\imap\source
+
+sonar-scanner.bat -X ^
+  -Dsonar.host.url=http://127.0.0.1:9000 ^
+  -Dsonar.token=발급받은토큰
