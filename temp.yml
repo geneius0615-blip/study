@@ -15,3 +15,7 @@ sonar-scanner.bat -X ^
 
 
 curl.exe -i http://127.0.0.1:9000/api/server/version
+
+
+
+curl.exe -s -D - -o NUL http://127.0.0.1:9000/api/server/version
