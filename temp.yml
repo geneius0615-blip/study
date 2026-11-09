@@ -1,16 +1,2 @@
-$ng = Get-CimInstance Win32_Process -Filter "name='nginx.exe'"
-$pids = $ng.ProcessId
-
-$ng | Select-Object ProcessId, ParentProcessId,
-    @{Name='Role';Expression={
-        if ($pids -contains $_.ParentProcessId) {
-            'Worker'
-        } else {
-            'Master'
-        }
-    }} | Format-Table
-
-
-Get-NetTCPConnection -State Listen |
-    Where-Object { $_.LocalPort -in 80,443 } |
-    Select-Object LocalPort,OwningProcess
+Get-CimInstance Win32_ComputerSystem |
+    Select-Object Name, PartOfDomain, Domain
