@@ -1,20 +1,4 @@
+.\nginx.exe -t
+
 .\nginx.exe -T 2>&1 |
     Select-String "listen|client_max_body_size"
-
-
-
-Get-Process nginx -ErrorAction 
-
-
-
-Start-Process -FilePath ".\nginx.exe" `
-    -WorkingDirectory (Get-Location).Path
-
-
-Get-CimInstance Win32_Process -Filter "name='nginx.exe'" |
-    Select-Object ProcessId,ParentProcessId
-
-
-Get-NetTCPConnection -State Listen |
-    Where-Object { $_.LocalPort -in 80,443 } |
-    Select-Object LocalPort,OwningProcess
