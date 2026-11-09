@@ -9,3 +9,8 @@ $ng | Select-Object ProcessId, ParentProcessId,
             'Master'
         }
     }} | Format-Table
+
+
+Get-NetTCPConnection -State Listen |
+    Where-Object { $_.LocalPort -in 80,443 } |
+    Select-Object LocalPort,OwningProcess
