@@ -1,2 +1,8 @@
 Get-CimInstance Win32_Process -Filter "name='nginx.exe'" |
     Select-Object ProcessId, ExecutablePath, CommandLine
+
+
+
+Get-NetTCPConnection -State Listen |
+    Where-Object { $_.LocalPort -in 80,443 } |
+    Select-Object LocalAddress, LocalPort, OwningProcess
