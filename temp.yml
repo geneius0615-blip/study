@@ -1,4 +1,11 @@
-.\nginx.exe -t
+$ng = Get-CimInstance Win32_Process -Filter "name='nginx.exe'"
+$pids = $ng.ProcessId
 
-.\nginx.exe -T 2>&1 |
-    Select-String "listen|client_max_body_size"
+$ng | Select-Object ProcessId, ParentProcessId,
+    @{Name='Role';Expression={
+        if ($pids -contains $_.ParentProcessId) {
+            'Worker'
+        } else {
+            'Master'
+        }
+    }} | Format-Table
