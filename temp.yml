@@ -1,2 +1,6 @@
 .\nginx.exe -T 2>&1 |
     Select-String "listen|client_max_body_size"
+
+
+
+Get-Process nginx -ErrorAction SilentlyContinue
