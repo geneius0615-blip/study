@@ -1,27 +1,2 @@
-Get-CimInstance Win32_Service |
-    Where-Object {
-        $_.ProcessId -in @(9104,416) -or
-        $_.Name -match "nginx"
-    } |
-    Select-Object Name, State, ProcessId, PathName |
-    Format-Table -AutoSize
-
-
-
-Stop-Service -Name nginx
-
-
-
-Get-Process nginx -ErrorAction SilentlyContinue
-
-
-Start-Service -Name nginx
-
-
-nssm stop nginx
-nssm start nginx
-
-
-Get-NetTCPConnection -State Listen |
-    Where-Object { $_.LocalPort -in 80,443 } |
-    Select-Object LocalPort,OwningProcess
+.\nginx.exe -T 2>&1 |
+    Select-String "listen|client_max_body_size"
