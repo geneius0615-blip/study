@@ -11,3 +11,8 @@ Get-NetTCPConnection -State Listen |
 Get-CimInstance Win32_Process -Filter "name='nginx.exe'" |
     Select-Object ProcessId, ParentProcessId, ExecutablePath |
     Format-Table -AutoSize
+
+
+Get-CimInstance Win32_Process -Filter "name='nginx.exe'" |
+    Where-Object { $_.ProcessId -in 11704,12480 } |
+    Format-List ProcessId,ExecutablePath,CommandLine
