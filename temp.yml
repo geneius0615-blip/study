@@ -1,13 +1,21 @@
-Get-CimInstance Win32_Process |
-Where-Object {
-    $_.Name -in @("python.exe", "pythonw.exe", "uv.exe", "uvx.exe")
-} |
-Select-Object ProcessId, Name, CommandLine |
-Format-List
+$target = "E:\deploy\python\imap-mcp\.venv"
 
+Get-Process | ForEach-Object {
+    $proc = $_
 
-Stop-Process -Id 12345 -Force
-
-
-
-Remove-Item "E:\실제경로\.venv" -Recurse -Force
+    try {
+        $proc.Modules |
+        Where-Object {
+            $_.FileName.StartsWith(
+                $target,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+        } |
+        Select-Object @{
+            N="PID";E={$proc.Id}
+        }, @{
+            N="Process";E={$proc.ProcessName}
+        }, FileName
+    }
+    catch {}
+} | Format-List
