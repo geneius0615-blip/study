@@ -4,3 +4,10 @@ Where-Object {
 } |
 Select-Object ProcessId, Name, CommandLine |
 Format-List
+
+
+Stop-Process -Id 12345 -Force
+
+
+
+Remove-Item "E:\실제경로\.venv" -Recurse -Force
