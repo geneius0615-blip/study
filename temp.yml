@@ -13,3 +13,6 @@ $dest = Join-Path $env:TEMP ("imap-client-" + [guid]::NewGuid() + ".tar.gz")
 
 curl.exe -k -fLsS -u '계정' -o $dest -w 'HTTP=%{http_code} bytes=%{size_download}\n' $url
 "curl rc=$LASTEXITCODE"
+
+
+curl.exe -k -u "계정:비번" -o "E:\Deploy\download\imap-client.tar.gz" "https://다운로드주소/파일명"
