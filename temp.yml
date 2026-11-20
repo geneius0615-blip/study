@@ -1,21 +1,7 @@
-$target = "E:\deploy\python\imap-mcp\.venv"
+$dest = 'E:\Deploy\download\imap-client-test.tar.gz'
 
-Get-Process | ForEach-Object {
-    $proc = $_
+$entries = tar.exe -tf $dest
+$tarRc = $LASTEXITCODE
+"tar rc=$tarRc"
 
-    try {
-        $proc.Modules |
-        Where-Object {
-            $_.FileName.StartsWith(
-                $target,
-                [System.StringComparison]::OrdinalIgnoreCase
-            )
-        } |
-        Select-Object @{
-            N="PID";E={$proc.Id}
-        }, @{
-            N="Process";E={$proc.ProcessName}
-        }, FileName
-    }
-    catch {}
-} | Format-List
+$entries | Select-String -SimpleMatch 'pfc-powder/'
