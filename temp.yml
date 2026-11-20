@@ -5,3 +5,11 @@ $manualHash  = (Get-FileHash -LiteralPath $manual  -Algorithm SHA256 -ErrorActio
 $ansibleHash = (Get-FileHash -LiteralPath $ansible -Algorithm SHA256 -ErrorAction Stop).Hash
 
 $manualHash -eq $ansibleHash
+
+
+
+$url = 'https://실제-다운로드-주소'
+$dest = Join-Path $env:TEMP ("imap-client-" + [guid]::NewGuid() + ".tar.gz")
+
+curl.exe -k -fLsS -u '계정' -o $dest -w 'HTTP=%{http_code} bytes=%{size_download}\n' $url
+"curl rc=$LASTEXITCODE"
