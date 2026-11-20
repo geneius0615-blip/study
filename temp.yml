@@ -1,7 +1,7 @@
-$dest = 'E:\Deploy\download\imap-client-test.tar.gz'
+$manual  = 'E:\Deploy\download\imap-client-test.tar.gz'
+$ansible = 'E:\Deploy\download\imap-client.tar.gz'
 
-$entries = tar.exe -tf $dest
-$tarRc = $LASTEXITCODE
-"tar rc=$tarRc"
+$manualHash  = (Get-FileHash -LiteralPath $manual  -Algorithm SHA256 -ErrorAction Stop).Hash
+$ansibleHash = (Get-FileHash -LiteralPath $ansible -Algorithm SHA256 -ErrorAction Stop).Hash
 
-$entries | Select-String -SimpleMatch 'pfc-powder/'
+$manualHash -eq $ansibleHash
