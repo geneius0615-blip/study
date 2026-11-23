@@ -1,18 +1,9 @@
-$manual  = 'E:\Deploy\download\imap-client-test.tar.gz'
-$ansible = 'E:\Deploy\download\imap-client.tar.gz'
+E:/nginx/html/common/error.html
 
-$manualHash  = (Get-FileHash -LiteralPath $manual  -Algorithm SHA256 -ErrorAction Stop).Hash
-$ansibleHash = (Get-FileHash -LiteralPath $ansible -Algorithm SHA256 -ErrorAction Stop).Hash
+location = /client/agreement.html {
+    alias E:/nginx/html/common/error.html;
+}
 
-$manualHash -eq $ansibleHash
-
-
-
-$url = 'https://실제-다운로드-주소'
-$dest = Join-Path $env:TEMP ("imap-client-" + [guid]::NewGuid() + ".tar.gz")
-
-curl.exe -k -fLsS -u '계정' -o $dest -w 'HTTP=%{http_code} bytes=%{size_download}\n' $url
-"curl rc=$LASTEXITCODE"
-
-
-curl.exe -k -u "계정:비번" -o "E:\Deploy\download\imap-client.tar.gz" "https://다운로드주소/파일명"
+location = /admin/agreement.html {
+    alias E:/nginx/html/common/error.html;
+}
