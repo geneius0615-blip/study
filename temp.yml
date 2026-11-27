@@ -1,8 +1,1 @@
-Write-Output "IS_PROD=$isProd"
-
-Write-Output "PAT_FILE_EXISTS=$(Test-Path -LiteralPath $patFile)"
-
-Write-Output "PAT_READ_SUCCESS=$(-not [string]::IsNullOrWhiteSpace($pat))"
-
-Write-Output "SOURCE_EXISTS=$(Test-Path $sourceDir)"
-Write-Output "GIT_EXISTS=$(Test-Path (Join-Path $sourceDir '.git'))"
+-c "http.extraHeader=Authorization: Basic $basic"
