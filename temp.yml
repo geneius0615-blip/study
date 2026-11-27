@@ -1,3 +1,6 @@
+
+python -c "import ensurepip; from pathlib import Path; print(list((Path(ensurepip.__file__).parent / '_bundled').glob('*.whl')))"
+
 Get-ChildItem -Path "E:\digital-twin-studio","E:\Deploy" `
     -Filter "setuptools*.whl" `
     -Recurse -ErrorAction SilentlyContinue |
