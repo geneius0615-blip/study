@@ -1,1 +1,6 @@
+
+Get-ChildItem Env: | Where-Object {
+    $_.Name -match 'PIP|PROXY'
+}
+
 python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
