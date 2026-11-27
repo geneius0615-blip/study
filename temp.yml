@@ -1,4 +1,8 @@
 
+
+
+curl.exe -I --connect-timeout 10 https://pypi.org/simple/setuptools/
+
 python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
 
 
