@@ -4,6 +4,6 @@
       {{
         git_download_result.stdout_lines
         | default([])
-        | select('search', 'PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS|IS_PROD')
+        | select('search', 'PAT_DIAG_STARTED|PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS')
         | list
       }}
