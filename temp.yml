@@ -1,3 +1,7 @@
+
+
+python -c "import setuptools; print(setuptools.__version__)"
+
 python -m pip show setuptools
 
 Get-ChildItem -Path C:\,E:\ -Filter "setuptools*.whl" -Recurse -ErrorAction SilentlyContinue |
