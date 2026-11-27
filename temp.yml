@@ -1,9 +1,8 @@
-- name: Show PAT diagnostic result
-  debug:
-    msg: >-
-      {{
-        git_download_result.stdout_lines
-        | default([])
-        | select('search', 'PAT_DIAG_STARTED|PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS')
-        | list
-      }}
+Write-Output "IS_PROD=$isProd"
+
+Write-Output "PAT_FILE_EXISTS=$(Test-Path -LiteralPath $patFile)"
+
+Write-Output "PAT_READ_SUCCESS=$(-not [string]::IsNullOrWhiteSpace($pat))"
+
+Write-Output "SOURCE_EXISTS=$(Test-Path $sourceDir)"
+Write-Output "GIT_EXISTS=$(Test-Path (Join-Path $sourceDir '.git'))"
