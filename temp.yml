@@ -1,4 +1,10 @@
 
+$env:HTTP_PROXY
+$env:HTTPS_PROXY
+$env:NO_PROXY
+
+
+
 Get-ChildItem Env: | Where-Object {
     $_.Name -match 'PIP|PROXY'
 }
