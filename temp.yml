@@ -1,4 +1,7 @@
-
+Get-ChildItem -Path "E:\digital-twin-studio","E:\Deploy" `
+    -Filter "setuptools*.whl" `
+    -Recurse -ErrorAction SilentlyContinue |
+    Select-Object FullName
 
 
 curl.exe -I --connect-timeout 10 https://pypi.org/simple/setuptools/
