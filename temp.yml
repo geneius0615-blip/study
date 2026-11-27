@@ -1,4 +1,4 @@
-
+python -m pip show setuptools
 
 Get-ChildItem -Path C:\,E:\ -Filter "setuptools*.whl" -Recurse -ErrorAction SilentlyContinue |
     Select-Object FullName
