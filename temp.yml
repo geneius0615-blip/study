@@ -1,9 +1,1 @@
-E:/nginx/html/common/error.html
-
-location = /client/agreement.html {
-    alias E:/nginx/html/common/error.html;
-}
-
-location = /admin/agreement.html {
-    alias E:/nginx/html/common/error.html;
-}
+python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
