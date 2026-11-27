@@ -1,9 +1,16 @@
-- name: Check Git execution account
-  win_whoami:
-  register: git_whoami
+Write-Output "PAT_FILE_EXISTS=$(Test-Path -LiteralPath $patFile)"
 
-- name: Show Git execution account
-  debug:
-    msg:
-      - "Account: {{ git_whoami.account }}"
-      - "Logon type: {{ git_whoami.logon_type }}"
+
+$pat = [System.IO.File]::ReadAllText($patFile).Trim()
+
+Write-Output "PAT_READ_SUCCESS=$(-not [string]::IsNullOrWhiteSpace($pat))"
+
+
+Write-Output "SOURCE_EXISTS=$(Test-Path $sourceDir)"
+Write-Output "GIT_EXISTS=$(Test-Path (Join-Path $sourceDir '.git'))"
+
+
+PAT_FILE_EXISTS
+PAT_READ_SUCCESS
+SOURCE_EXISTS
+GIT_EXISTS
