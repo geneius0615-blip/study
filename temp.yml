@@ -1,3 +1,9 @@
+
+set GIT_TERMINAL_PROMPT=0
+set GCM_INTERACTIVE=Never
+git ls-remote "실제 Git 저장소 URL" HEAD
+
+
 python -c "import setuptools" || python -m pip install --upgrade setuptools
 
 python -c "import setuptools; print(setuptools.__version__)"
