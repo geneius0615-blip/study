@@ -1,27 +1,9 @@
-Write-Output "PAT_FILE_EXISTS=$(Test-Path -LiteralPath $patFile)"
-
-
-$pat = [System.IO.File]::ReadAllText($patFile).Trim()
-
-Write-Output "PAT_READ_SUCCESS=$(-not [string]::IsNullOrWhiteSpace($pat))"
-
-
-Write-Output "SOURCE_EXISTS=$(Test-Path $sourceDir)"
-Write-Output "GIT_EXISTS=$(Test-Path (Join-Path $sourceDir '.git'))"
-
-
-PAT_FILE_EXISTS
-PAT_READ_SUCCESS
-SOURCE_EXISTS
-GIT_EXISTS
-
-
 - name: Show PAT diagnostic result
   debug:
     msg: >-
       {{
         git_download_result.stdout_lines
         | default([])
-        | select('match', '^(PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS)=(True|False)$')
+        | select('search', 'PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS|IS_PROD')
         | list
       }}
