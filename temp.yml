@@ -1,4 +1,10 @@
 
+$env:HTTP_PROXY = "기존 서버 설정값"
+$env:HTTPS_PROXY = "기존 서버 설정값"
+$env:NO_PROXY = "기존 서버 설정값"
+
+
+
 $env:HTTP_PROXY
 $env:HTTPS_PROXY
 $env:NO_PROXY
