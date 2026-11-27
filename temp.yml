@@ -1,4 +1,4 @@
-
+python -c "import setuptools" || python -m pip install --upgrade setuptools
 
 python -c "import setuptools; print(setuptools.__version__)"
 
