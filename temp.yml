@@ -1,4 +1,8 @@
 
+python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
+
+
+
 $env:HTTP_PROXY = "기존 서버 설정값"
 $env:HTTPS_PROXY = "기존 서버 설정값"
 $env:NO_PROXY = "기존 서버 설정값"
