@@ -1,47 +1,9 @@
+- name: Check Git execution account
+  win_whoami:
+  register: git_whoami
 
-set GIT_TERMINAL_PROMPT=0
-set GCM_INTERACTIVE=Never
-git ls-remote "실제 Git 저장소 URL" HEAD
-
-
-python -c "import setuptools" || python -m pip install --upgrade setuptools
-
-python -c "import setuptools; print(setuptools.__version__)"
-
-python -m pip show setuptools
-
-Get-ChildItem -Path C:\,E:\ -Filter "setuptools*.whl" -Recurse -ErrorAction SilentlyContinue |
-    Select-Object FullName
-
-
-python -c "import ensurepip; from pathlib import Path; print(list((Path(ensurepip.__file__).parent / '_bundled').glob('*.whl')))"
-
-Get-ChildItem -Path "E:\digital-twin-studio","E:\Deploy" `
-    -Filter "setuptools*.whl" `
-    -Recurse -ErrorAction SilentlyContinue |
-    Select-Object FullName
-
-
-curl.exe -I --connect-timeout 10 https://pypi.org/simple/setuptools/
-
-python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
-
-
-
-$env:HTTP_PROXY = "기존 서버 설정값"
-$env:HTTPS_PROXY = "기존 서버 설정값"
-$env:NO_PROXY = "기존 서버 설정값"
-
-
-
-$env:HTTP_PROXY
-$env:HTTPS_PROXY
-$env:NO_PROXY
-
-
-
-Get-ChildItem Env: | Where-Object {
-    $_.Name -match 'PIP|PROXY'
-}
-
-python -m pip install --upgrade setuptools -vvv --timeout 10 --retries 0
+- name: Show Git execution account
+  debug:
+    msg:
+      - "Account: {{ git_whoami.account }}"
+      - "Logon type: {{ git_whoami.logon_type }}"
