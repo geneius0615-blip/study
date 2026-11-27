@@ -14,3 +14,14 @@ PAT_FILE_EXISTS
 PAT_READ_SUCCESS
 SOURCE_EXISTS
 GIT_EXISTS
+
+
+- name: Show PAT diagnostic result
+  debug:
+    msg: >-
+      {{
+        git_download_result.stdout_lines
+        | default([])
+        | select('match', '^(PAT_FILE_EXISTS|PAT_READ_SUCCESS|SOURCE_EXISTS|GIT_EXISTS)=(True|False)$')
+        | list
+      }}
